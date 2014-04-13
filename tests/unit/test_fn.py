@@ -11,7 +11,6 @@ def test1():
     def fn2():
         assert __builtins__.get('_stack') == (['logic', 'test_fn:fn1()'], ['logic', 'test_fn:fn2()'])
         return True
-
     assert __builtins__.get('_stack') is None
     fn1()
 
@@ -26,25 +25,19 @@ def test_flow_in_logic():
     with pytest.raises(AssertionError):
         fn1()
 
-def test00():
-    val = {'a': 1}
-    val = s.data.Dict(val)
-    with pytest.raises(ValueError):
-        val['a'] = 2
-
 
 def test0():
     val = {'a': 1}
     def fn1(x):
-        x['b'] = 0
+        x['a'] = 2
     fn1(val)
-    assert val['b'] == 0
+    assert val['a'] == 2
     @s.fn.immutalize
     def fn2(x):
-        x['a'] = 0
+        x['a'] = 3
     with pytest.raises(ValueError):
         fn2(val)
-    assert val['a'] == 1
+    assert val['a'] == 2
 
 
 

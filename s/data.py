@@ -1,3 +1,6 @@
+import s
+
+
 _banned_attrs_dict = [
     '__setitem__',
     '__setattr__',
@@ -24,16 +27,33 @@ _immutable_types = [
 ]
 
 
+with s.exceptions.ignore():
+    _immutable_types += [
+        basestring,
+    ]
+
+_listy_types = [
+    list,
+    tuple,
+]
+
+with s.exceptions.ignore():
+    _listy_types += [
+        type({}.items()),
+        type({}.keys()),
+        type({}.values()),
+    ]
+
 def immutalize(value):
     if isinstance(value, dict):
         return Dict(value)
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, tuple(_listy_types)):
         return tuple(immutalize(x) for x in value)
     elif isinstance(value, set):
         return frozenset(immutalize(x) for x in value)
-    elif type(value) in _immutable_types:
+    elif isinstance(value, tuple(_immutable_types)):
         return value
-    raise ValueError('type "{}" is not immutalizable'.format(type(value)))
+    raise ValueError('type "{}" is not immutalizable'.format(type(value).__name__))
 
 
 class Dict(dict):
