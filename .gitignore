@@ -1,0 +1,5 @@
+build/
+.coverage
+*.pyc
+__pycache__
+*egg*
