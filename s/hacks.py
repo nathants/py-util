@@ -1,6 +1,13 @@
 import sys
 
 
+def stringify(x):
+    if sys.version_info < (3,):
+        return x
+    if isinstance(x, bytes):
+        return x.decode('utf-8')
+
+
 class ModuleRedirector(object):
     def __init__(self, name, fn, redirect_everything=False):
         self.__orig_module = sys.modules[name]

@@ -8,33 +8,51 @@ import s
 
 trace_funcs = {
     'logic': {
-        'in': lambda name, *a, **kw: logging.debug({'direction': 'in', 'name': name, 'args': a, 'kwargs': kw, 'time': time.time(), 'state': state(), 'stack': stack()}),
-        'out': lambda name, val: logging.debug({'direction': 'out', 'name': name, 'value': val, 'time': time.time(), 'state': state(), 'stack': stack()})
-    },
-    'glue': {
-        'in': lambda name, *a, **kw: logging.debug({'direction': 'in', 'name': name, 'args': a, 'kwargs': kw, 'time': time.time(), 'state': state(), 'stack': stack()}),
-        'out': lambda name, val: logging.debug({'direction': 'out', 'name': name, 'value': val, 'time': time.time(), 'state': state(), 'stack': stack()})
-    },
-    'flow': {
-        'in': lambda name, *a, **kw: logging.debug({'direction': 'in', 'name': name, 'args': a, 'kwargs': kw, 'time': time.time(), 'state': state(), 'stack': stack()}),
-        'out': lambda name, val: logging.debug({'direction': 'out', 'name': name, 'value': val, 'time': time.time(), 'state': state(), 'stack': stack()})
-    },
+        'in': lambda name, *a, **kw: logging.debug({
+            'direction': 'in',
+            'name': name,
+            'args': a,
+            'kwargs': kw,
+            'time': time.time(),
+            'state': state(),
+            'stack': _format_stack(stack()),
+        }),
+        'out': lambda name, val: logging.debug({
+            'direction': 'out',
+            'name': name,
+            'value': val,
+            'time': time.time(),
+            'state': state(),
+            'stack': _format_stack(stack()),
+        })
+    }
 }
+
+
+trace_funcs['glue'] = trace_funcs['flow'] = trace_funcs['logic']
+
+
+def _format_stack(val):
+    return [':'.join(map(str, x)) for x in val]
 
 
 @contextlib.contextmanager
 def state_layer(kind, func_name):
     _backup = __builtins__['_stack'] = __builtins__.get('_stack', ())
     __builtins__['_stack'] += ([kind, func_name],)
-    yield
-    assert __builtins__['_stack'][:-1] == _backup
-    __builtins__['_stack'] = _backup
+    logging.debug('enter layer:', kind)
+    try:
+        yield
+    except:
+        raise
+    finally:
+        logging.debug('exit layer:', kind)
+        assert __builtins__['_stack'][:-1] == _backup
+        __builtins__['_stack'] = _backup
 
 
 def state():
-    val = (__builtins__.get('_stack') or ([None, None],))[-1][0]
-    logging.debug('{}!!!'.format(val))
-    return val
+    return (__builtins__.get('_stack') or ([None, None],))[-1][0]
 
 
 def stack():
@@ -74,7 +92,7 @@ logic = fn_type('logic', logic_rules)
 def inline(*funcs):
     """inline(f, g)(x) == g(f(x))"""
     funcs = [x if callable(x)
-             else _partial_first(x)
+             else _unpack_partial(x)
              for x in funcs]
     def _fn(val):
         for func in funcs:
@@ -88,8 +106,10 @@ def thread(value, *funcs):
     return inline(*funcs)(value)
 
 
-def _partial_first(group):
-    """fn(x, *a, **kw) -> partial(fn, *a, **kw) -> fn(x)"""
+def _unpack_partial(group):
+    """takes a list like [fn, (arg1, ...), {kwarg1: val1, ...}] and
+    returns a function of 1 arg, which will be the first pos arg to fn
+    """
     args, kwargs = [], {}
     for obj in group[1:]:
         if isinstance(obj, (list, tuple)):
@@ -97,7 +117,7 @@ def _partial_first(group):
         elif isinstance(obj, dict):
             kwargs = obj
         else:
-            raise ValueError('bad: {}'.format(group))
+            raise ValueError('bad _unpack_partial group: {}'.format(group))
     def _fn(val):
         return group[0](val, *args, **kwargs)
     return _fn

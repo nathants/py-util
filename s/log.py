@@ -50,10 +50,13 @@ def setup(level='info', short=False, pprint=False, format=None):
     logging.root.setLevel(level.upper())
 
 
-_pretty_main_skip_types = basestring,
+try:
+    _pretty_main_skip_types = basestring,
+    _pretty_arg_skip_types = basestring, int, long, float
+except NameError:
+    _pretty_main_skip_types = str, bytes
+    _pretty_arg_skip_types = str, bytes, int, float
 
-
-_pretty_arg_skip_types = basestring, int, long, float
 
 
 def _pprint(record):
