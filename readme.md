@@ -1,1 +1,1 @@
-### shared code for use as a component in useful systems
+### yet another standard library extension
