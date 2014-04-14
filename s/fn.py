@@ -40,13 +40,11 @@ def _format_stack(val):
 def state_layer(kind, func_name):
     _backup = __builtins__['_stack'] = __builtins__.get('_stack', ())
     __builtins__['_stack'] += ([kind, func_name],)
-    logging.debug('enter layer:', kind)
     try:
         yield
     except:
         raise
     finally:
-        logging.debug('exit layer:', kind)
         assert __builtins__['_stack'][:-1] == _backup
         __builtins__['_stack'] = _backup
 

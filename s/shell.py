@@ -29,7 +29,7 @@ def _set_state(key):
     return fn
 
 
-set_quiet = _set_state('quiet')
+set_stream = _set_state('stream')
 
 
 _interactive_fn = {True: subprocess.check_call, False: subprocess.call}
@@ -58,9 +58,9 @@ def _readlines(proc, *callbacks):
 def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
-    quiet = kw.pop('quiet', _state.get('quiet', False))
+    stream = kw.pop('stream', _state.get('stream', False))
     def logging_cb(x):
-        if not quiet:
+        if stream:
             if logging.root.handlers:
                 logging.info(x)
             else:
@@ -77,7 +77,7 @@ def run(*a, **kw):
             logging_cb('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
             return collections.namedtuple('output', 'output exitcode')(output, proc.returncode)
         elif proc.returncode != 0:
-            output = output if not quiet else ''
+            output = output if not stream else ''
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
         return output
 
@@ -107,7 +107,8 @@ def cd(path='.'):
     orig = os.path.abspath(os.getcwd())
     if path:
         path = os.path.expanduser(path)
-        run('mkdir -p', path)
+        if not os.path.isdir(path):
+            run('mkdir -p', path)
         os.chdir(path)
     try:
         yield
@@ -128,7 +129,7 @@ def tempdir(cleanup=True, intemp=True):
         path = '/tmp/{}'.format(path) if intemp else path
         if not os.path.exists(path):
             break
-    run('mkdir', path, quiet=True)
+    run('mkdir', path)
     if not cleanup and intemp:
         path = os.path.basename(path)
         cmd = "python -c 'import time; assert {} + 60 * 60 * 72 < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), path)
@@ -141,7 +142,7 @@ def tempdir(cleanup=True, intemp=True):
         raise
     finally:
         if cleanup:
-            run('sudo rm -rf', path, quiet=True)
+            run('sudo rm -rf', path)
 
 
 def cron(name, when, cmd, user='root', selfdestruct=False):
@@ -151,16 +152,15 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     name = '/etc/cron.d/{}'.format(name)
     if selfdestruct:
         cmd += ' && sudo rm -f {}'.format(name)
-    with set_quiet():
-        run('sudo rm -f /tmp/test.sh')
-        with open('/tmp/test.sh', 'w') as file:
-            file.write(cmd)
-        try:
-            run('sh -n /tmp/test.sh')
-        except:
-            raise Exception('cmd is invalid: {}'.format(cmd))
-        run('sudo touch', name)
-        run('sudo chmod ugo+rw', name)
-        with open(name, 'w') as file:
-            file.write('{when} {user} {cmd}\n'.format(**locals()))
-        run('sudo chmod 644', name)
+    run('sudo rm -f /tmp/test.sh')
+    with open('/tmp/test.sh', 'w') as file:
+        file.write(cmd)
+    try:
+        run('sh -n /tmp/test.sh')
+    except:
+        raise Exception('cmd is invalid: {}'.format(cmd))
+    run('sudo touch', name)
+    run('sudo chmod ugo+rw', name)
+    with open(name, 'w') as file:
+        file.write('{when} {user} {cmd}\n'.format(**locals()))
+    run('sudo chmod 644', name)

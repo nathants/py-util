@@ -2,9 +2,6 @@ import s
 import pytest
 
 
-s.shell._state['quiet'] = True
-
-
 def test_echo():
     assert 'asdf' == s.shell.run('echo asdf')
 
