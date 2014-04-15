@@ -1,15 +1,16 @@
 import pytest
 import s
 
+s.log.setup(level='debug')
 
 def test1():
     @s.fn.logic
     def fn1():
-        assert __builtins__.get('_stack') == (['logic', 'test_fn:fn1()'],)
+        assert __builtins__.get('_stack') == (['logic', 'test-s-fn:fn1()'],)
         return fn2()
     @s.fn.logic
     def fn2():
-        assert __builtins__.get('_stack') == (['logic', 'test_fn:fn1()'], ['logic', 'test_fn:fn2()'])
+        assert __builtins__.get('_stack') == (['logic', 'test-s-fn:fn1()'], ['logic', 'test-s-fn:fn2()'])
         return True
     assert __builtins__.get('_stack') is None
     fn1()

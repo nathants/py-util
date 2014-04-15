@@ -212,5 +212,5 @@ if __name__ == '__main__':
         short=True
     )
 
-    logging.info(climb_and_test('tests/unit/test_test.py'))
+    logging.info(climb_and_test('tests/int/test-s-test.py'))
     # print(run_tests_once())
