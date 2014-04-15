@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import logging
 import types
@@ -6,9 +7,8 @@ import inspect
 import pprint
 import os
 import s
+import itertools as i
 
-
-s.log.setup(level='debug', pprint=True, short=True)
 
 
 @s.fn.logic
@@ -113,11 +113,10 @@ def _is_test(k, v):
 
 @s.fn.glue
 def _exec_file(path):
-    module = {'__builtins__': __builtins__}
+    module = {}
     with open(path) as fio:
         text = fio.read()
-    exec(text, module)
-    del module['__builtins__']
+    exec(text, globals(), module)
     return module, text
 
 
@@ -130,14 +129,36 @@ def _test(test_file):
                 v()
         return False
     except:
-        linenum = _linenum(traceback.format_exc())
-        line = text.splitlines()[linenum - 1].strip()
-        return '[{}:{}] {}\n{}'.format(
-            test_file,
-            linenum,
-            line,
-            pprint.pformat(inspect.trace()[-1][0].f_locals)
-        )
+        try:
+            return _pytest_insight(test_file, k)
+        except:
+            return _normal_insight(test_file, text)
+
+
+@s.fn.glue
+def _normal_insight(test_file, text):
+    tb = traceback.format_exc()
+    linenum = _linenum(tb)
+    line = text.splitlines()[linenum - 1].strip()
+    _locals = pprint.pformat(inspect.trace()[-1][0].f_locals)
+    return '\n{test_file}:{linenum}\n{line}\n{_locals}\n'.format(**locals())
+
+
+@s.fn.glue
+def _pytest_insight(test_file, query):
+    val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
+    assert val.exitcode != 0
+    return s.fn.thread(
+        val.output,
+        str.splitlines,
+        reversed,
+        lambda x: i.dropwhile(lambda y: y.startswith('===='), x),
+        lambda x: i.takewhile(lambda y: not y.startswith('_____'), x),
+        list,
+        reversed,
+        '\n'.join,
+        lambda x: '\n{0}\n{1}\n{0}\n'.format('-' * 80, x),
+    )
 
 
 @s.fn.logic
@@ -171,7 +192,7 @@ def climb_and_test(test_file):
 def run_tests_once():
     return s.fn.thread(
         all_test_files(),
-        lambda x: [climb_and_test(y) for y in x], # py3k map return generator. must realize it. so py2k compat do explicit map.
+        lambda x: [climb_and_test(y) for y in x],
     )
 
 
@@ -180,3 +201,16 @@ def run_tests_auto():
     return s.fn.thread(
 
     )
+
+
+
+if __name__ == '__main__':
+
+    s.log.setup(
+        # level='debug',
+        pprint=True,
+        short=True
+    )
+
+    logging.info(climb_and_test('tests/unit/test_test.py'))
+    # print(run_tests_once())

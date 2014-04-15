@@ -103,6 +103,17 @@ def list_filtered(path, abs, predicate):
 
 
 @contextlib.contextmanager
+def climb_git_root(where='.'):
+    with cd(where):
+        while True:
+            assert os.getcwd() != '/', 'didnt find .git climbing from: {}'.format(os.getcwd())
+            if '.git' in s.shell.dirs():
+                break
+            os.chdir('..')
+        yield
+
+
+@contextlib.contextmanager
 def cd(path='.'):
     orig = os.path.abspath(os.getcwd())
     if path:
