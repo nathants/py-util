@@ -10,19 +10,22 @@ import s
 import itertools as i
 
 
+_test_dir = 'tests/fast'
+
 
 @s.fn.logic
 def _test_file(_code_file):
     assert not _code_file.startswith('/')
     assert _code_file.endswith('.py')
     val = '-'.join(_code_file.replace('.py', '').split('/'))
-    return 'tests/unit/test-{}.py'.format(val)
+    return os.path.join(_test_dir, 'test-{}.py'.format(val))
 
 
 @s.fn.logic
 def _code_file(_test_file):
-    assert _test_file.startswith('tests/unit/test-')
-    return _test_file.replace('tests/unit/test-', '').replace('-', '/')
+    path = os.path.join(_test_dir, 'test-')
+    assert _test_file.startswith(path)
+    return _test_file.replace(path, '').replace('-', '/')
 
 
 @s.fn.glue
@@ -53,9 +56,9 @@ def _git_root(climb_data):
 
 @s.fn.logic
 def _filter_test_files(walk_data):
-    files = [files for path, _, files in walk_data if path.endswith('tests/unit')]
-    assert files, 'didnt find /tests/unit'
-    return ['tests/unit/{}'.format(x) for x in files[0]]
+    files = [files for path, _, files in walk_data if path.endswith(_test_dir)]
+    assert files, 'didnt find {}'.format(_test_dir)
+    return [os.path.join(_test_dir, x) for x in files[0]]
 
 
 @s.fn.logic
