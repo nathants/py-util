@@ -15,6 +15,15 @@ def test_excepts():
         s.shell.run('false')
 
 
+def test_interactive():
+    s.shell.run('true', interactive=True)
+    s.shell.run('false', interactive=True, warn=True)
+
+def test_interactive_excepts():
+    with pytest.raises(Exception):
+        s.shell.run('false', interactive=True)
+
+
 def test_callback():
     val = []
     cb = lambda x: val.append(x)

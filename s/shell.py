@@ -32,7 +32,7 @@ def _set_state(key):
 set_stream = _set_state('stream')
 
 
-_interactive_fn = {True: subprocess.check_call, False: subprocess.call}
+_interactive_fn = {False: subprocess.check_call, True: subprocess.call}
 
 
 _call_kw = {'shell': True, 'executable': '/bin/bash'}
@@ -55,19 +55,24 @@ def _readlines(proc, *callbacks):
     return '\n'.join(lines)
 
 
+def _logging_cb(stream):
+    def fn(x):
+        if stream:
+            if hasattr(s.log.setup, s.cached._attr):
+                logging.info(x)
+            else:
+                print(x)
+    return fn
+
+
 def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
     stream = kw.pop('stream', _state.get('stream', False))
-    def logging_cb(x):
-        if stream:
-            if logging.root.handlers:
-                logging.info(x)
-            else:
-                print(x)
+    logging_cb = _logging_cb(stream)
     user_cb = kw.pop('callback', lambda x: None)
     cmd = ' '.join(a)
-    logging_cb('[{}] [{}]'.format(cmd, os.getcwd()))
+    logging_cb('[$({})] [{}]'.format(cmd, os.getcwd()))
     if interactive:
         _interactive_fn[warn](cmd, **_call_kw)
     else:
@@ -75,7 +80,7 @@ def run(*a, **kw):
         output = _readlines(proc, logging_cb, user_cb)
         if warn:
             logging_cb('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
-            return collections.namedtuple('output', 'output exitcode')(output, proc.returncode)
+            return collections.namedtuple('shell_output', 'output exitcode')(output, proc.returncode)
         elif proc.returncode != 0:
             output = output if not stream else ''
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
@@ -140,7 +145,7 @@ def tempdir(cleanup=True, intemp=True):
         path = '/tmp/{}'.format(path) if intemp else path
         if not os.path.exists(path):
             break
-    run('mkdir', path)
+    run('mkdir -p', path)
     if not cleanup and intemp:
         path = os.path.basename(path)
         cmd = "python -c 'import time; assert {} + 60 * 60 * 72 < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), path)

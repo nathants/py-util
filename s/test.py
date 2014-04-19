@@ -1,31 +1,30 @@
 from __future__ import print_function
-import sys
-import logging
 import types
 import traceback
-import inspect
-import pprint
+import collections
 import os
 import s
 import itertools as i
-
-
-_test_dir = 'tests/fast'
 
 
 @s.fn.logic
 def _test_file(_code_file):
     assert not _code_file.startswith('/')
     assert _code_file.endswith('.py')
-    val = '-'.join(_code_file.replace('.py', '').split('/'))
-    return os.path.join(_test_dir, 'test-{}.py'.format(val))
+    val = _code_file.split('/')
+    val[0] = 'test_{}'.format(val[0])
+    val = val[:1] + ['fast'] + val[1:]
+    val = '/'.join(val)
+    return val
 
 
 @s.fn.logic
 def _code_file(_test_file):
-    path = os.path.join(_test_dir, 'test-')
-    assert _test_file.startswith(path)
-    return _test_file.replace(path, '').replace('-', '/')
+    val = _test_file.split('/')
+    val[0] = val[0].replace('test_', '')
+    val.pop(1)
+    val = '/'.join(val)
+    return val
 
 
 @s.fn.glue
@@ -56,9 +55,13 @@ def _git_root(climb_data):
 
 @s.fn.logic
 def _filter_test_files(walk_data):
-    files = [files for path, _, files in walk_data if path.endswith(_test_dir)]
-    assert files, 'didnt find {}'.format(_test_dir)
-    return [os.path.join(_test_dir, x) for x in files[0]]
+    return [os.path.join('/'.join(path.split('/')[-2:]), f)
+            for path, _, files in walk_data
+            for f in files
+            if f.endswith('.py')
+            and len(path.split('/')) >= 2
+            and path.split('/')[-2].startswith('test_')
+            and path.split('/')[-1] == 'fast']
 
 
 @s.fn.logic
@@ -110,8 +113,8 @@ def _collect_tests(test_file):
 
 @s.fn.logic
 def _is_test(k, v):
-    return all([k.startswith('test'),
-                isinstance(v, types.FunctionType)])
+    return (k.startswith('test') and
+            isinstance(v, types.FunctionType))
 
 
 @s.fn.glue
@@ -125,33 +128,32 @@ def _exec_file(path):
 
 @s.fn.flow
 def _test(test_file):
-    module, text = _exec_file(test_file)
+    assert test_file.endswith('.py') and not test_file.startswith('/')
+    name = test_file.replace('.py', '').replace('/', '.')
+    module = __import__(name, fromlist='*')
     try:
-        for k, v in module.items():
-            if _is_test(k, v):
-                v()
-        return False
+        for k, v in module.__dict__.items():
+            if k not in ['__builtins__', '__builtin__']:
+                if _is_test(k, v):
+                    v()
+        result = False
     except:
+        tb = traceback.format_exc().splitlines()
         try:
-            return _pytest_insight(test_file, k)
+            result = _pytest_insight(module.__file__.replace('.pyc', '.py'), k)
         except:
-            return _normal_insight(test_file, text)
+            result = tb
+    return collections.namedtuple('test', 'result path')(result, test_file)
 
 
-@s.fn.glue
-def _normal_insight(test_file, text):
-    tb = traceback.format_exc()
-    linenum = _linenum(tb)
-    line = text.splitlines()[linenum - 1].strip()
-    _locals = pprint.pformat(inspect.trace()[-1][0].f_locals)
-    return '\n{test_file}:{linenum}\n{line}\n{_locals}\n'.format(**locals())
-
-
-@s.fn.glue
+@s.fn.flow
 def _pytest_insight(test_file, query):
     val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
+    assert not any(x.startswith('ERROR: file not found:') for x in val.output.splitlines())
+    assert not any(x.startswith('ERROR: not found:') for x in val.output.splitlines())
+    assert os.path.isfile(test_file)
     assert val.exitcode != 0
-    return s.fn.thread(
+    val = s.fn.thread(
         val.output,
         str.splitlines,
         reversed,
@@ -162,6 +164,7 @@ def _pytest_insight(test_file, query):
         '\n'.join,
         lambda x: '\n{0}\n{1}\n{0}\n'.format('-' * 80, x),
     )
+    return val.splitlines()
 
 
 @s.fn.logic
@@ -171,31 +174,16 @@ def _linenum(text):
             if 'File "<string>"' in x][-1]
 
 
-@s.fn.glue
-def _climb_find_abspath(path):
-    with s.shell.cd():
-        while True:
-            _path = os.path.abspath(path)
-            if os.path.isfile(_path):
-                return _path
-            assert os.getcwd() != '/', 'didnt find abspath after climbing to root'
-            os.chdir('..')
-
-
 @s.fn.flow
-def climb_and_test(test_file):
-    return s.fn.thread(
-        test_file,
-        _climb_find_abspath,
-        _test,
-    )
+def _test_all(paths):
+    return [_test(x) for x in paths]
 
 
 @s.fn.flow
 def run_tests_once():
     return s.fn.thread(
         all_test_files(),
-        lambda x: [climb_and_test(y) for y in x],
+        _test_all,
     )
 
 
@@ -208,12 +196,4 @@ def run_tests_auto():
 
 
 if __name__ == '__main__':
-
-    s.log.setup(
-        # level='debug',
-        pprint=True,
-        short=True
-    )
-
-    logging.info(climb_and_test('tests/int/test-s-test.py'))
-    # print(run_tests_once())
+    s.log.setup(level='debug', short=True)

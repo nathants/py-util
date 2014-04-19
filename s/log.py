@@ -42,6 +42,8 @@ def _get_format(format, short):
 
 @s.cached.func
 def setup(level='info', short=False, pprint=False, format=None):
+    # todo always log debug to a file, even when level!=debug.
+    # so you dont have to rerun to get the trace data. its always on disK!
     level = _get_level(level)
     short = _get_short(short)
     format = _get_format(format, short)
@@ -60,13 +62,16 @@ except NameError:
 
 
 def _pprint(record):
-    if not record._pprint:
+    pprint_arg = '!pprint' in record.args
+    if pprint_arg:
+        record.args = tuple(x for x in record.args if x != '!pprint')
+    if not record._pprint and not pprint_arg:
         return record
     val = []
     for x in record.args:
         try:
             assert not isinstance(x, _pretty_arg_skip_types)
-            val.append(pprint.pformat(x, indent=2, width=10))
+            val.append('\n' + pprint.pformat(x, indent=2, width=10))
         except:
             val.append(x)
     record.args = val
@@ -100,7 +105,7 @@ def _ensure_args_list(record):
 def _better_pathname(record):
     if ':' not in record.pathname:
         record.pathname = '/'.join(record.pathname.split('/')[-2:])
-        record.pathname = '{}:{}'.format(record.pathname.replace('.py', ''), record.lineno)
+        record.pathname = '{}:{}'.format(record.pathname, record.lineno)
     return record
 
 

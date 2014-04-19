@@ -1,19 +1,25 @@
 import pytest
 import s
+import logging
 
-s.log.setup(level='debug', pprint=True)
+
+def setup_module():
+    s.log.setup(level='debug', short=True)
+
 
 def test1():
+    start = s.fn.stack()
     @s.fn.logic
     def fn1():
-        assert __builtins__.get('_stack') == (['logic', 'test-s-fn:fn1()'],)
+        assert s.fn.stack()[-1:] == (['logic', '{}:fn1()'.format(__name__)],)
         return fn2()
     @s.fn.logic
     def fn2():
-        assert __builtins__.get('_stack') == (['logic', 'test-s-fn:fn1()'], ['logic', 'test-s-fn:fn2()'])
+        assert s.fn.stack()[-2:] == (['logic', '{}:fn1()'.format(__name__)],
+                                     ['logic', '{}:fn2()'.format(__name__)])
         return True
-    assert __builtins__.get('_stack', ()) == ()
     fn1()
+    assert s.fn.stack() == start
 
 
 def test_flow_in_logic():
@@ -73,24 +79,21 @@ def g2(x, y):
 
 
 def test_inline():
-    assert s.fn.inline(f, (f2, [1], {}))(1) == 1
-    assert s.fn.inline(f, (f2, [3]))(1) == -1
     assert s.fn.inline(f, g, h)(1) == 7
     assert s.fn.inline(f, g, h)(1) == h(g(f(1)))
     assert s.fn.inline(h, g, f)(1) == 9
     assert s.fn.inline(h, g, f)(1) == f(g(h(1)))
-    assert s.fn.inline(
-        f,
-        (f2, [10]),
-        (g2, [], {'y': 2}),
-    )(5) == -8
+
+
+def test_inline_noncallable():
+    with pytest.raises(AssertionError):
+        s.fn.inline(h, g, 1)(1)
 
 
 def test_thread():
     assert s.fn.thread(1, f, g, h) == 7
-    assert s.fn.thread(
-        3,
-        f,
-        (f2, [1]),
-        (g2, [], {'y': 2}),
-    ) == 6
+
+
+def test_thread_noncallable():
+    with pytest.raises(AssertionError):
+        s.fn.thread(1, f, g, 2)

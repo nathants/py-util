@@ -1,4 +1,17 @@
 import sys
+import inspect
+import functools
+
+def get_caller(offset=0):
+    _, file_name, linum, function_name, _, _ = inspect.stack()[offset]
+    return '{}:{}:{}()'.format(file_name, linum, function_name)
+
+
+def string_type():
+    try:
+        return basestring
+    except:
+        return str
 
 
 def stringify(x):
@@ -21,3 +34,13 @@ class ModuleRedirector(object):
             return getattr(self.__orig_module, name)
         except (AssertionError, AttributeError):
             return self.__fn(name)
+
+
+def decorate(val, _name_, decorator):
+    assert isinstance(val, dict)
+    assert isinstance(_name_, string_type())
+    assert callable(decorator)
+    for k, v in list(val.items()):
+        if callable(v) and v.__module__ == _name_:
+            fn = decorator(v)
+            val[k] = fn

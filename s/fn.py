@@ -1,4 +1,6 @@
 from __future__ import absolute_import
+import functools
+import traceback
 import contextlib
 import logging
 import time
@@ -6,30 +8,40 @@ import types
 import s
 
 
+_state = {}
+
+
+def _pretty(name, char, offset=0):
+    return (name.rjust(40) + '|' + '-' * (len(stack()) - offset) + char + '   ').ljust(80)
+
+
 trace_funcs = {
     'logic': {
-        'in': lambda name, *a, **kw: logging.debug({
-            'direction': 'in',
-            'name': name,
-            'args': a,
-            'kwargs': kw,
-            'time': time.time(),
-            'state': state(),
-            'stack': _format_stack(stack()),
-        }),
-        'out': lambda name, val: logging.debug({
-            'direction': 'out',
-            'name': name,
-            'value': val,
-            'time': time.time(),
-            'state': state(),
-            'stack': _format_stack(stack()),
-        })
+        'in': lambda name, *a, **kw: logging.debug([
+            _pretty(name, '>'),
+            {'args': a,
+             'direction': 'in',
+             'kwargs': kw,
+             'time': time.time(),
+             'state': state(),
+             'stack': _format_stack(stack())}
+        ]),
+        'out': lambda name, val=None, traceback=None: logging.debug([
+            _pretty(name, '<', 1),
+            {'value': val,
+             'direction': 'out',
+             'time': time.time(),
+             'state': state(),
+             'stack': _format_stack(stack()),
+             'traceback': traceback.splitlines() if traceback else None}
+        ])
     }
 }
 
 
-trace_funcs['glue'] = trace_funcs['flow'] = trace_funcs['logic']
+# trace_funcs['glue'] = trace_funcs['flow'] = trace_funcs['logic']
+for name in ['glue', 'flow', 'badfunc']:
+    trace_funcs[name] = trace_funcs['logic']
 
 
 def _format_stack(val):
@@ -38,60 +50,73 @@ def _format_stack(val):
 
 @contextlib.contextmanager
 def state_layer(kind, func_name):
-    _backup = __builtins__['_stack'] = __builtins__.get('_stack', ())
-    __builtins__['_stack'] += ([kind, func_name],)
+    _bak = _state['_stack'] = _state.get('_stack', ())
+    _state['_stack'] += ([kind, func_name],)
     try:
         yield
     except:
         raise
     finally:
-        assert __builtins__['_stack'][:-1] == _backup
-        __builtins__['_stack'] = _backup
+        _val = _state['_stack'][:-1]
+        assert _val == _bak, '{} != {}'.format(_val, _bak)
+        _state['_stack'] = _bak
 
 
 def state():
-    return (__builtins__.get('_stack') or ([None, None],))[-1][0]
+    try:
+        return (_state.get('_stack') or ())[-1][0]
+    except IndexError:
+        return ()
 
 
 def stack():
-    return __builtins__.get('_stack') or ([None, None],)
+    return _state.get('_stack') or ()
 
 
-def fn_type(kind, rules):
+def fn_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
+        @functools.wraps(decoratee)
         def decorated(*a, **kw):
             name = '{}:{}()'.format(decoratee.__module__, decoratee.__name__)
             trace_funcs[kind]['in'](name, *a, **kw)
             rules()
             with state_layer(kind, name):
-                val = decoratee(*a, **kw)
-                assert val is not None, 'return data, not None, from function: {}'.format(name)
-                trace_funcs[kind]['out'](name, val)
-                return val
+                try:
+                    val = decoratee(*a, **kw)
+                except:
+                    trace_funcs[kind]['out'](name, traceback=traceback.format_exc())
+                    raise
+                else:
+                    trace_funcs[kind]['out'](name, val)
+                    assert skip_return_check or val is not None, 'return data, not None, from function: {}'.format(name)
+                    return val
         return decorated
     return decorator
 
 
 def glue_rules():
-    assert state() != 'logic', 'logic cannot contain glue'
+    assert state() != 'logic', 'logic cannot contain glue: {}'.format(s.hacks.get_caller(3))
 glue = fn_type('glue', glue_rules)
 
 
+# todo, define better the difference between glue and flow. are two types necessary?
 def flow_rules():
-    assert state() != 'logic', 'logic cannot contain flow'
+    assert state() != 'logic', 'logic cannot contain flow: {}'.format(s.hacks.get_caller(3))
 flow = fn_type('flow', flow_rules)
 
 
 def logic_rules():
-    assert state() != 'glue', 'glue cannot contain logic'
+    assert state() != 'glue', 'glue cannot contain logic: {}'.format(s.hacks.get_caller(3))
 logic = fn_type('logic', logic_rules)
+
+
+badfunc = fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
 
 
 def inline(*funcs):
     """inline(f, g)(x) == g(f(x))"""
-    funcs = [x if callable(x)
-             else _unpack_partial(x)
-             for x in funcs]
+    for fn in funcs:
+        assert callable(fn), '{} is not callable'.format(fn)
     def _fn(val):
         for func in funcs:
             val = func(val)
