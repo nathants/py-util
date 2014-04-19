@@ -89,6 +89,12 @@ def _old_style(record):
     return record
 
 
+def _color(record):
+    with s.exceptions.ignore():
+        record.msg = s.strings.color(record.msg)
+    return record
+
+
 def _space_join_args(record):
     with s.exceptions.ignore():
         record.msg = ' '.join([str(record.msg)] + map(str, record.args))
@@ -123,6 +129,7 @@ class Formatter(logging.Formatter):
             _old_style,
             _space_join_args,
             _better_pathname,
+            _color,
         )
         record.levelname = record.levelname.lower()[0]
         return logging.Formatter.format(self, record)

@@ -72,7 +72,7 @@ def run(*a, **kw):
     logging_cb = _logging_cb(stream)
     user_cb = kw.pop('callback', lambda x: None)
     cmd = ' '.join(a)
-    logging_cb('[$({})] [{}]'.format(cmd, os.getcwd()))
+    logging_cb('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
         _interactive_fn[warn](cmd, **_call_kw)
     else:
