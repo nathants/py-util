@@ -2,13 +2,18 @@ import os
 import sys
 import pprint
 import logging
+import logging.handlers
 import s
-
+import time
 
 _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
 
 
 _short_format = '[%(levelname)s] %(message)s'
+
+
+for _name in ['debug', 'info', 'warn', 'warning', 'error', 'exception']:
+    locals()[_name] = getattr(logging, _name)
 
 
 def _flag_override(var, flag, new_value):
@@ -29,9 +34,11 @@ _get_short = _flag_override('_logging_force_short', '--short', True)
 
 
 def _add_handler(handler, level, format, pprint):
-    handler.setLevel(level.upper())
-    handler.setFormatter(Formatter(format, pprint))
+    level = level.upper()
+    handler.setLevel(level)
+    handler.setFormatter(_Formatter(format, pprint))
     logging.root.addHandler(handler)
+    logging.root.setLevel(level)
 
 
 def _get_format(format, short):
@@ -41,15 +48,37 @@ def _get_format(format, short):
 
 
 @s.cached.func
-def setup(level='info', short=False, pprint=False, format=None):
-    # todo always log debug to a file, even when level!=debug.
-    # so you dont have to rerun to get the trace data. its always on disK!
+def setup(name=None, level='info', short=False, pprint=False, format=None):
     level = _get_level(level)
+    assert level in ('debug', 'info')
     short = _get_short(short)
     format = _get_format(format, short)
+
+    # rm all root handlers
     map(logging.root.removeHandler, logging.root.handlers)
-    _add_handler(logging.StreamHandler(sys.stderr), level, format, pprint)
-    logging.root.setLevel(level.upper())
+
+    # if debug not in streaming log, add the debug-only file output handler
+    if level == 'info':
+        path = _get_debug_path(name)
+        s.shell.cron_rm_path_later(path, hours=24)
+        handler = logging.handlers.WatchedFileHandler(path)
+        handler.addFilter(_DebugOnly())
+        _add_handler(handler, 'debug', format, False)
+
+    # add the debug or info level stream handler
+    handler = logging.StreamHandler()
+    if level != 'debug':
+        handler.addFilter(_NotDebug())
+    else:
+        pprint = True
+    _add_handler(handler, 'debug', format, pprint)
+
+
+def _get_debug_path(name):
+    caller = s.hacks.get_caller(4)
+    funcname = caller.funcname if caller.funcname != '<module>' else '__main__'
+    name = name or '.'.join(caller.filename.split('/')[-2:]) + ':' + funcname
+    return '/tmp/{}:{}:debug.log'.format(name, time.time())
 
 
 try:
@@ -62,24 +91,25 @@ except NameError:
 
 
 def _pprint(record):
-    pprint_arg = '!pprint' in record.args
-    if pprint_arg:
-        record.args = tuple(x for x in record.args if x != '!pprint')
-    if not record._pprint and not pprint_arg:
-        return record
-    val = []
-    for x in record.args:
-        try:
-            assert not isinstance(x, _pretty_arg_skip_types)
-            val.append('\n' + pprint.pformat(x, indent=2, width=10))
-        except:
-            val.append(x)
-    record.args = val
-    if not isinstance(record.msg, _pretty_main_skip_types):
-        with s.exceptions.ignore():
-            record.msg = pprint.pformat(record.msg, indent=2, width=10)
-            if not record.args:
-                record.msg = '\n' + record.msg
+    with s.exceptions.ignore():
+        pprint_arg = '!pprint' in record.args
+        if pprint_arg:
+            record.args = tuple(x for x in record.args if x != '!pprint')
+        if not record._pprint and not pprint_arg:
+            return record
+        val = []
+        for x in record.args:
+            try:
+                assert not isinstance(x, _pretty_arg_skip_types)
+                val.append('\n' + pprint.pformat(x, indent=2, width=10))
+            except:
+                val.append(x)
+        record.args = val
+        if not isinstance(record.msg, _pretty_main_skip_types):
+            with s.exceptions.ignore():
+                record.msg = pprint.pformat(record.msg, indent=2, width=10)
+                if not record.args:
+                    record.msg = '\n' + record.msg
     return record
 
 
@@ -103,25 +133,38 @@ def _space_join_args(record):
 
 
 def _ensure_args_list(record):
-    if not isinstance(record.args, (list, tuple)):
-        record.args = [record.args]
+    with s.exceptions.ignore():
+        if not isinstance(record.args, (list, tuple)):
+            record.args = [record.args]
     return record
 
 
 def _better_pathname(record):
-    if ':' not in record.pathname:
-        record.pathname = '/'.join(record.pathname.split('/')[-2:])
-        record.pathname = '{}:{}'.format(record.pathname, record.lineno)
+    with s.exceptions.ignore():
+        if ':' not in record.pathname:
+            record.pathname = '/'.join(record.pathname.split('/')[-2:])
+            record.pathname = '{}:{}'.format(record.pathname, record.lineno)
     return record
 
 
-class Formatter(logging.Formatter):
-    def __init__(self, fmt, pprint=False):
-        self.pprint = pprint
-        logging.Formatter.__init__(self, fmt=fmt)
+def _short_levelname(record):
+    with s.exceptions.ignore():
+        record.levelname = record.levelname.lower()[0]
+    return record
 
-    def format(self, record):
-        record._pprint = self.pprint
+
+class _DebugOnly(logging.Filter):
+    def filter(self, record):
+        return record.levelno == logging.DEBUG
+
+
+class _NotDebug(logging.Filter):
+    def filter(self, record):
+        return record.levelno != logging.DEBUG
+
+
+def _process_record(record):
+    if not hasattr(record, '_processed'):
         record = s.fn.thread(
             record,
             _ensure_args_list,
@@ -130,6 +173,17 @@ class Formatter(logging.Formatter):
             _space_join_args,
             _better_pathname,
             _color,
+            _short_levelname,
         )
-        record.levelname = record.levelname.lower()[0]
-        return logging.Formatter.format(self, record)
+        record._processed = True
+    return record
+
+
+class _Formatter(logging.Formatter):
+    def __init__(self, fmt, pprint=False):
+        self.pprint = pprint
+        logging.Formatter.__init__(self, fmt=fmt)
+
+    def format(self, record):
+        record._pprint = self.pprint
+        return logging.Formatter.format(self, _process_record(record))
