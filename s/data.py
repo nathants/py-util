@@ -1,4 +1,6 @@
 import s
+import types
+import functools
 
 
 _banned_attrs_dict = [
@@ -16,7 +18,7 @@ def _fn():
     pass
 
 
-_immutable_types = [
+_immutable_types = (
     int,
     float,
     str,
@@ -24,43 +26,48 @@ _immutable_types = [
     type(None),
     type(lambda: None),
     type(_fn),
-]
+)
 
 
 with s.exceptions.ignore():
-    _immutable_types += [
+    _immutable_types += (
         basestring,
-    ]
+    )
 
-_listy_types = [
+_listy_types = (
     list,
     tuple,
-]
+)
 
 with s.exceptions.ignore():
-    _listy_types += [
+    _listy_types += (
         type({}.items()),
         type({}.keys()),
         type({}.values()),
-    ]
-
-def immutalize(value):
-    if isinstance(value, dict):
-        return Dict(value)
-    elif isinstance(value, tuple(_listy_types)):
-        return tuple(immutalize(x) for x in value)
-    elif isinstance(value, set):
-        return frozenset(immutalize(x) for x in value)
-    elif isinstance(value, tuple(_immutable_types)):
-        return value
-    raise ValueError('type "{}" is not immutalizable'.format(type(value).__name__))
+    )
 
 
-class Dict(dict):
-    def __init__(self, *a, **kw):
-        dict.__init__(self, *a, **kw)
-        for k, v in self.items():
-            dict.__setitem__(self, k, immutalize(v))
+def immutalize(val):
+    if isinstance(val, types.GeneratorType):
+        val = tuple(val)
 
+    if hasattr(val, '_immutalized'):
+        return val
+    with s.exceptions.ignore():
+        val._immutalized = True
+
+    if isinstance(val, _immutable_types):
+        return val
+    elif isinstance(val, dict):
+        return _ImmutableDict({k: immutalize(v) for k, v in val.items()})
+    elif isinstance(val, _listy_types):
+        return tuple(immutalize(x) for x in val)
+    elif isinstance(val, set):
+        return frozenset(immutalize(x) for x in val)
+
+    raise ValueError('type "{}" is not immutalizable'.format(type(val).__name__))
+
+
+class _ImmutableDict(dict):
     def __setitem__(self, *a):
         raise ValueError('this dict is read-only')
