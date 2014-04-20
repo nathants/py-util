@@ -5,6 +5,7 @@ import collections
 import os
 import s
 import itertools as i
+import logging
 
 
 @s.fn.logic
@@ -135,6 +136,7 @@ def _test(test_file):
         for k, v in module.__dict__.items():
             if k not in ['__builtins__', '__builtin__']:
                 if _is_test(k, v):
+                    # todo time the tests, time each file, time the whole suite. print everything. enforce shit?
                     v()
         result = False
     except:
@@ -196,4 +198,7 @@ def run_tests_auto():
 
 
 if __name__ == '__main__':
-    s.log.setup(level='debug', short=True)
+    s.log.setup(short=True, pprint=True, level='debug')
+    logging.info(run_tests_once())
+    # name = s.shell.run('ls -lat /tmp').splitlines()[3].split()[-1]
+    # print(name)
