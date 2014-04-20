@@ -2,6 +2,7 @@ import sys
 import inspect
 import collections
 
+
 def get_caller(offset=0):
     _, filename, lineum, funcname, _, _ = inspect.stack()[offset]
     return collections.namedtuple('caller', 'filename linenum funcname')(filename, lineum, funcname)
@@ -44,3 +45,18 @@ def decorate(val, _name_, decorator):
         if callable(v) and v.__module__ == _name_:
             fn = decorator(v)
             val[k] = fn
+
+
+def pformat_prep(val):
+    import s
+    if isinstance(val, tuple) and hasattr(val, '_fields'):
+        return {'namedtuple': [{k: v} for k, v in zip(val._fields, val)]}
+    elif isinstance(val, collections.Counter):
+        return {'counter': [{k: v} for k, v in sorted(val.items(), key=lambda x: x[1], reverse=True)]}
+    elif isinstance(val, dict):
+        return {k: pformat_prep(v) for k, v in val.items()}
+    elif isinstance(val, s.data._listy_types):
+        return [pformat_prep(x) for x in val]
+    elif isinstance(val, set):
+        return {pformat_prep(x) for x in val}
+    return val
