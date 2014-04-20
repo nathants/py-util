@@ -199,6 +199,6 @@ def run_tests_auto():
 
 if __name__ == '__main__':
     s.log.setup(short=True, pprint=True, level='debug')
-    logging.info(run_tests_once())
+    s.log.info(run_tests_once())
     # name = s.shell.run('ls -lat /tmp').splitlines()[3].split()[-1]
     # print(name)

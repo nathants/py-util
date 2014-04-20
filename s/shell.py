@@ -62,7 +62,7 @@ def _logging_cb(stream):
     def fn(x):
         if stream:
             if hasattr(s.log.setup, s.cached._attr):
-                logging.info(x)
+                s.log.info(x)
             else:
                 print(x)
     return fn
