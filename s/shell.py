@@ -10,6 +10,9 @@ import string
 import time
 
 
+# todo use https://pypi.python.org/pypi/subprocess32/ on python2.7
+
+
 _state = {}
 
 
@@ -148,9 +151,7 @@ def tempdir(cleanup=True, intemp=True):
     run('mkdir -p', path)
     if not cleanup and intemp:
         path = os.path.basename(path)
-        cmd = "python -c 'import time; assert {} + 60 * 60 * 72 < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), path)
-        when = '{} * * * *'.format(random.randint(0, 59))
-        cron(path, when, cmd, selfdestruct=True)
+        cron_rm_path_later(path, hours=24)
     try:
         with cd(path):
             yield path
@@ -161,6 +162,12 @@ def tempdir(cleanup=True, intemp=True):
             run('sudo rm -rf', path)
 
 
+def cron_rm_path_later(path, hours):
+    cmd = "python -c 'import time; assert {} + 60 * 60 * {}  < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), hours, path)
+    when = '{} * * * *'.format(random.randint(0, 59))
+    cron(path, when, cmd, selfdestruct=True)
+
+
 def cron(name, when, cmd, user='root', selfdestruct=False):
     if os.path.isdir('/etc/cron.d'):
         return
@@ -168,12 +175,10 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     name = '/etc/cron.d/{}'.format(name)
     if selfdestruct:
         cmd += ' && sudo rm -f {}'.format(name)
-    run('sudo rm -f /tmp/test.sh')
-    with open('/tmp/test.sh', 'w') as file:
+    run('sudo rm -f /tmp/tmp.sh')
+    with open('/tmp/tmp.sh', 'w') as file:
         file.write(cmd)
-    try:
-        run('sh -n /tmp/test.sh')
-    except:
+    if run('sh -n /tmp/tmp.sh', warn=True).exitcode != 0:
         raise Exception('cmd is invalid: {}'.format(cmd))
     run('sudo touch', name)
     run('sudo chmod ugo+rw', name)
