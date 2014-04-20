@@ -1,10 +1,10 @@
 import sys
 import inspect
-import functools
+import collections
 
 def get_caller(offset=0):
-    _, file_name, linum, function_name, _, _ = inspect.stack()[offset]
-    return '{}:{}:{}()'.format(file_name, linum, function_name)
+    _, filename, lineum, funcname, _, _ = inspect.stack()[offset]
+    return collections.namedtuple('caller', 'filename linenum funcname')(filename, lineum, funcname)
 
 
 def string_type():
