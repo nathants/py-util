@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import sys
 import functools
 import traceback
 import contextlib
@@ -12,7 +13,7 @@ _state = {}
 
 
 def _pretty(name, char, offset=0):
-    return (name.rjust(40) + '|' + '-' * (len(stack()) - offset) + char + '   ').ljust(80)
+    return '-' * (len(stack()) - offset) + char + '' + '|' + name
 
 
 trace_funcs = {
@@ -73,11 +74,22 @@ def stack():
     return _state.get('_stack') or ()
 
 
+def _module_name(decoratee):
+    module = decoratee.__module__
+    with s.exceptions.ignore():
+        if module == '__main__':
+            for x in range(100):
+                _module = '.'.join(__file__.split('.')[0].split('/')[-x:])
+                if _module in sys.modules:
+                    return _module
+    return module
+
+
 def fn_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
         @functools.wraps(decoratee)
         def decorated(*a, **kw):
-            name = '{}:{}()'.format(decoratee.__module__, decoratee.__name__)
+            name = '{}:{}()'.format(_module_name(decoratee), decoratee.__name__)
             trace_funcs[kind]['in'](name, *a, **kw)
             rules()
             with state_layer(kind, name):
