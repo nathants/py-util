@@ -5,7 +5,6 @@ import collections
 import os
 import s
 import itertools as i
-import logging
 
 
 @s.fn.logic
@@ -194,11 +193,3 @@ def run_tests_auto():
     return s.fn.thread(
 
     )
-
-
-
-if __name__ == '__main__':
-    s.log.setup(short=True, pprint=True, level='debug')
-    s.log.info(run_tests_once())
-    # name = s.shell.run('ls -lat /tmp').splitlines()[3].split()[-1]
-    # print(name)
