@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import pprint
@@ -91,6 +92,8 @@ except NameError:
 
 
 def _pprint(record):
+    indent = 2
+    width = 80
     with s.exceptions.ignore():
         pprint_arg = '!pprint' in record.args
         if pprint_arg:
@@ -101,13 +104,15 @@ def _pprint(record):
         for x in record.args:
             try:
                 assert not isinstance(x, _pretty_arg_skip_types)
-                val.append('\n' + pprint.pformat(x, indent=2, width=10))
+                x = s.hacks.pformat_prep(x)
+                val.append('\n' + pprint.pformat(x, indent=indent, width=width))
             except:
                 val.append(x)
         record.args = val
         if not isinstance(record.msg, _pretty_main_skip_types):
             with s.exceptions.ignore():
-                record.msg = pprint.pformat(record.msg, indent=2, width=10)
+                record.msg = s.hacks.pformat_prep(record.msg)
+                record.msg = pprint.pformat(record.msg, indent=indent, width=width)
                 if not record.args:
                     record.msg = '\n' + record.msg
     return record
