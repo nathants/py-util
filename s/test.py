@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import types
 import traceback
 import collections
@@ -113,8 +113,7 @@ def _collect_tests(test_file):
 
 @s.fn.logic
 def _is_test(k, v):
-    return (k.startswith('test') and
-            isinstance(v, types.FunctionType))
+    return k.startswith('test') and isinstance(v, types.FunctionType)
 
 
 @s.fn.glue
@@ -126,26 +125,38 @@ def _exec_file(path):
     return module, text
 
 
-@s.fn.flow
-def _test(test_file):
-    assert test_file.endswith('.py') and not test_file.startswith('/')
-    name = test_file.replace('.py', '').replace('/', '.')
-    module = __import__(name, fromlist='*')
-    try:
-        for k, v in module.__dict__.items():
-            if k not in ['__builtins__', '__builtin__']:
-                if _is_test(k, v):
-                    # todo time the tests, time each file, time the whole suite. print everything. enforce shit?
-                    v()
-        result = False
-    except:
-        tb = traceback.format_exc().splitlines()
-        try:
-            result = _pytest_insight(module.__file__.replace('.pyc', '.py'), k)
-        except:
-            result = tb
-    return collections.namedtuple('test', 'result path')(result, test_file)
+_result = collections.namedtuple('result', 'result path seconds')
 
+
+@s.fn.glue
+def _run_test(path, name, test):
+    _bak = s.fn._state.get('_stack')
+    s.fn._state['_stack'] = None # mock out _stack, since its used *here* as well
+    with s.time.timer() as t:
+        try:
+            test()
+            val = False
+        except:
+            tb = traceback.format_exc().splitlines()
+            try:
+                val = _pytest_insight(path, name)
+            except:
+                val = tb + ['FAILED to reproduce test failure in py.test, go investigate!']
+    s.fn._state['_stack'] = _bak
+    return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
+
+
+@s.fn.flow
+def _test(path):
+    assert path.endswith('.py') and not path.startswith('/')
+    name = path.replace('.py', '').replace('/', '.')
+    module = __import__(name, fromlist='*')
+    items = module.__dict__.items()
+    items = [(k, v) for k, v in items
+             if k not in ['__builtins__', '__builtin__']
+             and _is_test(k, v)]
+    path = module.__file__.replace('.pyc', '.py')
+    return [_run_test(path, k, v) for k, v in items] or _result(None, path, 0)
 
 @s.fn.flow
 def _pytest_insight(test_file, query):
