@@ -11,12 +11,12 @@ def test1():
     start = s.fn.stack()
     @s.fn.logic
     def fn1():
-        assert s.fn.stack()[-1:] == (['logic', '{}:fn1()'.format(__name__)],)
+        assert s.fn.stack()[-1:] == (('logic', '{}:fn1()'.format(__name__)),)
         return fn2()
     @s.fn.logic
     def fn2():
-        assert s.fn.stack()[-2:] == (['logic', '{}:fn1()'.format(__name__)],
-                                     ['logic', '{}:fn2()'.format(__name__)])
+        assert s.fn.stack()[-2:] == (('logic', '{}:fn1()'.format(__name__)),
+                                     ('logic', '{}:fn2()'.format(__name__)))
         return True
     fn1()
     assert s.fn.stack() == start
