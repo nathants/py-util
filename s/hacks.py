@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import inspect
 import collections
@@ -50,9 +51,9 @@ def decorate(val, _name_, decorator):
 def pformat_prep(val):
     import s
     if isinstance(val, tuple) and hasattr(val, '_fields'):
-        return {'namedtuple': [{k: v} for k, v in zip(val._fields, val)]}
+        return ['namedtuple'] + [{k: v} for k, v in zip(val._fields, val)]
     elif isinstance(val, collections.Counter):
-        return {'counter': [{k: v} for k, v in sorted(val.items(), key=lambda x: x[1], reverse=True)]}
+        return ['counter'] + [{k: v} for k, v in sorted(val.items(), key=lambda x: x[1], reverse=True)]
     elif isinstance(val, dict):
         return {k: pformat_prep(v) for k, v in val.items()}
     elif isinstance(val, s.data._listy_types):
