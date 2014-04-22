@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import sys
 import itertools
 import types
 import traceback
@@ -155,6 +156,7 @@ def _run_test(path, name, test):
 def _test(path):
     assert path.endswith('.py') and not path.startswith('/')
     name = path.replace('.py', '').replace('/', '.')
+    sys.modules.pop(name, None)
     module = __import__(name, fromlist='*')
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
