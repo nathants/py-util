@@ -85,7 +85,7 @@ def _python_packages(walk_data):
 
 @s.fn.flow
 def all_test_files():
-    return s.fn.thread(
+    return s.fn.thrush(
         _climb(),
         _git_root,
         _walk,
@@ -95,7 +95,7 @@ def all_test_files():
 
 @s.fn.flow
 def all_code_files():
-    return s.fn.thread(
+    return s.fn.thrush(
         _climb(),
         _git_root,
         _walk,
@@ -172,7 +172,7 @@ def _pytest_insight(test_file, query):
     assert not any(x.startswith('ERROR: not found:') for x in val.output.splitlines())
     assert os.path.isfile(test_file)
     assert val.exitcode != 0
-    return s.fn.thread(
+    return s.fn.thrush(
         val.output,
         str.splitlines,
         reversed,
@@ -199,7 +199,7 @@ def _test_all(paths):
 
 @s.fn.flow
 def run_tests_once():
-    return s.fn.thread(
+    return s.fn.thrush(
         all_test_files(),
         _test_all,
     )
@@ -207,6 +207,6 @@ def run_tests_once():
 
 @s.fn.flow
 def run_tests_auto():
-    return s.fn.thread(
+    return s.fn.thrush(
 
     )

@@ -91,9 +91,9 @@ def test_inline_noncallable():
 
 
 def test_thread():
-    assert s.fn.thread(1, f, g, h) == 7
+    assert s.fn.thrush(1, f, g, h) == 7
 
 
 def test_thread_noncallable():
     with pytest.raises(AssertionError):
-        s.fn.thread(1, f, g, 2)
+        s.fn.thrush(1, f, g, 2)

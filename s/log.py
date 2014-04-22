@@ -93,7 +93,7 @@ except NameError:
 
 def _pprint(record):
     indent = 1
-    width = 1
+    width = 80
     with s.exceptions.ignore():
         pprint_arg = '!pprint' in record.args
         if pprint_arg:
@@ -170,7 +170,7 @@ class _NotDebug(logging.Filter):
 
 def _process_record(record):
     if not hasattr(record, '_processed'):
-        record = s.fn.thread(
+        record = s.fn.thrush(
             record,
             _ensure_args_list,
             _pprint,

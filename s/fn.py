@@ -150,7 +150,7 @@ def inline(*funcs):
     return _fn
 
 
-def thread(value, *funcs):
+def thrush(value, *funcs):
     """thread(123, f, g) == g(f(123))"""
     return inline(*funcs)(value)
 
