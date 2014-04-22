@@ -1,4 +1,5 @@
 build/
+*flymake*
 .coverage
 *.pyc
 __pycache__

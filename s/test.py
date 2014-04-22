@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import itertools
 import types
 import traceback
 import collections
@@ -125,7 +126,11 @@ def _exec_file(path):
     return module, text
 
 
-_result = collections.namedtuple('result', 'result path seconds')
+def _result(result, path, seconds):
+    pred = lambda x: not x.startswith('test_')
+    path = itertools.dropwhile(pred, path.split('/'))
+    path = '.'.join(path)
+    return collections.namedtuple('result', 'result path seconds')(result, path, seconds)
 
 
 @s.fn.glue
@@ -156,7 +161,7 @@ def _test(path):
              if k not in ['__builtins__', '__builtin__']
              and _is_test(k, v)]
     path = module.__file__.replace('.pyc', '.py')
-    return [_run_test(path, k, v) for k, v in items] or _result(None, path, 0)
+    return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
 
 @s.fn.flow
 def _pytest_insight(test_file, query):
@@ -165,7 +170,7 @@ def _pytest_insight(test_file, query):
     assert not any(x.startswith('ERROR: not found:') for x in val.output.splitlines())
     assert os.path.isfile(test_file)
     assert val.exitcode != 0
-    val = s.fn.thread(
+    return s.fn.thread(
         val.output,
         str.splitlines,
         reversed,
@@ -173,10 +178,9 @@ def _pytest_insight(test_file, query):
         lambda x: i.takewhile(lambda y: not y.startswith('_____'), x),
         list,
         reversed,
-        '\n'.join,
-        lambda x: '\n{0}\n{1}\n{0}\n'.format('-' * 80, x),
+        list,
+        lambda x: ['-' * 80] + x + ['-' * 80]
     )
-    return val.splitlines()
 
 
 @s.fn.logic
