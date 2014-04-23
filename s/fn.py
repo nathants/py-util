@@ -155,23 +155,6 @@ def thrush(value, *funcs):
     return inline(*funcs)(value)
 
 
-def _unpack_partial(group):
-    """takes a list like [fn, (arg1, ...), {kwarg1: val1, ...}] and
-    returns a function of 1 arg, which will be the first pos arg to fn
-    """
-    args, kwargs = [], {}
-    for obj in group[1:]:
-        if isinstance(obj, (list, tuple)):
-            args = obj
-        elif isinstance(obj, dict):
-            kwargs = obj
-        else:
-            raise ValueError('bad _unpack_partial group: {}'.format(group))
-    def _fn(val):
-        return group[0](val, *args, **kwargs)
-    return _fn
-
-
 _banned_attrs_dict = [
     '__setitem__',
     '__setattr__',
