@@ -96,3 +96,22 @@ def test_logic_generator():
     for i, x in enumerate(logic()):
         assert i == x
         assert s.fn.stack() == ()
+
+
+def test_logic_raise():
+    @s.fn.logic
+    def logic():
+        1 / 0
+    with pytest.raises(ZeroDivisionError):
+        logic()
+
+
+def test_logic_gen_raise():
+    @s.fn.logic
+    def logic():
+        for x in range(3):
+            yield x
+        1 / 0
+    with pytest.raises(ZeroDivisionError):
+        for i, x in enumerate(logic()):
+            assert i == x
