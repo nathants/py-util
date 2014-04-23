@@ -7,63 +7,51 @@ def setup_module():
     s.log.setup(level='debug', short=True)
 
 
-def test1():
+def test_stack():
     start = s.fn.stack()
     @s.fn.logic
     def fn1():
-        assert s.fn.stack()[-1:] == (('logic', '{}:fn1()'.format(__name__)),)
+        assert s.fn.stack() == (('logic', '{}:fn1'.format(__name__)),)
         return fn2()
     @s.fn.logic
     def fn2():
-        assert s.fn.stack()[-2:] == (('logic', '{}:fn1()'.format(__name__)),
-                                     ('logic', '{}:fn2()'.format(__name__)))
+        assert s.fn.stack() == (('logic', '{}:fn1'.format(__name__)),
+                                ('logic', '{}:fn2'.format(__name__)))
         return True
     fn1()
     assert s.fn.stack() == start
 
 
 def test_flow_in_logic():
-    @s.fn.logic
-    def fn1():
-        return fn2()
     @s.fn.flow
-    def fn2():
+    def flow():
         return True
+    @s.fn.logic
+    def logic():
+        flow()
     with pytest.raises(AssertionError):
-        fn1()
+        logic()
 
 
-def test0():
+def test_immutalize():
     val = {'a': 1}
-    def fn1(x):
-        x['a'] = 2
-    fn1(val)
-    assert val['a'] == 2
     @s.fn.immutalize
     def fn2(x):
         x['a'] = 3
     with pytest.raises(ValueError):
         fn2(val)
-    assert val['a'] == 2
 
-
-
-def test2():
-    @s.fn.logic
-    def fn1():
-        return True
-    fn1()
-    fn1()
 
 def test_glue_in_logic():
-    @s.fn.logic
-    def fn1():
-        return fn2()
     @s.fn.glue
-    def fn2():
+    def glue():
         return True
+    @s.fn.logic
+    def logic():
+        return glue()
     with pytest.raises(AssertionError):
-        fn1()
+        logic()
+
 
 
 def f(x, *a):
@@ -71,7 +59,7 @@ def f(x, *a):
 def g(x):
     return x * 2
 def h(x):
-    return x + 3
+    return 3 - x
 def f2(x, y):
     return x - y
 def g2(x, y):
@@ -79,9 +67,9 @@ def g2(x, y):
 
 
 def test_inline():
-    assert s.fn.inline(f, g, h)(1) == 7
+    assert s.fn.inline(f, g, h)(1) == -1
     assert s.fn.inline(f, g, h)(1) == h(g(f(1)))
-    assert s.fn.inline(h, g, f)(1) == 9
+    assert s.fn.inline(h, g, f)(1) == 5
     assert s.fn.inline(h, g, f)(1) == f(g(h(1)))
 
 
@@ -90,10 +78,21 @@ def test_inline_noncallable():
         s.fn.inline(h, g, 1)(1)
 
 
-def test_thread():
-    assert s.fn.thrush(1, f, g, h) == 7
+def test_thrush():
+    assert s.fn.thrush(1, f, g, h) == -1
 
 
 def test_thread_noncallable():
     with pytest.raises(AssertionError):
         s.fn.thrush(1, f, g, 2)
+
+
+def test_logic_generator():
+    @s.fn.logic
+    def logic():
+        for x in range(3):
+            assert s.fn.stack() == (('logic', 'test_s.fast.fn:logic'),)
+            yield x
+    for i, x in enumerate(logic()):
+        assert i == x
+        assert s.fn.stack() == ()
