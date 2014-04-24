@@ -20,9 +20,6 @@ def server():
     tornado.ioloop.IOLoop.instance().start()
 
 
-thread = threading.Thread(target=server)
-
-
 def view(test_data):
     failures = [x.result for x in test_data if x.result]
     color = s.colors.red if failures else s.colors.green
@@ -34,6 +31,10 @@ def view(test_data):
 
 
 def main():
+    thread = threading.Thread(target=server)
+    thread.daemon = True
+    thread.start()
+
     t = blessed.Terminal()
     with t.fullscreen():
         with t.hidden_cursor():
