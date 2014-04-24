@@ -31,6 +31,6 @@ def test_code_file_init():
 
 def test_filter_test_files():
     val = [['test_module', ['fast'], ['__init__.py']],
-           ['test_module/fast', [], ['__init__.py', 'test1.py', 'test1.pyc', 'test2.py']],
+           ['test_module/fast', [], ['__init__.py', 'test1.py', 'test1.pyc', 'test2.py', '.#test2.py', 'test2_flymake.py']],
            ['module', [], ['__init__.py']]]
     assert s.test._filter_test_files(val) == [os.path.join('test_module/fast', x) for x in ['__init__.py', 'test1.py', 'test2.py']]
