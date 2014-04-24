@@ -16,7 +16,10 @@ kwargs = dict(
     version="1",
     packages=setuptools.find_packages(),
     package_data=package_data,
-    entry_points={'console_scripts': []},
+    entry_points={'console_scripts': [
+        'debug = s.bin.debug:main',
+        'autotest = s.bin.autotest:main',
+    ]},
 )
 
 setuptools.setup(**kwargs)
