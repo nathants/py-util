@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 import sys
+import time
 import itertools
 import types
 import traceback
@@ -43,7 +44,7 @@ def _climb(where='.'):
 
 @s.fn.glue
 def _walk(where='.'):
-    with s.shell.cd('.'):
+    with s.shell.cd():
         return list(os.walk(where))
 
 
@@ -61,6 +62,8 @@ def _filter_test_files(walk_data):
             for path, _, files in walk_data
             for f in files
             if f.endswith('.py')
+            and not f.startswith('.')
+            and '_flymake' not in f
             and len(path.split('/')) >= 2
             and path.split('/')[-2].startswith('test_')
             and path.split('/')[-1] == 'fast']
@@ -205,8 +208,23 @@ def run_tests_once():
     )
 
 
+def _poll(directories):
+    return [[path, f, os.stat(os.path.join(path, f)).st_mtime]
+            for d in directories
+            for path, _, files in os.walk(d)
+            for f in files
+            if f.endswith('.py')
+            and not f.startswith('.')]
+
+
 @s.fn.flow
 def run_tests_auto():
-    return s.fn.thrush(
-
-    )
+    with s.shell.climb_git_root():
+        last = None
+        packages = _python_packages(_walk())
+        while True:
+            now = _poll(packages)
+            if last != now:
+                yield run_tests_once()
+            time.sleep(.01)
+            last = now
