@@ -185,3 +185,12 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     with open(name, 'w') as file:
         file.write('{when} {user} {cmd}\n'.format(**locals()))
     run('sudo chmod 644', name)
+
+
+def walk_files_mtime(directories, predicate):
+    return [[path, f, os.stat(os.path.join(path, f)).st_mtime]
+            for d in directories
+            for path, _, files in os.walk(d)
+            for f in files
+            if predicate(path, f)
+    ]

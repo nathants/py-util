@@ -160,7 +160,11 @@ def _test(path):
     assert path.endswith('.py') and not path.startswith('/')
     name = path.replace('.py', '').replace('/', '.')
     sys.modules.pop(name, None)
-    module = __import__(name, fromlist='*')
+    try:
+        module = __import__(name, fromlist='*')
+    except:
+        return [_result(traceback.format_exc().splitlines(), path, 0)]
+
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
@@ -208,22 +212,14 @@ def run_tests_once():
     )
 
 
-def _poll(directories):
-    return [[path, f, os.stat(os.path.join(path, f)).st_mtime]
-            for d in directories
-            for path, _, files in os.walk(d)
-            for f in files
-            if f.endswith('.py')
-            and not f.startswith('.')]
-
-
 @s.fn.flow
 def run_tests_auto():
     with s.shell.climb_git_root():
         last = None
         packages = _python_packages(_walk())
+        predicate = lambda path, f: f.endswith('.py') and not f.startswith('.')
         while True:
-            now = _poll(packages)
+            now = s.shell.walk_files_mtime(packages, predicate)
             if last != now:
                 yield run_tests_once()
             time.sleep(.01)

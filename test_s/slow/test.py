@@ -53,7 +53,17 @@ def test_all_code_files_and_python_packages():
     assert set(s.test.all_code_files()) == {'foo/bar.py', 'foo/__init__.py'}
 
 
-def test_test_fail():
+def test_import_syntax_error():
+    with open('test_foo.py', 'w') as fio:
+        fio.write("""
+def test1():
+1/0
+""")
+    val = s.test._test('test_foo.py')
+    assert 'IndentationError: expected an indented block' in val[0].result
+
+
+def test_fail():
     with open('test_foo.py', 'w') as fio:
         fio.write("""
 def test1():
@@ -64,7 +74,7 @@ def test1():
     assert val[0].result[-3].endswith("assert 1 == 3") # make sure we are getting the _pytest_insight output
 
 
-def test_test_pass():
+def test_pass():
     with open('test_foo.py', 'w') as fio:
         fio.write("""
 def test1():
@@ -109,6 +119,7 @@ def test2():
 """)
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
     assert [x[0].result for x in s.test.run_tests_once()] == [None, False, False]
+
 
 
 def test_climb_git_root():
