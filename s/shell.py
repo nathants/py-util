@@ -8,6 +8,8 @@ import collections
 import random
 import string
 import time
+import argh
+import types
 
 
 # todo use https://pypi.python.org/pypi/subprocess32/ on python2.7
@@ -187,10 +189,17 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     run('sudo chmod 644', name)
 
 
-def walk_files_mtime(directories, predicate):
-    return [[path, f, os.stat(os.path.join(path, f)).st_mtime]
+def walk_files_mtime(directories=['.'], predicate=lambda path, f: True):
+    return [(path, f, os.stat(os.path.join(path, f)).st_mtime)
             for d in directories
             for path, _, files in os.walk(d)
             for f in files
             if predicate(path, f)
-    ]
+            and not f.startswith('.')]
+
+
+def dispatch_commands(_globals, _name_):
+    argh.dispatch_commands([v for k, v in _globals.items()
+                            if type(v) == types.FunctionType
+                            and v.__module__ == _name_
+                            and not k.startswith('_')])
