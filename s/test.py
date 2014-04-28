@@ -216,10 +216,10 @@ def run_tests_once():
 def run_tests_auto():
     with s.shell.climb_git_root():
         last = None
-        packages = _python_packages(_walk())
+        dirs = _python_packages(_walk())
         predicate = lambda path, f: f.endswith('.py') and not f.startswith('.')
         while True:
-            now = s.shell.walk_files_mtime(packages, predicate)
+            now = s.shell.walk_files_mtime(dirs, predicate)
             if last != now:
                 yield run_tests_once()
             time.sleep(.01)
