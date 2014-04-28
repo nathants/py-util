@@ -15,7 +15,7 @@ def server():
             conns.append(self)
         def on_close(self):
             with s.exceptions.ignore():
-                conns.remote(self)
+                conns.remove(self)
     tornado.web.Application([(r'/ws', Handler)]).listen(8888)
     tornado.ioloop.IOLoop.instance().start()
 
@@ -23,7 +23,6 @@ def server():
 def view(test_data):
     failures = [x.result for x in test_data if x.result]
     color = s.colors.red if failures else s.colors.green
-    # seconds = round(sum(x.seconds for x in test_data), 3)
     name = test_data[0].path.split(':')[0]
     print(color(name))
     for failure in failures:
