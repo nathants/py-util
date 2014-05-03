@@ -34,12 +34,11 @@ _get_level = _flag_override('_logging_force_debug', '--debug', 'debug')
 _get_short = _flag_override('_logging_force_short', '--short', True)
 
 
-def _add_handler(handler, level, format, pprint):
-    level = level.upper()
-    handler.setLevel(level)
+def _make_handler(handler, format, pprint, filter):
+    handler.setLevel('DEBUG')
+    handler.addFilter(filter())
     handler.setFormatter(_Formatter(format, pprint))
-    logging.root.addHandler(handler)
-    logging.root.setLevel(level)
+    return handler
 
 
 def _get_format(format, short):
@@ -54,32 +53,35 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
     assert level in ('debug', 'info')
     short = _get_short(short)
     format = _get_format(format, short)
-
-    # rm all root handlers
-    map(logging.root.removeHandler, logging.root.handlers)
+    handlers = []
 
     # if debug not in streaming log, add the debug-only file output handler
     if level == 'info':
         path = _get_debug_path(name)
         s.shell.cron_rm_path_later(path, hours=24)
         handler = logging.handlers.WatchedFileHandler(path)
-        handler.addFilter(_DebugOnly())
-        _add_handler(handler, 'debug', format, False)
+        handlers.append(_make_handler(handler, format, False, _DebugOnly))
 
     # add the debug or info level stream handler
     handler = logging.StreamHandler()
     if level != 'debug':
-        handler.addFilter(_NotDebug())
+        handlers.append(_make_handler(handler, format, pprint, _NotDebug))
     else:
-        pprint = True
-    _add_handler(handler, 'debug', format, pprint)
+        handlers.append(_make_handler(handler, format, True, _NotDebug))
+
+    # rm all root handlers
+    map(logging.root.removeHandler, logging.root.handlers)
+    map(logging.root.addHandler, handlers)
+    logging.root.setLevel('DEBUG')
+
+    # todo how to make logging config immutable? no one should be able to manipulate logging after this call
 
 
 def _get_debug_path(name):
     caller = s.hacks.get_caller(4)
     funcname = caller.funcname if caller.funcname != '<module>' else '__main__'
-    name = name or '.'.join(caller.filename.split('/')[-2:]) + ':' + funcname
-    return '/tmp/{}:{}:debug.log'.format(name, time.time())
+    name = s.shell.module_name(caller.filename)
+    return '/tmp/{}:{}:{}:debug.log'.format(name, funcname, time.time())
 
 
 try:
