@@ -37,12 +37,6 @@ def _set_state(key):
 set_stream = _set_state('stream')
 
 
-_interactive_fn = {False: subprocess.check_call, True: subprocess.call}
-
-
-_call_kw = {'shell': True, 'executable': '/bin/bash'}
-
-
 def _readlines(proc, *callbacks):
     lines = []
     def cb(line):
@@ -68,6 +62,12 @@ def _logging_cb(stream):
             else:
                 print(x)
     return fn
+
+
+_interactive_fn = {False: subprocess.check_call, True: subprocess.call}
+
+
+_call_kw = {'shell': True, 'executable': '/bin/bash'}
 
 
 def run(*a, **kw):
@@ -203,3 +203,33 @@ def dispatch_commands(_globals, _name_):
                             if type(v) == types.FunctionType
                             and v.__module__ == _name_
                             and not k.startswith('_')])
+
+
+@s.fn.glue
+def climb(where='.'):
+    val = []
+    with s.shell.cd(where):
+        while True:
+            val.append([os.getcwd(), s.shell.dirs(), s.shell.files()])
+            if os.getcwd() == '/':
+                break
+            os.chdir('..')
+    return val
+
+
+@s.fn.glue
+def walk(where='.'):
+    with s.shell.cd(where):
+        return [(os.path.abspath(path), dirs, files)
+                for path, dirs, files in os.walk('.')]
+
+
+@s.fn.glue
+def module_name(filepath):
+    assert os.path.isfile(filepath)
+    filepath = filepath.replace('.pyc', '').replace('.py', '')
+    val = climb(os.path.dirname(filepath))
+    for i, (path, _, files) in enumerate(val, 1):
+        if '__init__.py' not in files:
+            break
+    return '.'.join(filepath.split('/')[-i:])
