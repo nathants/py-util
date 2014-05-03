@@ -11,12 +11,12 @@ def test_stack():
     start = s.fn.stack()
     @s.fn.logic
     def fn1():
-        assert s.fn.stack() == (('logic', '{}:fn1'.format(__name__)),)
+        assert s.fn.stack() == ('logic:{}:fn1'.format(__name__),)
         return fn2()
     @s.fn.logic
     def fn2():
-        assert s.fn.stack() == (('logic', '{}:fn1'.format(__name__)),
-                                ('logic', '{}:fn2'.format(__name__)))
+        assert s.fn.stack() == ('logic:{}:fn1'.format(__name__),
+                                'logic:{}:fn2'.format(__name__))
         return True
     fn1()
     assert s.fn.stack() == start
@@ -91,7 +91,7 @@ def test_logic_generator():
     @s.fn.logic
     def logic():
         for x in range(3):
-            assert s.fn.stack() == (('logic', 'test_s.fast.fn:logic'),)
+            assert s.fn.stack() == ('logic:test_s.fast.fn:logic',)
             yield x
     for i, x in enumerate(logic()):
         assert i == x

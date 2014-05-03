@@ -20,24 +20,22 @@ def _pretty(name, char, offset=0):
 
 trace_funcs = {
     'logic': {
-        'in': lambda name, kind, *a, **kw: logging.debug([
+        'in': lambda name, fntype, *a, **kw: logging.debug([
             _pretty(name, '>'),
             {'direction': 'in',
-             'kind': kind,
+             'fntype': fntype,
              'args': a,
              'kwargs': kw,
              'time': time.time(),
-             'state': state(),
-             'stack': _format_stack(stack())}
+             'stack': stack()}
         ]),
-        'out': lambda name, kind, val=None, traceback=None: logging.debug([
+        'out': lambda name, fntype, val=None, traceback=None: logging.debug([
             _pretty(name, '<', offset=-1),
             {'direction': 'out',
-             'kind': kind,
+             'fntype': fntype,
              'value': val,
              'time': time.time(),
-             'state': state(),
-             'stack': _format_stack(stack()),
+             'stack': stack(),
              'traceback': traceback.splitlines() if traceback else None}
         ])
     }
@@ -48,14 +46,10 @@ for name in ['glue', 'flow', 'badfunc']:
     trace_funcs[name] = trace_funcs['logic']
 
 
-def _format_stack(val):
-    return [':'.join(map(str, x)) for x in val]
-
-
 @contextlib.contextmanager
-def state_layer(kind, name):
+def state_layer(name):
     _bak = _state['_stack'] = _state.get('_stack') or ()
-    _state['_stack'] += ((kind, name),)
+    _state['_stack'] += (name,)
     try:
         yield
     except:
@@ -68,7 +62,7 @@ def state_layer(kind, name):
 
 def state(offset=0):
     try:
-        return (_state.get('_stack') or ())[-(1 + offset)][0]
+        return (_state.get('_stack') or ())[-(1 + offset)].split(':')[0]
     except IndexError:
         return ()
 
@@ -77,8 +71,8 @@ def stack():
     return _state.get('_stack') or ()
 
 
-def _module_name(decoratee):
-    module = decoratee.__module__
+def _module_name(fn):
+    module = fn.__module__
     with s.exceptions.ignore():
         if module == '__main__':
             for x in range(20):
@@ -99,9 +93,9 @@ def make_fn_type(kind, rules, skip_return_check=False):
 def _fn_type(decoratee, kind, rules, skip_return_check):
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
-        name = '{}:{}'.format(_module_name(decoratee), decoratee.__name__)
+        name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         trace_funcs[kind]['in'](name, 'fn', *a, **kw)
-        with state_layer(kind, name):
+        with state_layer(name):
             try:
                 rules()
                 val = decoratee(*a, **kw)
@@ -119,13 +113,13 @@ def _fn_type(decoratee, kind, rules, skip_return_check):
 def _gen_type(decoratee, kind, rules):
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
-        name = '{}:{}'.format(_module_name(decoratee), decoratee.__name__)
+        name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         trace_funcs[kind]['in'](name, 'gen', *a, **kw)
         generator = decoratee(*a, **kw)
         assert type(generator) == types.GeneratorType
         to_send = None
         while True:
-                with state_layer(kind, name):
+                with state_layer(name):
                     try:
                         rules()
                         to_yield = generator.send(to_send)
