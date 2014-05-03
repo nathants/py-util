@@ -30,9 +30,7 @@ def view(test_data):
 
 
 def main():
-    thread = threading.Thread(target=server)
-    thread.daemon = True
-    thread.start()
+    s.log.setup()
 
     t = blessed.Terminal()
     with t.fullscreen():
