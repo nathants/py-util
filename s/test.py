@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import logging
 import sys
 import time
 import itertools
@@ -30,24 +31,6 @@ def _code_file(_test_file):
     return val
 
 
-@s.fn.glue
-def _climb(where='.'):
-    val = []
-    with s.shell.cd():
-        while True:
-            val.append([os.getcwd(), s.shell.dirs(), s.shell.files()])
-            if os.getcwd() == '/':
-                break
-            os.chdir('..')
-    return val
-
-
-@s.fn.glue
-def _walk(where='.'):
-    with s.shell.cd():
-        return list(os.walk(where))
-
-
 @s.fn.logic
 def _git_root(climb_data):
     climb_data = list(climb_data)
@@ -58,7 +41,7 @@ def _git_root(climb_data):
 
 @s.fn.logic
 def _filter_test_files(walk_data):
-    return [os.path.join('/'.join(path.split('/')[-2:]), f)
+    return [os.path.join(path, f)
             for path, _, files in walk_data
             for f in files
             if f.endswith('.py')
@@ -74,38 +57,25 @@ def _filter_code_files(walk_datas):
     return [os.path.join(path, name)
             for data in walk_datas
             for path, _, files in data
-            for name in files]
+            for name in files
+            if name.endswith('.py')
+            and not name.startswith('.')
+            and '_flymake' not in name
+            and not any(x.startswith('test_') for x in path.split('/'))]
 
 
 @s.fn.logic
 def _python_packages(walk_data):
     walk_data = list(walk_data)
-    return [os.path.basename(path)
+    return [path
             for path, _, files in walk_data
             if os.path.basename(path) in walk_data[0][1]
             and '__init__.py' in files]
 
 
-@s.fn.flow
-def all_test_files():
-    return s.fn.thrush(
-        _climb(),
-        _git_root,
-        _walk,
-        _filter_test_files
-    )
-
-
-@s.fn.flow
-def all_code_files():
-    return s.fn.thrush(
-        _climb(),
-        _git_root,
-        _walk,
-        _python_packages,
-        lambda x: map(os.walk, x),
-        _filter_code_files,
-    )
+@s.fn.glue
+def _mapwalk(dirs):
+    return [s.shell.walk(x) for x in dirs]
 
 
 @s.fn.glue
@@ -119,15 +89,6 @@ def _collect_tests(test_file):
 @s.fn.logic
 def _is_test(k, v):
     return k.startswith('test') and isinstance(v, types.FunctionType)
-
-
-@s.fn.glue
-def _exec_file(path):
-    module = {}
-    with open(path) as fio:
-        text = fio.read()
-    exec(text, globals(), module)
-    return module, text
 
 
 def _result(result, path, seconds):
@@ -157,8 +118,8 @@ def _run_test(path, name, test):
 
 @s.fn.flow
 def _test(path):
-    assert path.endswith('.py') and not path.startswith('/')
-    name = path.replace('.py', '').replace('/', '.')
+    assert path.endswith('.py')
+    name = s.shell.module_name(path)
     sys.modules.pop(name, None)
     try:
         module = __import__(name, fromlist='*')
@@ -171,6 +132,7 @@ def _test(path):
              and _is_test(k, v)]
     path = module.__file__.replace('.pyc', '.py')
     return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
+
 
 @s.fn.flow
 def _pytest_insight(test_file, query):
@@ -205,6 +167,28 @@ def _test_all(paths):
 
 
 @s.fn.flow
+def all_test_files():
+    return s.fn.thrush(
+        s.shell.climb(),
+        _git_root,
+        s.shell.walk,
+        _filter_test_files
+    )
+
+
+@s.fn.flow
+def all_code_files():
+    return s.fn.thrush(
+        s.shell.climb(),
+        _git_root,
+        s.shell.walk,
+        _python_packages,
+        _mapwalk,
+        _filter_code_files,
+    )
+
+
+@s.fn.flow
 def run_tests_once():
     return s.fn.thrush(
         all_test_files(),
@@ -216,7 +200,7 @@ def run_tests_once():
 def run_tests_auto():
     with s.shell.climb_git_root():
         last = None
-        dirs = _python_packages(_walk())
+        dirs = _python_packages(s.shell.walk())
         predicate = lambda path, f: f.endswith('.py') and not f.startswith('.')
         while True:
             now = s.shell.walk_files_mtime(dirs, predicate)

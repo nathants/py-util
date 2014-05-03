@@ -10,7 +10,7 @@ def test_python_packages():
     data = [['/foo', ['bar'], []],
             ['/foo/bar', ['asdf'], ['__init__.py']],
             ['/foo/bar/asdf', [], ['__init__.py']]]
-    assert s.test._python_packages(data) == ['bar']
+    assert s.test._python_packages(data) == ['/foo/bar']
 
 
 def test_test_file():

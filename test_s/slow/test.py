@@ -20,9 +20,11 @@ def setup_function(fn):
             del sys.modules[k]
     sys.path.insert(0, os.getcwd())
 
+
 def teardown_function(fn):
     fn.ctx.__exit__(None, None, None)
     sys.path.pop(0)
+
 
 
 def test_collect_tests():
@@ -42,15 +44,16 @@ def test_climb():
         assert list(s.test._climb())[1] == [os.path.join(x, '1/2'), ['3'], ['b']]
         assert list(s.test._climb())[2] == [os.path.join(x, '1'), ['2'], ['a']]
 
+
 def test_all_test_files():
     s.shell.run('mkdir -p .git test_foo/fast foo && touch test_foo/fast/bar.py foo/bar.py foo/__init__.py')
-    assert s.test.all_test_files() == ['test_foo/fast/bar.py']
+    assert s.test.all_test_files() == [os.path.abspath('test_foo/fast/bar.py')]
 
 
 def test_all_code_files_and_python_packages():
     s.shell.run('mkdir -p .git foo && touch foo/bar.py foo/__init__.py')
-    assert s.test._python_packages(os.walk('.')) == ['foo']
-    assert set(s.test.all_code_files()) == {'foo/bar.py', 'foo/__init__.py'}
+    assert s.test._python_packages(s.test._walk()) == [os.path.abspath('foo')]
+    assert set(s.test.all_code_files()) == {os.path.abspath(x) for x in ['foo/bar.py', 'foo/__init__.py']}
 
 
 def test_import_syntax_error():
