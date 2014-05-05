@@ -48,8 +48,17 @@ def _filter_test_files(walk_data):
             and not f.startswith('.')
             and '_flymake' not in f
             and len(path.split('/')) >= 2
-            and path.split('/')[-2].startswith('test_')
-            and path.split('/')[-1] == 'fast']
+            and path.split('/')[-2].startswith('test_')]
+
+
+@s.fn.logic
+def _filter_fast_test_files(paths):
+    return [x for x in paths if 'fast' in x.split('/')]
+
+
+@s.fn.logic
+def _filter_slow_test_files(paths):
+    return [x for x in paths if 'slow' in x.split('/')]
 
 
 @s.fn.logic
@@ -125,7 +134,6 @@ def _test(path):
         module = __import__(name, fromlist='*')
     except:
         return [_result(traceback.format_exc().splitlines(), path, 0)]
-
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
@@ -177,6 +185,22 @@ def all_test_files():
 
 
 @s.fn.flow
+def all_slow_test_files():
+    return s.fn.thrush(
+        all_test_files(),
+        _filter_slow_test_files,
+    )
+
+
+@s.fn.flow
+def all_fast_test_files():
+    return s.fn.thrush(
+        all_test_files(),
+        _filter_fast_test_files,
+    )
+
+
+@s.fn.flow
 def all_code_files():
     return s.fn.thrush(
         s.shell.climb(),
@@ -191,7 +215,7 @@ def all_code_files():
 @s.fn.flow
 def run_tests_once():
     return s.fn.thrush(
-        all_test_files(),
+        all_fast_test_files(),
         _test_all,
     )
 

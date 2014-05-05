@@ -40,19 +40,19 @@ def test_climb():
     s.shell.run('mkdir -p 1/2/3 && touch 1/a 1/2/b 1/2/3/s')
     x = os.getcwd()
     with s.shell.cd('1/2/3'):
-        assert list(s.test._climb())[0] == [os.path.join(x, '1/2/3'), [], ['s']]
-        assert list(s.test._climb())[1] == [os.path.join(x, '1/2'), ['3'], ['b']]
-        assert list(s.test._climb())[2] == [os.path.join(x, '1'), ['2'], ['a']]
+        assert list(s.shell.climb())[0] == [os.path.join(x, '1/2/3'), [], ['s']]
+        assert list(s.shell.climb())[1] == [os.path.join(x, '1/2'), ['3'], ['b']]
+        assert list(s.shell.climb())[2] == [os.path.join(x, '1'), ['2'], ['a']]
 
 
-def test_all_test_files():
+def test_all_fast_test_files():
     s.shell.run('mkdir -p .git test_foo/fast foo && touch test_foo/fast/bar.py foo/bar.py foo/__init__.py')
-    assert s.test.all_test_files() == [os.path.abspath('test_foo/fast/bar.py')]
+    assert s.test.all_fast_test_files() == [os.path.abspath('test_foo/fast/bar.py')]
 
 
 def test_all_code_files_and_python_packages():
     s.shell.run('mkdir -p .git foo && touch foo/bar.py foo/__init__.py')
-    assert s.test._python_packages(s.test._walk()) == [os.path.abspath('foo')]
+    assert s.test._python_packages(s.shell.walk()) == [os.path.abspath('foo')]
     assert set(s.test.all_code_files()) == {os.path.abspath(x) for x in ['foo/bar.py', 'foo/__init__.py']}
 
 
@@ -131,7 +131,7 @@ def test_climb_git_root():
         s.shell.run('mkdir .git')
         with s.shell.cd('a/b/c'):
             assert path == s.fn.thrush(
-                s.test._climb(),
+                s.shell.climb(),
                 s.test._git_root,
             )
 
