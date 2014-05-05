@@ -224,12 +224,20 @@ def walk(where='.'):
                 for path, dirs, files in os.walk('.')]
 
 
-@s.fn.glue
+@s.fn.flow
 def module_name(filepath):
-    assert os.path.isfile(filepath)
-    filepath = filepath.replace('.pyc', '').replace('.py', '')
-    val = climb(os.path.dirname(filepath))
-    for i, (path, _, files) in enumerate(val, 1):
+    assert os.path.isfile(filepath), 'not a file: {}'.format(filepath)
+    climb_data = climb(os.path.dirname(filepath))
+    return _module_name(filepath, climb_data)
+
+
+@s.fn.logic
+def _module_name(filepath, climb_data):
+    for i, (path, _, files) in enumerate(climb_data, 1):
         if '__init__.py' not in files:
             break
-    return '.'.join(filepath.split('/')[-i:])
+    filepath = filepath.replace('.pyc', '').replace('.py', '')
+    parts = filepath.split('/')[-i:]
+    if parts[-1] == '__init__':
+        parts = parts[:-1]
+    return '.'.join(parts)
