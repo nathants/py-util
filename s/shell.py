@@ -200,10 +200,12 @@ def walk_files_mtime(directories=['.'], predicate=lambda path, f: True):
 
 
 def dispatch_commands(_globals, _name_):
-    argh.dispatch_commands([v for k, v in _globals.items()
-                            if type(v) == types.FunctionType
-                            and v.__module__ == _name_
-                            and not k.startswith('_')])
+    argh.dispatch_commands(sorted([
+        v for k, v in _globals.items()
+        if type(v) == types.FunctionType
+        and v.__module__ == _name_
+        and not k.startswith('_')
+    ], key=lambda x: x.__name__))
 
 
 @s.fn.glue

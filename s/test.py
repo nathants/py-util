@@ -139,6 +139,7 @@ def _test(path):
              if k not in ['__builtins__', '__builtin__']
              and _is_test(k, v)]
     path = module.__file__.replace('.pyc', '.py')
+    # todo should i run setups/teardowns? or enforce pure testing?
     return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
 
 
