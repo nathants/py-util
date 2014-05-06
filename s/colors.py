@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import functools
 
 
 _pairs = zip(['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
@@ -10,4 +11,4 @@ def _make_color(code, text):
 
 
 for _color, _num in _pairs:
-    locals()[_color] = lambda text: _make_color(_num, text)
+    locals()[_color] = functools.partial(_make_color, _num)
