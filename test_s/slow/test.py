@@ -88,7 +88,6 @@ def test1():
 
 
 def test_run_tests_once_fail():
-    logging.info(os.getcwd())
     s.shell.run('mkdir .git')
     with s.shell.cd('test_foo/fast'):
         with open('test1.py', 'w') as fio:

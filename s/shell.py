@@ -100,6 +100,7 @@ def dirs(path='.', abs=False):
     return list_filtered(path, abs, os.path.isdir)
 
 
+@s.fn.glue
 def files(path='.', abs=False):
     return list_filtered(path, abs, os.path.isfile)
 

@@ -86,8 +86,26 @@ def make_fn_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
             return _gen_type(decoratee, kind, rules)
-        return _fn_type(decoratee, kind, rules, skip_return_check)
+        fn = _fn_type(decoratee, kind, rules, skip_return_check)
+        fn.__doc__ = _format_argspec(decoratee) + ('\n' + fn.__doc__ if fn.__doc__ else '')
+        return fn
     return decorator
+
+
+def _format_argspec(fn):
+    args, varargs, keywords, defaults = inspect.getargspec(fn)
+    if defaults:
+        args = args[:len(defaults)]
+        defaults = zip(args[-len(defaults):], defaults)
+        defaults = ['{}={}'.format(k, repr(v)) for k, v in defaults]
+    val = ', '.join(args)
+    if defaults:
+        val += ', ' + ', '.join(defaults)
+    if varargs:
+        val += ', *{}'.format(varargs)
+    if keywords:
+        val += ', **{}'.format(keywords)
+    return 'def {}({})'.format(fn.__name__, val)
 
 
 def _fn_type(decoratee, kind, rules, skip_return_check):
