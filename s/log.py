@@ -34,9 +34,10 @@ _get_level = _flag_override('_logging_force_debug', '--debug', 'debug')
 _get_short = _flag_override('_logging_force_short', '--short', True)
 
 
-def _make_handler(handler, format, pprint, filter):
+def _make_handler(handler, format, pprint, filter=None):
     handler.setLevel('DEBUG')
-    handler.addFilter(filter())
+    if filter:
+        handler.addFilter(filter())
     handler.setFormatter(_Formatter(format, pprint))
     return handler
 
@@ -67,7 +68,7 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
     if level != 'debug':
         handlers.append(_make_handler(handler, format, pprint, _NotDebug))
     else:
-        handlers.append(_make_handler(handler, format, True, _NotDebug))
+        handlers.append(_make_handler(handler, format, True))
 
     # rm all root handlers
     map(logging.root.removeHandler, logging.root.handlers)
