@@ -123,7 +123,11 @@ def _pprint(record):
 
 def _old_style(record):
     with s.exceptions.ignore():
-        record.msg = record.msg % record.args
+        msg = record.msg % tuple(record.args)
+        if msg != record.msg:
+            record.args = []
+            record.msg = msg
+
     return record
 
 
