@@ -12,10 +12,10 @@ import itertools as i
 
 
 @s.fn.logic
-def _test_file(_code_file):
-    assert not _code_file.startswith('/')
-    assert _code_file.endswith('.py')
-    val = _code_file.split('/')
+def _test_file(code_file):
+    assert not code_file.startswith('/')
+    assert code_file.endswith('.py')
+    val = code_file.split('/')
     val[0] = 'test_{}'.format(val[0])
     val = val[:1] + ['fast'] + val[1:]
     val = '/'.join(val)
@@ -23,8 +23,10 @@ def _test_file(_code_file):
 
 
 @s.fn.logic
-def _code_file(_test_file):
-    val = _test_file.split('/')
+def _code_file(test_file):
+    assert not test_file.startswith('/')
+    assert test_file.endswith('.py')
+    val = test_file.split('/')
     val[0] = val[0].replace('test_', '')
     val.pop(1)
     val = '/'.join(val)
