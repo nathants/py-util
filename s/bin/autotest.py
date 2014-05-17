@@ -6,21 +6,21 @@ import threading
 import s
 
 
-conns = []
+_conns = []
 
 
-def server():
+def _server():
     class Handler(tornado.websocket.WebSocketHandler):
         def open(self):
-            conns.append(self)
+            _conns.append(self)
         def on_close(self):
             with s.exceptions.ignore():
-                conns.remove(self)
+                _conns.remove(self)
     tornado.web.Application([(r'/ws', Handler)]).listen(8888)
     tornado.ioloop.IOLoop.instance().start()
 
 
-def view(test_data):
+def _view(test_data):
     failures = [x.result for x in test_data if x.result]
     color = s.colors.red if failures else s.colors.green
     name = test_data[0].path.split(':')[0]
@@ -29,19 +29,23 @@ def view(test_data):
         print('\n'.join(failure))
 
 
-def main():
-    s.log.setup()
-
+def _app():
     t = blessed.Terminal()
     with t.fullscreen():
         with t.hidden_cursor():
             for test_datas in s.test.run_tests_auto():
-                if conns:
+                if _conns:
                     message = 'green'
                     if any(y.result for x in test_datas for y in x):
                         message = 'red'
-                    for c in conns:
+                    for c in _conns:
                         c.write_message(message)
                 print(t.clear)
                 with t.location(0, 0):
-                    map(view, test_datas)
+                    map(_view, test_datas)
+
+
+def main():
+    s.log.setup()
+    s.thread.new(_server)
+    _app()
