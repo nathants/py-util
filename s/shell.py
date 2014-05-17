@@ -124,6 +124,11 @@ def climb_git_root(where='.'):
         yield
 
 
+def git_root(where='.'):
+    with climb_git_root(where):
+        return os.getcwd()
+
+
 @contextlib.contextmanager
 def cd(path='.'):
     orig = os.path.abspath(os.getcwd())
