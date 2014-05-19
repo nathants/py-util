@@ -4,7 +4,7 @@ import concurrent.futures
 import s
 
 
-_size = 20
+_size = 50
 
 
 def _pool_factory():
