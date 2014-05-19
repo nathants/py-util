@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-import logging
 import sys
 import time
 import itertools
@@ -131,7 +130,6 @@ def _run_test(path, name, test):
 def _test(path):
     assert path.endswith('.py')
     name = s.shell.module_name(path)
-    sys.modules.pop(name, None)
     try:
         module = __import__(name, fromlist='*')
     except:
@@ -226,12 +224,17 @@ def run_tests_once():
 @s.fn.flow
 def run_tests_auto():
     with s.shell.climb_git_root():
-        last = None
         dirs = _python_packages(s.shell.walk())
-        predicate = lambda path, f: f.endswith('.py') and not f.startswith('.')
+        predicate = lambda f: (f.endswith('.py')
+                               and not f.startswith('.')
+                               and '_flymake' not in f)
+        val = s.shell.walk_files_mtime(dirs, predicate)
+        modules = [s.shell.module_name(x) for x, _ in val]
+        last = None
         while True:
             now = s.shell.walk_files_mtime(dirs, predicate)
             if last != now:
+                [sys.modules.pop(x, None) for x in modules]
                 yield run_tests_once()
             time.sleep(.01)
             last = now

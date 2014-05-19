@@ -195,12 +195,12 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     run('sudo chmod 644', name)
 
 
-def walk_files_mtime(directories=['.'], predicate=lambda path, f: True):
-    return [(path, f, os.stat(os.path.join(path, f)).st_mtime)
+def walk_files_mtime(directories=['.'], predicate=lambda filepath: True):
+    return [(os.path.join(path, f), os.stat(os.path.join(path, f)).st_mtime)
             for d in directories
             for path, _, files in os.walk(d)
             for f in files
-            if predicate(path, f)
+            if predicate(os.path.join(path, f))
             and not f.startswith('.')]
 
 
