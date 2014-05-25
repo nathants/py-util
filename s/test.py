@@ -117,7 +117,7 @@ def _run_test(path, name, test):
             test()
             val = False
         except:
-            tb = traceback.format_exc().splitlines()
+            tb = traceback.format_exc()
             try:
                 val = _pytest_insight(path, name)
             except:
@@ -133,11 +133,12 @@ def _test(path):
     try:
         module = __import__(name, fromlist='*')
     except:
-        return [_result(traceback.format_exc().splitlines(), path, 0)]
+        return [_result(traceback.format_exc(), path, 0)]
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
              and _is_test(k, v)]
+
     path = module.__file__.replace('.pyc', '.py')
     # todo should i run setups/teardowns? or enforce pure testing?
     return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]

@@ -36,7 +36,7 @@ trace_funcs = {
              'value': val,
              'time': time.time(),
              'stack': stack(),
-             'traceback': traceback.splitlines() if traceback else None}
+             'traceback': traceback}
         ])
     }
 }

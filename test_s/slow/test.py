@@ -1,7 +1,6 @@
 import os
 import s
 import sys
-import logging
 import pytest
 
 
@@ -24,7 +23,6 @@ def setup_function(fn):
 def teardown_function(fn):
     fn.ctx.__exit__(None, None, None)
     sys.path.pop(0)
-
 
 
 def test_collect_tests():

@@ -96,7 +96,7 @@ except NameError:
 
 def _pprint(record):
     indent = 1
-    width = 1
+    width = 80
     with s.exceptions.ignore():
         pprint_arg = '!pprint' in record.args
         if pprint_arg:
