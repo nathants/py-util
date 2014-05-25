@@ -71,8 +71,8 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
         handlers.append(_make_handler(handler, format, True))
 
     # rm all root handlers
-    map(logging.root.removeHandler, logging.root.handlers)
-    map(logging.root.addHandler, handlers)
+    [logging.root.removeHandler(x) for x in logging.root.handlers]
+    [logging.root.addHandler(x) for x in handlers]
     logging.root.setLevel('DEBUG')
 
     # todo how to make logging config immutable? no one should be able to manipulate logging after this call
@@ -96,7 +96,7 @@ except NameError:
 
 def _pprint(record):
     indent = 1
-    width = 80
+    width = 1
     with s.exceptions.ignore():
         pprint_arg = '!pprint' in record.args
         if pprint_arg:
