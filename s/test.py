@@ -121,7 +121,7 @@ def _run_test(path, name, test):
             try:
                 val = _pytest_insight(path, name)
             except:
-                val = tb + ['FAILED to reproduce test failure in py.test, go investigate!']
+                val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!'
     s.fn._state['_stack'] = _bak
     return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
 
