@@ -7,10 +7,6 @@ import pytest
 _keys = list(sys.modules.keys())
 
 
-def setup_module():
-    s.log.setup(level='debug', short=True, pprint=True)
-
-
 def setup_function(fn):
     fn.ctx = s.shell.tempdir()
     fn.ctx.__enter__()
@@ -72,7 +68,7 @@ def test1():
    assert x == y
 """)
     val = s.test._test('test_foo.py')
-    assert val[0].result[-3].endswith("assert 1 == 3") # make sure we are getting the _pytest_insight output
+    assert val[0].result.splitlines()[-3].endswith("assert 1 == 3") # make sure we are getting the _pytest_insight output
 
 
 def test_pass():
