@@ -31,21 +31,17 @@ _immutable_types = (
 
 
 with s.exceptions.ignore():
-    _immutable_types += (
-        basestring,
-    )
+    _immutable_types += (basestring,)
 
-_listy_types = (
-    list,
-    tuple,
-)
+
+_listy_types = (list,
+                tuple)
+
 
 with s.exceptions.ignore():
-    _listy_types += (
-        type({}.items()),
-        type({}.keys()),
-        type({}.values()),
-    )
+    _listy_types += (type({}.items()),
+                     type({}.keys()),
+                     type({}.values()))
 
 
 def immutalize(val):
