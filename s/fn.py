@@ -1,9 +1,11 @@
 from __future__ import absolute_import, print_function
+import os
 import inspect
 import pprint
 import sys
 import functools
 import traceback
+import json
 import contextlib
 import logging
 import time
@@ -13,31 +15,69 @@ import s
 
 _state = {}
 
+_json_types = (list,
+               str,
+               dict,
+               int,
+               float,
+               tuple)
+with s.exceptions.ignore():
+    _json_types += (
+        type({}.items()),
+        type({}.keys()),
+        type({}.values()),
+    )
+try:
+    _json_types += (unicode,)
+except:
+    _json_types += (bytes,)
 
-def _pretty(name, char, offset=0):
-    return '-' * (len(stack()) + 1 + offset) + char + '' + '|' + name
+
+def _stringify(val):
+    if isinstance(val, dict):
+        return {_stringify(k): _stringify(v) for k, v in val.items()}
+    elif isinstance(val, (list, tuple, set)):
+        return [_stringify(x) for x in val]
+    elif isinstance(val, _json_types):
+        return val
+    else:
+        return str(val)
+
+
+def _trace(val):
+    try:
+        text = json.dumps(val)
+    except:
+        try:
+            text = json.dumps(_stringify(val))
+        except:
+            logging.error('bad val:', val)
+            raise
+    logging.debug(text)
 
 
 trace_funcs = {
     'logic': {
-        'in': lambda name, fntype, *a, **kw: logging.debug([
-            _pretty(name, '>'),
-            {'direction': 'in',
-             'fntype': fntype,
-             'args': a,
-             'kwargs': kw,
-             'time': time.time(),
-             'stack': stack()}
-        ]),
-        'out': lambda name, fntype, val=None, traceback=None: logging.debug([
-            _pretty(name, '<', offset=-1),
-            {'direction': 'out',
-             'fntype': fntype,
-             'value': val,
-             'time': time.time(),
-             'stack': stack(),
-             'traceback': traceback}
-        ])
+        'in': lambda name, fntype, *a, **kw: _trace({
+            'name': name,
+            'direction': 'in',
+            'fntype': fntype,
+            'args': a,
+            'kwargs': kw,
+            'time': time.time(),
+            'stack': stack(),
+            'cwd': os.getcwd(),
+        }),
+        'out': lambda name, fntype, val=None, traceback=None: _trace({
+            'name': name,
+            'direction': 'out',
+            'fntype': fntype,
+            'value': val,
+            'time': time.time(),
+            'stack': stack(),
+            'traceback': traceback,
+            'cwd': os.getcwd(),
+        })
     }
 }
 
