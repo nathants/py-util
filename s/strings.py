@@ -22,3 +22,8 @@ _rm_color = re.compile(r'\x1b[^m]*m')
 
 def rm_color(text):
     return _rm_color.sub('', text)
+
+
+def indent(text, spaces):
+    indenter = lambda x: ' ' * spaces + x
+    return '\n'.join(map(indenter, text.splitlines()))
