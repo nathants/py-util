@@ -160,7 +160,8 @@ def _pytest_insight(test_file, query):
         list,
         reversed,
         list,
-        lambda x: ['-' * 80] + x + ['-' * 80]
+        lambda x: ['-' * 80] + x + ['-' * 80],
+        '\n'.join,
     )
 
 
