@@ -2,10 +2,6 @@ import s
 import os
 
 
-def setup_module():
-    s.log.setup(level='debug', short=True)
-
-
 def test_python_packages():
     data = [['/foo', ['bar'], []],
             ['/foo/bar', ['asdf'], ['__init__.py']],

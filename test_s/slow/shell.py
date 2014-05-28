@@ -6,10 +6,6 @@ import sys
 _keys = list(sys.modules.keys())
 
 
-def setup_module():
-    s.log.setup(level='debug', short=True, pprint=True)
-
-
 def setup_function(fn):
     fn.ctx = s.shell.tempdir()
     fn.ctx.__enter__()

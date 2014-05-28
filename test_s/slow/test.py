@@ -1,7 +1,6 @@
 import os
 import s
 import sys
-import pytest
 
 
 _keys = list(sys.modules.keys())
@@ -117,7 +116,6 @@ def test2():
     assert [x[0].result for x in s.test.run_tests_once()] == [None, False, False]
 
 
-
 def test_climb_git_root():
     with s.shell.tempdir():
         path = os.getcwd()
@@ -127,5 +125,6 @@ def test_climb_git_root():
                 s.shell.climb(),
                 s.test._git_root,
             )
+
 
 s.hacks.decorate(globals(), __name__, s.fn.badfunc)

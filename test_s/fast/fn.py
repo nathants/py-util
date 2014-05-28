@@ -1,10 +1,5 @@
 import pytest
 import s
-import logging
-
-
-def setup_module():
-    s.log.setup(level='debug', short=True)
 
 
 def test_stack():
