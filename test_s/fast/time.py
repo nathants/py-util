@@ -1,4 +1,6 @@
+from __future__ import absolute_import
 import s
+import time
 
 
 def setup_module():
@@ -7,5 +9,5 @@ def setup_module():
 
 def test_timer():
     with s.time.timer() as t:
-        pass
+        time.sleep(1e-6)
     assert t['seconds'] > 0
