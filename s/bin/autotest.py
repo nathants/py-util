@@ -26,7 +26,7 @@ def _view(test_data):
     name = test_data[0].path.split(':')[0]
     val = color(name)
     for failure in failures:
-        val += '\n' + '\n'.join(failure)
+        val += '\n' + failure
     return val
 
 
