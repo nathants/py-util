@@ -56,12 +56,11 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
     format = _get_format(format, short)
     handlers = []
 
-    # if debug not in streaming log, add the debug-only file output handler
-    if level == 'info':
-        path = _get_debug_path(name)
-        s.shell.cron_rm_path_later(path, hours=24)
-        handler = logging.handlers.WatchedFileHandler(path)
-        handlers.append(_make_handler(handler, format, False, _DebugOnly))
+    # add debug log file handler
+    path = _get_debug_path(name)
+    s.shell.cron_rm_path_later(path, hours=24)
+    handler = logging.handlers.WatchedFileHandler(path)
+    handlers.append(_make_handler(handler, '%(message)s', False, _DebugOnly))
 
     # add the debug or info level stream handler
     handler = logging.StreamHandler()
