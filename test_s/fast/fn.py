@@ -48,7 +48,6 @@ def test_glue_in_logic():
         logic()
 
 
-
 def f(x, *a):
     return x + 1
 def g(x):
