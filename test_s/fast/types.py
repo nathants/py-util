@@ -71,3 +71,33 @@ def test_list_nested_repeats():
 def test_list_heterogenous_pattern():
     assert s.types.parse([['asdf', ['asdf', 'asdf', 'asdf'], ['asdf']],
                           ['asdf', ['asdf'], ['asdf', 'asdf', 'asdf']]]) == [[str, [str], [str]]]
+
+
+def test_dict_single():
+    assert s.types.parse({'asdf': False}) == {str: bool}
+
+
+def test_dict_double():
+    assert s.types.parse({'asdf': False, 1: 1.0}) == {str: bool, int: float}
+
+
+def test_list_of_dict_repeats():
+    assert s.types.parse([{'asdf': False},
+                          {'asdf': False}]) == [{str: bool}]
+
+
+def test_list_of_dict():
+    assert s.types.parse(['a', {1: 'asdf'}]) == [str, {int: str}]
+
+
+def test_dict_duplicate_keys():
+    assert s.types.parse({1: True, 2: 1.1}) == {(int,): bool, (int,): float}
+
+
+def test_dict_dict_of_patterns():
+    assert s.types.parse({False: [['asdf', ['asdf'], []],
+                                  ['asdf', ['asdf'], ['asdf']]]}) == {bool: [[str, [str], [str]]]}
+
+
+def test_set():
+    assert s.types.parse({1, 2.0}) == {int, float}

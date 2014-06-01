@@ -36,6 +36,15 @@ def _list_fill_empties(obj): # TODO how the pha to write this saner?
     return obj
 
 
+def _dict_number_dupe_keys(obj):
+    val = []
+    for k, v in obj:
+        if len([x for x, _ in obj if x == k]) > 1:
+            k = (k,)
+        val.append((k, v))
+    return val
+
+
 def parse(obj):
     if isinstance(obj, (list, tuple)):
         cls = type(obj)
@@ -47,6 +56,14 @@ def parse(obj):
         obj = _list_remove_empties(obj)
         obj = _list_remove_duplicates(obj)
         return cls(obj)
+
+    elif isinstance(obj, dict):
+        obj = [(parse(k), parse(v)) for k, v in obj.items()]
+        obj = _dict_number_dupe_keys(obj)
+        return dict(obj)
+
+    elif isinstance(obj, set):
+        return {parse(x) for x in obj}
 
     else:
         return type(obj)
