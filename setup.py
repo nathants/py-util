@@ -18,7 +18,8 @@ kwargs = dict(
     package_data=package_data,
     entry_points={'console_scripts': [
         'debug = s.bin.debug:main',
-        'autotest = s.bin.autotest:main',
+        'auto-test = s.bin.auto_test:main',
+        'derive-types = s.bin.derive_types:main',
     ]},
 )
 
