@@ -3,7 +3,7 @@ import re
 import s
 
 
-_color = re.compile(r'(red|green|blue|cyan|yellow|magenta)\(')
+_color = re.compile(r'\$(red|green|blue|cyan|yellow|magenta)\(')
 
 
 def color(text): # todo 'red(foo yellow(123) bar)' doesnt work right
@@ -13,7 +13,6 @@ def color(text): # todo 'red(foo yellow(123) bar)' doesnt work right
         except ValueError:
             return text
         color_me, tail = tail.split(')', 1)
-        print(color, color_me)
         text = head + getattr(s.colors, color)(color_me) + tail
 
 
