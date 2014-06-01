@@ -10,6 +10,9 @@ import s
 import itertools as i
 
 
+_max_seconds = .0075
+
+
 @s.fn.logic
 def _test_file(code_file):
     assert not code_file.startswith('/')
@@ -122,6 +125,8 @@ def _run_test(path, name, test):
                 val = _pytest_insight(path, name)
             except:
                 val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!'
+    if not val and t['seconds'] > _max_seconds:
+        val = ' {} took {} seconds, slower than max seconds {}'.format(name, t['seconds'], _max_seconds)
     s.fn._state['_stack'] = _bak
     return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
 
