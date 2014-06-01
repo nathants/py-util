@@ -47,7 +47,7 @@ def _dict_number_dupe_keys(obj):
 
 def parse(obj):
     if isinstance(obj, (list, tuple)):
-        cls = type(obj)
+        cls = list if isinstance(obj, list) else tuple
         if not obj:
             return cls()
         obj = list(obj)
