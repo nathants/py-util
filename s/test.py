@@ -51,6 +51,7 @@ def _filter_test_files(walk_data):
             if f.endswith('.py')
             and not f.startswith('.')
             and '_flymake' not in f
+            and '/build/' not in path
             and len(path.split('/')) >= 2
             and path.split('/')[-2].startswith('test_')]
 
@@ -67,13 +68,14 @@ def _filter_slow_test_files(paths):
 
 @s.fn.logic
 def _filter_code_files(walk_datas):
-    return [os.path.join(path, name)
+    return [os.path.join(path, f)
             for data in walk_datas
             for path, _, files in data
-            for name in files
-            if name.endswith('.py')
-            and not name.startswith('.')
-            and '_flymake' not in name
+            for f in files
+            if f.endswith('.py')
+            and not f.startswith('.')
+            and '_flymake' not in f
+            and '/build/' not in path
             and not any(x.startswith('test_') for x in path.split('/'))]
 
 
