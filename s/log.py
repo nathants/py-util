@@ -34,8 +34,8 @@ _get_level = _flag_override('_logging_force_debug', '--debug', 'debug')
 _get_short = _flag_override('_logging_force_short', '--short', True)
 
 
-def _make_handler(handler, format, pprint, filter=None):
-    handler.setLevel('DEBUG')
+def _make_handler(handler, level, format, pprint, filter=None):
+    handler.setLevel(level.upper())
     if filter:
         handler.addFilter(filter())
     handler.setFormatter(_Formatter(format, pprint))
@@ -48,31 +48,38 @@ def _get_format(format, short):
             else _standard_format)
 
 
+def _add_trace_level():
+    logging.root.manager.emittedNoHandlerWarning = 1
+    logging.TRACE = 9
+    logging.addLevelName(logging.TRACE, "TRACE")
+    logging.trace = lambda msg, *a, **kw: logging.root._log(logging.TRACE, msg, a, **kw)
+
+
 @s.cached.func
 def setup(name=None, level='info', short=False, pprint=False, format=None):
+
     level = _get_level(level)
     assert level in ('debug', 'info')
     short = _get_short(short)
     format = _get_format(format, short)
     handlers = []
 
-    # add debug log file handler
+    _add_trace_level()
+
+    # add trace file handler
     path = _get_debug_path(name)
     s.shell.cron_rm_path_later(path, hours=24)
     handler = logging.handlers.WatchedFileHandler(path)
-    handlers.append(_make_handler(handler, '%(message)s', False, _DebugOnly))
+    handlers.append(_make_handler(handler, 'trace', '%(message)s', False, _TraceOnly))
 
-    # add the debug or info level stream handler
-    handler = logging.StreamHandler()
-    if level != 'debug':
-        handlers.append(_make_handler(handler, format, pprint, _NotDebug))
-    else:
-        handlers.append(_make_handler(handler, format, True))
-
+    # add the stream handler
+    handlers.append(_make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace))
     # rm all root handlers
     [logging.root.removeHandler(x) for x in logging.root.handlers]
     [logging.root.addHandler(x) for x in handlers]
-    logging.root.setLevel('DEBUG')
+    logging.root.setLevel('TRACE')
+
+
 
     # todo how to make logging config immutable? no one should be able to manipulate logging after this call
 
@@ -164,14 +171,14 @@ def _short_levelname(record):
     return record
 
 
-class _DebugOnly(logging.Filter):
+class _TraceOnly(logging.Filter):
     def filter(self, record):
-        return record.levelno == logging.DEBUG
+        return record.levelno == logging.TRACE
 
 
-class _NotDebug(logging.Filter):
+class _NotTrace(logging.Filter):
     def filter(self, record):
-        return record.levelno != logging.DEBUG
+        return record.levelno != logging.TRACE
 
 
 def _process_record(record):

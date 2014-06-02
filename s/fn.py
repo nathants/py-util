@@ -53,7 +53,7 @@ def _trace(val):
         except:
             logging.error('bad val:', val)
             raise
-    logging.debug(text)
+    logging.trace(text)
 
 
 trace_funcs = {
