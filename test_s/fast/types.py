@@ -1,4 +1,5 @@
 import s
+import pytest
 
 
 def setup_module():
@@ -82,8 +83,8 @@ def test_dict_double():
 
 
 def test_list_of_dict_repeats():
-    assert s.types.parse([{'asdf': False},
-                          {'asdf': False}]) == [{str: bool}]
+    assert s.types.parse([{'1': False},
+                          {'2': False}]) == [{str: bool}]
 
 
 def test_list_of_dict():
@@ -91,7 +92,16 @@ def test_list_of_dict():
 
 
 def test_dict_duplicate_keys():
-    assert s.types.parse({1: True, 2: 1.1}) == {(int,): bool, (int,): float}
+    assert s.types.parse({2: 1.1, 3: 2.2, 1: False}) == {(int, 0): bool, (int, 1): float}
+
+
+def test_dict_duplicate_keys_ordering():
+    assert s.types.parse({1: False, 2: None}) == {(int,0): bool, (int,1): type(None)}
+
+
+def test_dict_matching_duplicates():
+    assert s.types.parse({'1': 1,
+                          '2': 1}) == {str: int}
 
 
 def test_dict_dict_of_patterns():
