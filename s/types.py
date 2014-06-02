@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import s
 
 
 def _list_remove_duplicates(obj):
@@ -36,12 +37,20 @@ def _list_fill_empties(obj): # TODO how the pha to write this saner?
     return obj
 
 
-def _dict_number_dupe_keys(obj):
+def _dict_number_dupe_keys(obj): # TODO implement more simply, groupby stringification is bad?
     val = []
-    for k, v in obj:
-        if len([x for x, _ in obj if x == k]) > 1:
-            k = (k,)
-        val.append((k, v))
+    for k, g in s.iter.groupby(obj, lambda x: [str(x[0]), x[0]]):
+        k = k[1]
+        g = [x[1] for x in g]
+        if len(g) == 1:
+            val.append([k, g[0]])
+        else:
+            g = sorted(set(g), key=lambda x: str(x).lower())
+            if len(g) == 1:
+                val.append([k, g[0]])
+            else:
+                for i, x in enumerate(g):
+                    val.append([(k, i), x])
     return val
 
 
