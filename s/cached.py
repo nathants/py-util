@@ -5,7 +5,7 @@ import s
 
 
 # DO NOT use these to decorate class methods
-# todo how to enforce this?
+# todo how to enforce this at decoration time?
 
 
 _attr = '_cached_value'
