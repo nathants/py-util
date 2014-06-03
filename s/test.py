@@ -101,11 +101,6 @@ def _collect_tests(test_file):
             if any(x.strip().startswith(y) for y in keep)]
 
 
-@s.fn.logic
-def _is_test(k, v):
-    return k.startswith('test') and isinstance(v, types.FunctionType)
-
-
 def _result(result, path, seconds):
     pred = lambda x: not x.startswith('test_')
     path = itertools.dropwhile(pred, path.split('/'))
@@ -144,8 +139,8 @@ def _test(path):
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
-             and _is_test(k, v)]
-
+             and k.startswith('test')
+             and isinstance(v, types.FunctionType)]
     path = module.__file__.replace('.pyc', '.py')
     # todo should i run setups/teardowns? or enforce pure testing?
     return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
