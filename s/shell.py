@@ -3,7 +3,6 @@ import subprocess
 import contextlib
 import os
 import s
-import logging
 import collections
 import random
 import string
@@ -100,7 +99,6 @@ def dirs(path='.', abs=False):
     return list_filtered(path, abs, os.path.isdir)
 
 
-@s.fn.glue
 def files(path='.', abs=False):
     return list_filtered(path, abs, os.path.isfile)
 
@@ -127,6 +125,7 @@ def climb_git_root(where='.'):
 def git_root(where='.'):
     with climb_git_root(where):
         return os.getcwd()
+
 
 
 @contextlib.contextmanager
@@ -213,7 +212,6 @@ def dispatch_commands(_globals, _name_):
     ], key=lambda x: x.__name__))
 
 
-@s.fn.glue
 def climb(where='.'):
     val = []
     with s.shell.cd(where):
@@ -225,21 +223,18 @@ def climb(where='.'):
     return val
 
 
-@s.fn.glue
 def walk(where='.'):
     with s.shell.cd(where):
         return [(os.path.abspath(path), dirs, files)
                 for path, dirs, files in os.walk('.')]
 
 
-@s.fn.flow
 def module_name(filepath):
     assert os.path.isfile(filepath), 'not a file: {}'.format(filepath)
     climb_data = climb(os.path.dirname(filepath))
     return _module_name(filepath, climb_data)
 
 
-@s.fn.logic
 def _module_name(filepath, climb_data):
     for i, (path, _, files) in enumerate(climb_data, 1):
         if '__init__.py' not in files:
