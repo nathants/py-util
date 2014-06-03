@@ -60,7 +60,7 @@ _trace_funcs = {
             'args': a,
             'kwargs': kw,
             'time': time.time(),
-            '_stack': _stack(),
+            'stack': _stack(),
             'cwd': os.getcwd(),
         }),
         'out': lambda name, fntype, val=None, traceback=None: _trace({
@@ -69,7 +69,7 @@ _trace_funcs = {
             'fntype': fntype,
             'value': val,
             'time': time.time(),
-            '_stack': _stack(),
+            'stack': _stack(),
             'traceback': traceback,
             'cwd': os.getcwd(),
         })
@@ -117,16 +117,18 @@ def _module_name(fn):
     return module
 
 
-def _make_fn_type(kind, rules, skip_return_check=False):
+def _make_fn_type(kind, rules, skip_return_check=False, immutalize=False):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
-            return _gen_type(decoratee, kind, rules)
-        fn = _fn_type(decoratee, kind, rules, skip_return_check)
+            return _gen_type(decoratee, kind, rules, immutalize)
+        fn = _fn_type(decoratee, kind, rules, skip_return_check, immutalize)
         return fn
     return decorator
 
 
-def _fn_type(decoratee, kind, rules, skip_return_check):
+def _fn_type(decoratee, kind, rules, skip_return_check, immutalize):
+    if immutalize:
+        decoratee = _immutalize(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
@@ -146,7 +148,9 @@ def _fn_type(decoratee, kind, rules, skip_return_check):
     return decorated
 
 
-def _gen_type(decoratee, kind, rules):
+def _gen_type(decoratee, kind, rules, immutalize):
+    if immutalize:
+        decoratee = _immutalize(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
@@ -197,7 +201,7 @@ flow = _make_fn_type('flow', _flow_rules)
 
 def _logic_rules():
     assert _get_state(offset=1) != 'glue', 'glue cannot contain logic\n{}'.format(_rule_violation_message())
-logic = _make_fn_type('logic', _logic_rules)
+logic = _make_fn_type('logic', _logic_rules, immutalize=True)
 
 
 badfunc = _make_fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
@@ -242,9 +246,17 @@ _immutable_types = [
 ]
 
 
-def immutalize(decoratee):
+def _immutalize(decoratee):
+    @functools.wraps(decoratee)
     def decorated(*a, **kw):
-        a = map(s.data.immutalize, a)
-        kw = s.data.immutalize(kw)
+        try:
+            a = map(s.data.immutalize, a)
+            kw = s.data.immutalize(kw)
+        except Exception as e:
+            try:
+                name = '{}.{}'.format(decoratee.__module__, decoratee.__name__)
+            except:
+                name = decoratee
+            raise Exception('for {}, {}'.format(name, e))
         return decoratee(*a, **kw)
     return decorated
