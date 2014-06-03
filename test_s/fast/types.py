@@ -111,3 +111,7 @@ def test_dict_dict_of_patterns():
 
 def test_set():
     assert s.types.parse({1, 2.0}) == {int, float}
+
+
+def test_frozen_set():
+    assert s.types.parse(frozenset([1])) == {int}
