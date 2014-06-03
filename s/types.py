@@ -71,7 +71,7 @@ def parse(obj):
         obj = _dict_number_dupe_keys(obj)
         return dict(obj)
 
-    elif isinstance(obj, set):
+    elif isinstance(obj, (set, frozenset)):
         return {parse(x) for x in obj}
 
     else:
