@@ -15,18 +15,13 @@ import s
 
 _state = {}
 
+
 _json_types = (list,
                str,
                dict,
                int,
                float,
                tuple)
-with s.exceptions.ignore():
-    _json_types += (
-        type({}.items()),
-        type({}.keys()),
-        type({}.values()),
-    )
 try:
     _json_types += (unicode,)
 except:
@@ -51,12 +46,12 @@ def _trace(val):
         try:
             text = json.dumps(_stringify(val))
         except:
-            logging.error('bad val:', val)
+            logging.exception('bad val:', val)
             raise
-    logging.trace(text)
+    getattr(logging, 'trace', lambda x: None)(text)
 
 
-trace_funcs = {
+_trace_funcs = {
     'logic': {
         'in': lambda name, fntype, *a, **kw: _trace({
             'name': name,
@@ -65,7 +60,7 @@ trace_funcs = {
             'args': a,
             'kwargs': kw,
             'time': time.time(),
-            'stack': stack(),
+            '_stack': _stack(),
             'cwd': os.getcwd(),
         }),
         'out': lambda name, fntype, val=None, traceback=None: _trace({
@@ -74,7 +69,7 @@ trace_funcs = {
             'fntype': fntype,
             'value': val,
             'time': time.time(),
-            'stack': stack(),
+            '_stack': _stack(),
             'traceback': traceback,
             'cwd': os.getcwd(),
         })
@@ -83,11 +78,11 @@ trace_funcs = {
 
 
 for name in ['glue', 'flow', 'badfunc']:
-    trace_funcs[name] = trace_funcs['logic']
+    _trace_funcs[name] = _trace_funcs['logic']
 
 
 @contextlib.contextmanager
-def state_layer(name):
+def _state_layer(name):
     _bak = _state['_stack'] = _state.get('_stack') or ()
     _state['_stack'] += (name,)
     try:
@@ -100,14 +95,14 @@ def state_layer(name):
         _state['_stack'] = _bak
 
 
-def state(offset=0):
+def _get_state(offset=0):
     try:
         return (_state.get('_stack') or ())[-(1 + offset)].split(':')[0]
     except IndexError:
         return ()
 
 
-def stack():
+def _stack():
     return _state.get('_stack') or ()
 
 
@@ -122,48 +117,31 @@ def _module_name(fn):
     return module
 
 
-def make_fn_type(kind, rules, skip_return_check=False):
+def _make_fn_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
             return _gen_type(decoratee, kind, rules)
         fn = _fn_type(decoratee, kind, rules, skip_return_check)
-        fn.__doc__ = _format_argspec(decoratee) + ('\n' + fn.__doc__ if fn.__doc__ else '')
         return fn
     return decorator
-
-
-def _format_argspec(fn):
-    args, varargs, keywords, defaults = inspect.getargspec(fn)
-    if defaults:
-        args = args[:len(defaults)]
-        defaults = zip(args[-len(defaults):], defaults)
-        defaults = ['{}={}'.format(k, repr(v)) for k, v in defaults]
-    val = ', '.join(args)
-    if defaults:
-        val += ', ' + ', '.join(defaults)
-    if varargs:
-        val += ', *{}'.format(varargs)
-    if keywords:
-        val += ', **{}'.format(keywords)
-    return 'def {}({})'.format(fn.__name__, val)
 
 
 def _fn_type(decoratee, kind, rules, skip_return_check):
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
-        trace_funcs[kind]['in'](name, 'fn', *a, **kw)
-        with state_layer(name):
+        _trace_funcs[kind]['in'](name, 'fn', *a, **kw)
+        with _state_layer(name):
             try:
                 rules()
                 val = decoratee(*a, **kw)
                 assert type(val) != types.GeneratorType
             except:
-                trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
+                _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise
             else:
                 assert skip_return_check or val is not None, 'return data, not None, from function: {}'.format(name)
-            trace_funcs[kind]['out'](name, 'fn', val=val)
+            _trace_funcs[kind]['out'](name, 'fn', val=val)
         return val
     return decorated
 
@@ -172,23 +150,23 @@ def _gen_type(decoratee, kind, rules):
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
-        trace_funcs[kind]['in'](name, 'gen', *a, **kw)
+        _trace_funcs[kind]['in'](name, 'gen', *a, **kw)
         generator = decoratee(*a, **kw)
         assert type(generator) == types.GeneratorType
         to_send = None
         while True:
-                with state_layer(name):
+                with _state_layer(name):
                     try:
                         rules()
                         to_yield = generator.send(to_send)
                     except StopIteration as e:
-                        trace_funcs[kind]['out'](name, 'gen', val=e)
+                        _trace_funcs[kind]['out'](name, 'gen', val=e)
                         raise
                     except:
-                        trace_funcs[kind]['out'](name, 'gen', traceback=traceback.format_exc())
+                        _trace_funcs[kind]['out'](name, 'gen', traceback=traceback.format_exc())
                         raise
                     else:
-                        trace_funcs[kind]['out'](name, 'gen', val=to_yield)
+                        _trace_funcs[kind]['out'](name, 'gen', val=to_yield)
                 to_send = yield to_yield
     return decorated
 
@@ -200,29 +178,30 @@ def _rule_violation_message():
     return '\n'.join([
         '',
         '[{}:{}] {}'.format(caller.filename, caller.linenum, line),
-        'attempted illegal transtion: {} -> {}'.format(*stack()[-2:]),
-        'stack:\n{}'.format(pprint.pformat(stack())),
+        'attempted illegal transtion: {} -> {}'.format(*_stack()[-2:]),
+        '_stack:\n{}'.format(pprint.pformat(_stack())),
         '',
     ])
 
 
-def glue_rules():
-    assert state(offset=1) != 'logic', 'logic cannot contain glue\n{}'.format(_rule_violation_message())
-glue = make_fn_type('glue', glue_rules)
+def _glue_rules():
+    assert _get_state(offset=1) != 'logic', 'logic cannot contain glue\n{}'.format(_rule_violation_message())
+glue = _make_fn_type('glue', _glue_rules)
 
 
 # todo, define better the difference between glue and flow. are two types necessary?
-def flow_rules():
-    assert state(offset=1) != 'logic', 'logic cannot contain flow\n{}'.format(_rule_violation_message())
-flow = make_fn_type('flow', flow_rules)
+def _flow_rules():
+    assert _get_state(offset=1) != 'logic', 'logic cannot contain flow\n{}'.format(_rule_violation_message())
+flow = _make_fn_type('flow', _flow_rules)
 
 
-def logic_rules():
-    assert state(offset=1) != 'glue', 'glue cannot contain logic\n{}'.format(_rule_violation_message())
-logic = make_fn_type('logic', logic_rules)
+def _logic_rules():
+    assert _get_state(offset=1) != 'glue', 'glue cannot contain logic\n{}'.format(_rule_violation_message())
+logic = _make_fn_type('logic', _logic_rules)
 
 
-badfunc = make_fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
+badfunc = _make_fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
+
 
 
 def inline(*funcs):
@@ -261,7 +240,6 @@ _immutable_types = [
     types.FunctionType,
     types.LambdaType,
 ]
-
 
 
 def immutalize(decoratee):
