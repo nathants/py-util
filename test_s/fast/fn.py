@@ -2,6 +2,14 @@ import pytest
 import s
 
 
+def test_logic_immutalizes():
+    @s.fn.logic
+    def fn(x):
+        x[1] = 2
+    with pytest.raises(ValueError):
+        fn({})
+
+
 def test_stack():
     start = s.fn._stack()
     @s.fn.logic
@@ -30,7 +38,7 @@ def test_flow_in_logic():
 
 def test_immutalize():
     val = {'a': 1}
-    @s.fn.immutalize
+    @s.fn._immutalize
     def fn2(x):
         x['a'] = 3
     with pytest.raises(ValueError):
