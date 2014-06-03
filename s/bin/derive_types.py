@@ -82,7 +82,7 @@ def _main(where, no_parse_types=False, regex='.*'):
                     if _proceed(k, v, module_name):
                         x = set()
                         module.__dict__[k] = _logit(x, no_parse_types)(v)
-                        _data[k] = v.__doc__, x
+                        _data[k] = x
 
     _state['doit'] = True
     for path in testpaths:
@@ -93,11 +93,11 @@ def _main(where, no_parse_types=False, regex='.*'):
 
         text = ''
 
-        for name, (signature, usages) in results.items():
-            if not usages or not re.search(regex, path + name):
+        for name, usages in sorted(results.items()):
+            if not re.search(regex, path + name):
                 continue
 
-            text += '\n\n {}'.format(s.colors.blue(signature or name))
+            text += '\n\n {}'.format(s.colors.blue(name))
             val = []
             for a, kw, res in usages:
                 args = kwargs = ''
