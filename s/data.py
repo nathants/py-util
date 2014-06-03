@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 import s
 import types
-import functools
 
 
 _banned_attrs_dict = [
