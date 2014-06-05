@@ -5,6 +5,7 @@ import s
 import types
 import argh
 import logging
+import random
 
 
 _state = {'doit': False}
@@ -42,14 +43,14 @@ def _logit(val, no_parse_types):
 
                 if _state['doit']:
                     if no_parse_types:
-                        val.add((tuple(str(x) for x in _a),
+                        val.append((tuple(str(x) for x in _a),
                                  (tuple((str(k), str(v)) for k, v in _kw.items())),
                                  str(_res)))
 
                     else:
-                        val.add((tuple(_cleanup(s.types.parse(x)) for x in _a),
-                                 tuple((_cleanup(k), _cleanup(s.types.parse(v))) for k, v in _kw.items()),
-                                 _cleanup(s.types.parse(_res))))
+                        val.append((tuple(s.types.parse(x) for x in _a),
+                                    tuple((k, s.types.parse(v)) for k, v in _kw.items()),
+                                    s.types.parse(_res)))
 
                 return res
             except:
@@ -80,7 +81,7 @@ def _main(where, no_parse_types=False, regex='.*'):
             for k, v in module.__dict__.items():
                 if k not in ['__builtins__', '__builtin__']:
                     if _proceed(k, v, module_name):
-                        x = set()
+                        x = []
                         module.__dict__[k] = _logit(x, no_parse_types)(v)
                         _data[k] = x
 
@@ -98,16 +99,55 @@ def _main(where, no_parse_types=False, regex='.*'):
                 continue
 
             text += '\n\n {}'.format(s.colors.blue(name))
-            val = []
+            val = set()
+
+            def _len(x):
+                try:
+                    return len(x)
+                except:
+                    return random.random()
+
+            same_a = all(_len(usages[0][0]) == _len(x[0])
+                         or type(usages[0][0]) == type(x[0])
+                         for x in usages)
+
+            same_kw = all(_len(usages[0][1]) == _len(x[1])
+                          or type(usages[0][1]) == type(x[1])
+                          for x in usages)
+
+            same_res = all(_len(usages[0][2]) == _len(x[2])
+                           or type(usages[0][2]) == type(x[2])
+                           for x in usages)
+
+            def simplify(x):
+                if type(x) is type:
+                    return x.__name__
+                else:
+                    return type(x).__name__
+
+
+            if usages and same_a and same_kw and same_res:
+                # todo this is failing for only
+                text += ' '
+                a, kw, res = usages[0]
+                if a:
+                    text += '({})'.format(', '.join(simplify(x) for x in a))
+                if kw:
+                    kw = ', '.join('{}={}'.format(k, simplify(v)) for k, v in kw.items())
+                    if a:
+                        kw = ', ' + kw
+                    text += kw
+                text += ' -> {}'.format(simplify(res))
+
             for a, kw, res in usages:
                 args = kwargs = ''
                 if a:
-                    args = ', '.join(a)
+                    args = ', '.join(map(_cleanup, a))
                 if kw:
-                    kwargs = ', '.join('{}={}'.format(k, v) for k, v in kw)
+                    kwargs = ', '.join('{}={}'.format(_cleanup(k), _cleanup(v)) for k, v in kw)
                     if a:
                         kwargs = ', ' + kwargs
-                val.append('\n  ({}{}) -> {}'.format(args, kwargs, res))
+                val.add('\n  ({}{}) -> {}'.format(args, kwargs, _cleanup(res)))
             text += ''.join(sorted(val))
 
         if text:
