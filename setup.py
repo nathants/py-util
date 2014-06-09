@@ -13,7 +13,7 @@ package_data = {'': ['/'.join(os.path.join(path, file).split('/')[1:])
 
 
 kwargs = dict(
-    version="2",
+    version="0.0.1",
     license='mit',
     name="shared",
     author='nathan todd-stone',
