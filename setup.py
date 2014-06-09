@@ -26,6 +26,14 @@ kwargs = dict(
         'auto-test = s.bin.auto_test:main',
         'derive-types = s.bin.derive_types:main',
     ]},
+    install_requires=[
+        'argh',
+        'blessed',
+        'pager',
+        'pytest',
+        'tornado',
+        'futures',
+    ]
 )
 
 
