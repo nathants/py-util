@@ -25,17 +25,17 @@ def stringify(x):
 
 class ModuleRedirector(object):
     def __init__(self, name, fn, redirect_everything=False):
-        self.__orig_module = sys.modules[name]
+        self._orig_module_ = sys.modules[name]
         sys.modules[name] = self
-        self.__everything = redirect_everything
-        self.__fn = fn
+        self._everything_ = redirect_everything
+        self._fn_ = fn
 
     def __getattr__(self, name):
         try:
-            assert not self.__everything
-            return getattr(self.__orig_module, name)
+            assert not self._everything_
+            return getattr(object.__getattribute__(self, '_orig_module_'), name)
         except (AssertionError, AttributeError):
-            return self.__fn(name)
+            return object.__getattribute__(self, '_fn_')(name)
 
 
 def decorate(val, _name_, decorator):
