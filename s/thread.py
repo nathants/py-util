@@ -4,6 +4,9 @@ import concurrent.futures
 import s
 
 
+# todo better management of changing pool size mid program, and choosing whether to replace existing or create new pool
+
+
 _size = 50
 
 
@@ -35,6 +38,7 @@ def _submit_factory(cls, _globals):
     return _submit
 
 
+# todo is this complected? just pass values instead of globals? benefit to globals?
 submit = _submit_factory(concurrent.futures.ThreadPoolExecutor, globals())
 
 
