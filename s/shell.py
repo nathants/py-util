@@ -48,8 +48,6 @@ def _readlines(proc, *callbacks):
         cb(proc.stdout.readline().rstrip())
     for line in proc.communicate()[0].strip().splitlines(): # sometimes the last line disappears, especially when there is very little stdout
         cb(line.rstrip())
-    if len(lines) == 1:
-        lines = lines[:1]
     return '\n'.join(lines)
 
 
