@@ -33,6 +33,7 @@ kwargs = dict(
         'pytest',
         'tornado',
         'futures',
+        'requests',
     ]
 )
 
