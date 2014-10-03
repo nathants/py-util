@@ -1,4 +1,6 @@
 from __future__ import absolute_import, print_function
+import six
+import yaml
 import subprocess
 import contextlib
 import os
@@ -82,7 +84,7 @@ def run(*a, **kw):
         output = _readlines(proc, logging_cb, user_cb)
         if warn:
             logging_cb('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
-            return collections.namedtuple('shell_output', 'output exitcode')(output, proc.returncode)
+            return {'output': output, 'exitcode': proc.returncode}
         elif proc.returncode != 0:
             output = output if not stream else ''
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
@@ -123,7 +125,6 @@ def climb_git_root(where='.'):
 def git_root(where='.'):
     with climb_git_root(where):
         return os.getcwd()
-
 
 
 @contextlib.contextmanager
@@ -242,3 +243,31 @@ def _module_name(filepath, climb_data):
     if parts[-1] == '__init__':
         parts = parts[:-1]
     return '.'.join(parts)
+
+
+def _pref_path(__file__):
+    __file__ = os.path.abspath(os.path.expanduser(__file__))
+    name = '.{}.{}.{}.yaml'.format(*map(os.path.basename, [
+        os.path.dirname(os.path.dirname(__file__)),
+        os.path.dirname(__file__),
+        __file__.replace('.py', ''),
+    ]))
+    return os.path.join(os.environ['HOME'], name)
+
+
+def get_or_prompt_pref(key, __file__, default=None):
+    path = _pref_path(__file__)
+    try:
+        with open(path) as _file:
+            data = yaml.safe_load(_file)
+    except IOError:
+        data = {}
+
+    try:
+        return data[key]
+    except KeyError:
+        default = 'or default: {}'.format(default) if default else ''
+        data[key] = six.moves.input('value for {key} {default}? '.format(**locals()))
+        with open(path, 'w') as _file:
+            yaml.dump(data, _file, default_flow_style=False)
+        return data[key]

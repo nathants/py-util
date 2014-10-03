@@ -10,7 +10,7 @@ import s
 import itertools as i
 
 
-_max_seconds = .0075
+_max_seconds = .01
 
 
 @s.fn.logic
@@ -105,13 +105,13 @@ def _result(result, path, seconds):
     pred = lambda x: not x.startswith('test_')
     path = itertools.dropwhile(pred, path.split('/'))
     path = '.'.join(path)
-    return collections.namedtuple('result', 'result path seconds')(result, path, seconds)
+    return s.dicts.new(locals(), 'result', 'path', 'seconds')
 
 
 @s.fn.glue
 def _run_test(path, name, test):
     _bak = s.fn._state.get('_stack')
-    s.fn._state['_stack'] = None # mock out _stack, since its used *here* as well
+    s.fn._state['_stack'] = None # stub out _stack, since its used *here* as well
     with s.time.timer() as t:
         try:
             test()
@@ -123,7 +123,7 @@ def _run_test(path, name, test):
             except:
                 val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!'
     if not val and t['seconds'] > _max_seconds:
-        val = ' {} took {} seconds, slower than max seconds {}'.format(name, t['seconds'], _max_seconds)
+        val = ' {} took {} seconds, slower than max seconds {}'.format(name, round(t['seconds'], 3), _max_seconds)
     s.fn._state['_stack'] = _bak
     return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
 
@@ -162,7 +162,7 @@ def _pytest_insight(test_file, query):
         list,
         reversed,
         list,
-        lambda x: ['-' * 80] + x + ['-' * 80],
+        lambda x: ['-' * 40] + x + ['-' * 40],
         '\n'.join,
     )
 
