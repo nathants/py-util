@@ -1,0 +1,8 @@
+argh
+blessed
+pager
+pytest
+tornado
+futures
+requests
+pyaml
