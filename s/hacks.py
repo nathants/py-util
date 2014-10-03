@@ -1,12 +1,15 @@
 from __future__ import absolute_import, print_function
 import sys
+import six
 import inspect
 import collections
 
 
 def get_caller(offset=0):
-    _, filename, lineum, funcname, _, _ = inspect.stack()[offset]
-    return collections.namedtuple('caller', 'filename linenum funcname')(filename, lineum, funcname)
+    _, filename, linenum, funcname, _, _ = inspect.stack()[offset]
+    return {'filename': filename,
+            'linenum': linenum,
+            'funcname': funcname}
 
 
 def string_type():
@@ -17,7 +20,7 @@ def string_type():
 
 
 def stringify(x):
-    if sys.version_info < (3,):
+    if six.PY2:
         return x
     if isinstance(x, bytes):
         return x.decode('utf-8')
