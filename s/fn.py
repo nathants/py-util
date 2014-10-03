@@ -21,7 +21,8 @@ _json_types = (list,
                dict,
                int,
                float,
-               tuple)
+               tuple,
+               bool)
 try:
     _json_types += (unicode,)
 except:
@@ -131,18 +132,19 @@ def _fn_type(decoratee, kind, rules, skip_return_check, immutalize):
         decoratee = _immutalize(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
+        # TODO assert all args are _json_types
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         _trace_funcs[kind]['in'](name, 'fn', *a, **kw)
         with _state_layer(name):
             try:
                 rules()
                 val = decoratee(*a, **kw)
-                assert type(val) != types.GeneratorType
+                assert not isinstance(val, types.GeneratorType)
             except:
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise
             else:
-                assert skip_return_check or val is not None, 'return data, not None, from function: {}'.format(name)
+                assert skip_return_check or isinstance(val, _json_types), 'must return primitive data from function: {}'.format(name)
             _trace_funcs[kind]['out'](name, 'fn', val=val)
         return val
     return decorated
@@ -153,15 +155,17 @@ def _gen_type(decoratee, kind, rules, immutalize):
         decoratee = _immutalize(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
+        # TODO assert args are _json_types
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         _trace_funcs[kind]['in'](name, 'gen', *a, **kw)
         generator = decoratee(*a, **kw)
-        assert type(generator) == types.GeneratorType
+        assert isinstance(generator, types.GeneratorType)
         to_send = None
         while True:
                 with _state_layer(name):
                     try:
                         rules()
+                        # TODO assert to_send is _json_types or None
                         to_yield = generator.send(to_send)
                     except StopIteration as e:
                         _trace_funcs[kind]['out'](name, 'gen', val=e)
@@ -171,17 +175,18 @@ def _gen_type(decoratee, kind, rules, immutalize):
                         raise
                     else:
                         _trace_funcs[kind]['out'](name, 'gen', val=to_yield)
+                # TODO assert to_yield is _json_types
                 to_send = yield to_yield
     return decorated
 
 
 def _rule_violation_message():
     caller = s.hacks.get_caller(4)
-    with open(caller.filename) as fio:
-        line = fio.read().splitlines()[caller.linenum - 1].strip()
+    with open(caller['filename']) as fio:
+        line = fio.read().splitlines()[caller['linenum'] - 1].strip()
     return '\n'.join([
         '',
-        '[{}:{}] {}'.format(caller.filename, caller.linenum, line),
+        '[{}:{}] {}'.format(caller['filename'], caller['linenum'], line),
         'attempted illegal transtion: {} -> {}'.format(*_stack()[-2:]),
         '_stack:\n{}'.format(pprint.pformat(_stack())),
         '',
@@ -205,7 +210,6 @@ logic = _make_fn_type('logic', _logic_rules, immutalize=True)
 
 
 badfunc = _make_fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
-
 
 
 def inline(*funcs):
