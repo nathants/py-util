@@ -56,37 +56,37 @@ def test_glue_in_logic():
         logic()
 
 
-def f(x, *a):
+def _plus_one(x, *a):
     return x + 1
-def g(x):
+
+
+def _times_two(x):
     return x * 2
-def h(x):
+
+
+def _three_minus(x):
     return 3 - x
-def f2(x, y):
-    return x - y
-def g2(x, y):
-    return x * y
 
 
 def test_inline():
-    assert s.fn.inline(f, g, h)(1) == -1
-    assert s.fn.inline(f, g, h)(1) == h(g(f(1)))
-    assert s.fn.inline(h, g, f)(1) == 5
-    assert s.fn.inline(h, g, f)(1) == f(g(h(1)))
+    assert s.fn.inline(_plus_one, _times_two, _three_minus)(1) == -1
+    assert s.fn.inline(_plus_one, _times_two, _three_minus)(1) == _three_minus(_times_two(_plus_one(1)))
+    assert s.fn.inline(_three_minus, _times_two, _plus_one)(1) == 5
+    assert s.fn.inline(_three_minus, _times_two, _plus_one)(1) == _plus_one(_times_two(_three_minus(1)))
 
 
 def test_inline_noncallable():
     with pytest.raises(AssertionError):
-        s.fn.inline(h, g, 1)(1)
+        s.fn.inline(_three_minus, _times_two, 1)(1)
 
 
 def test_thrush():
-    assert s.fn.thrush(1, f, g, h) == -1
+    assert s.fn.thrush(1, _plus_one, _times_two, _three_minus) == -1
 
 
 def test_thread_noncallable():
     with pytest.raises(AssertionError):
-        s.fn.thrush(1, f, g, 2)
+        s.fn.thrush(1, _plus_one, _times_two, 2)
 
 
 def test_logic_generator():
