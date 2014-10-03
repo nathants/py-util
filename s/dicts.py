@@ -2,6 +2,10 @@ from __future__ import absolute_import, print_function
 import copy
 
 
+def new(scope, *names):
+    return {name: scope[name] for name in names}
+
+
 def get(x, *ks):
     ks = _ks(ks)
     x = x[ks[0]]
@@ -35,7 +39,7 @@ def merge(a, b, concat=True):
 def only(x, *ks, **kw):
     val = {k: x[k] for k in x if k in ks}
     if 'padded' in kw:
-         val = merge({k: kw['padded'] for k in ks}, val)
+        val = merge({k: kw['padded'] for k in ks}, val)
     return val
 
 
@@ -45,10 +49,10 @@ def drop(x, *ks):
 
 def _ks(ks):
     if isinstance(ks, list):
-        ks = tuple(ks)
-    elif not isinstance(ks, tuple):
-        raise TypeError('ks must be a tuple of keys')
-    return ks
+        return tuple(ks)
+    elif isinstance(ks, tuple):
+        return ks
+    raise TypeError('ks must be a list of keys')
 
 
 def _concatable(*xs):
