@@ -13,6 +13,8 @@ _port = 8888
 
 def _server():
     class Handler(tornado.websocket.WebSocketHandler):
+        def check_origin(self, origin):
+            return True
         def open(self):
             _conns.append(self)
         def on_close(self):
@@ -23,18 +25,19 @@ def _server():
 
 
 def _view(test_data):
-    failures = [x.result for x in test_data if x.result]
+    failures = [x['result'] for x in test_data if x['result']]
     color = s.colors.red if failures else s.colors.green
-    name = test_data[0].path.split(':')[0]
+    name = test_data[0]['path'].split(':')[0]
     val = color(name)
     for failure in failures:
         val += '\n' + failure
     return val
 
 
+@s.fn.badfunc
 def _write_to_conns(test_datas):
     message = 'green'
-    if any(y.result for x in test_datas for y in x):
+    if any(y['result'] for x in test_datas for y in x):
         message = 'red'
     for c in _conns:
         c.write_message(message)
@@ -65,6 +68,7 @@ def _main():
     with terminal.fullscreen():
         with terminal.hidden_cursor():
             _app(terminal)
+
 
 def main():
     argh.dispatch_command(_main)
