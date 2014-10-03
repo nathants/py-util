@@ -6,6 +6,8 @@ import logging
 import logging.handlers
 import s
 import time
+import contextlib
+
 
 _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
 
@@ -78,16 +80,13 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
     [logging.root.removeHandler(x) for x in logging.root.handlers]
     [logging.root.addHandler(x) for x in handlers]
     logging.root.setLevel('TRACE')
-
-
-
-    # todo how to make logging config immutable? no one should be able to manipulate logging after this call
+    # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
 
 
 def _get_debug_path(name):
     caller = s.hacks.get_caller(4)
-    funcname = caller.funcname if caller.funcname != '<module>' else '__main__'
-    name = s.shell.module_name(caller.filename)
+    funcname = caller['funcname'] if caller['funcname'] != '<module>' else '__main__'
+    name = s.shell.module_name(caller['filename'])
     return '/tmp/{}:{}:{}:debug.log'.format(name, funcname, time.time())
 
 
@@ -97,7 +96,6 @@ try:
 except NameError:
     _pretty_main_skip_types = str, bytes
     _pretty_arg_skip_types = str, bytes, int, float
-
 
 
 def _pprint(record):
@@ -205,3 +203,20 @@ class _Formatter(logging.Formatter):
     def format(self, record):
         record._pprint = self.pprint
         return logging.Formatter.format(self, _process_record(record))
+
+
+@contextlib.contextmanager
+def disable(*loggers):
+    levels = []
+    for name in loggers:
+        assert isinstance(name, str), 'loggers must be a list of string names of loggers '
+        logger = logging.getLogger(name)
+        levels.append(logger.level)
+        logger.setLevel('CRITICAL')
+    try:
+        yield
+    except:
+        raise
+    finally:
+        for level, name in zip(levels, loggers):
+            logging.getLogger(name).setLevel(level)
