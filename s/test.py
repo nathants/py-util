@@ -10,9 +10,6 @@ import s
 import itertools as i
 
 
-_max_seconds = .01
-
-
 @s.fn.logic
 def _test_file(code_file):
     assert not code_file.startswith('/')
@@ -112,20 +109,20 @@ def _result(result, path, seconds):
 def _run_test(path, name, test):
     _bak = s.fn._state.get('_stack')
     s.fn._state['_stack'] = None # stub out _stack, since its used *here* as well
-    with s.time.timer() as t:
-        try:
-            test()
-            val = False
-        except:
-            tb = traceback.format_exc()
+    try:
+        with s.time.timer() as t:
             try:
-                val = _pytest_insight(path, name)
+                test()
+                val = False
             except:
-                val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!'
-    if not val and t['seconds'] > _max_seconds:
-        val = ' {} took {} seconds, slower than max seconds {}'.format(name, round(t['seconds'], 3), _max_seconds)
-    s.fn._state['_stack'] = _bak
-    return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
+                tb = traceback.format_exc()
+                try:
+                    val = _pytest_insight(path, name)
+                except:
+                    val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
+        return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
+    finally:
+        s.fn._state['_stack'] = _bak
 
 
 @s.fn.flow
@@ -149,12 +146,12 @@ def _test(path):
 @s.fn.flow
 def _pytest_insight(test_file, query):
     val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
-    assert not any(x.startswith('ERROR: file not found:') for x in val.output.splitlines())
-    assert not any(x.startswith('ERROR: not found:') for x in val.output.splitlines())
+    assert not any(x.startswith('ERROR: file not found:') for x in val['output'].splitlines())
+    assert not any(x.startswith('ERROR: not found:') for x in val['output'].splitlines())
     assert os.path.isfile(test_file)
     assert val['exitcode'] != 0
     return s.fn.thrush(
-        val.output,
+        val['output'],
         str.splitlines,
         reversed,
         lambda x: i.dropwhile(lambda y: y.startswith('===='), x),
