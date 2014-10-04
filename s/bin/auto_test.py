@@ -9,6 +9,7 @@ import argh
 
 _conns = []
 _port = 8888
+_max_seconds = .01
 
 
 def _server():
@@ -26,11 +27,15 @@ def _server():
 
 def _view(test_data):
     failures = [x['result'] for x in test_data if x['result']]
-    color = s.colors.red if failures else s.colors.green
+    slows = ['{} ran in {}s, max is {}s'.format(x['path'],
+                                                x['seconds'],
+                                                _max_seconds)
+             for x in test_data if x['seconds'] > _max_seconds]
+    color = s.colors.red if failures or slows else s.colors.green
     name = test_data[0]['path'].split(':')[0]
     val = color(name)
-    for failure in failures:
-        val += '\n' + failure
+    for fail in failures + slows:
+        val += '\n' + s.strings.indent(fail, 2)
     return val
 
 
