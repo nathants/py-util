@@ -84,7 +84,7 @@ for name in ['glue', 'flow', 'badfunc']:
 
 @contextlib.contextmanager
 def _state_layer(name):
-    _bak = _state['_stack'] = _state.get('_stack') or ()
+    _backup_stack = _state['_stack'] = _state.get('_stack') or ()
     _state['_stack'] += (name,)
     try:
         yield
@@ -92,8 +92,8 @@ def _state_layer(name):
         raise
     finally:
         _val = _state['_stack'][:-1]
-        assert _val == _bak, '{} != {}'.format(_val, _bak)
-        _state['_stack'] = _bak
+        assert _val == _backup_stack, 'stack mutated during function call: {} != {}'.format(_val, _backup_stack)
+        _state['_stack'] = _backup_stack
 
 
 def _get_state(offset=0):
