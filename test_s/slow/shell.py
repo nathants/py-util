@@ -44,7 +44,7 @@ def test_echo():
 
 
 def test_exitcode():
-    assert 1 == s.shell.run('false', warn=True).exitcode
+    assert 1 == s.shell.run('false', warn=True)['exitcode']
 
 
 def test_excepts():

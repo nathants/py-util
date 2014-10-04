@@ -184,7 +184,7 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     run('sudo rm -f /tmp/tmp.sh')
     with open('/tmp/tmp.sh', 'w') as file:
         file.write(cmd)
-    if run('sh -n /tmp/tmp.sh', warn=True).exitcode != 0:
+    if run('sh -n /tmp/tmp.sh', warn=True)['exitcode'] != 0:
         raise Exception('cmd is invalid: {}'.format(cmd))
     run('sudo touch', name)
     run('sudo chmod ugo+rw', name)

@@ -60,7 +60,7 @@ def test1():
 1/0
 """)
     val = s.test._test('test_foo.py')
-    assert 'IndentationError: expected an indented block' in val[0].result
+    assert 'IndentationError: expected an indented block' in val[0]['result']
 
 
 def test_fail():
@@ -71,7 +71,7 @@ def test1():
    assert x == y
 """)
     val = s.test._test('test_foo.py')
-    assert val[0].result.splitlines()[-3].endswith("assert 1 == 3") # make sure we are getting the _pytest_insight output
+    assert val[0]['result'].splitlines()[-3].endswith("assert 1 == 3") # make sure we are getting the _pytest_insight output
 
 
 def test_pass():
@@ -81,7 +81,7 @@ def test1():
    x, y = 1, 1
    assert x == y
 """)
-    assert not s.test._test('test_foo.py')[0].result
+    assert not s.test._test('test_foo.py')[0]['result']
 
 
 def test_run_tests_once_fail():
@@ -100,7 +100,7 @@ def test2():
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
     val = s.test.run_tests_once()
     assert len(val) == 3
-    assert len([x for x in val if x[0].result]) == 1
+    assert len([x for x in val if x[0]['result']]) == 1
 
 
 def test_run_tests_once_pass():
@@ -117,7 +117,7 @@ def test2():
     pass
 """)
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
-    assert [x[0].result for x in s.test.run_tests_once()] == [None, False, False]
+    assert [x[0]['result'] for x in s.test.run_tests_once()] == [None, False, False]
 
 
 def test_climb_git_root():

@@ -152,7 +152,7 @@ def _pytest_insight(test_file, query):
     assert not any(x.startswith('ERROR: file not found:') for x in val.output.splitlines())
     assert not any(x.startswith('ERROR: not found:') for x in val.output.splitlines())
     assert os.path.isfile(test_file)
-    assert val.exitcode != 0
+    assert val['exitcode'] != 0
     return s.fn.thrush(
         val.output,
         str.splitlines,
