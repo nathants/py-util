@@ -18,6 +18,6 @@ setuptools.setup(
         )
         for x in os.listdir('s/bin')
         if not x.startswith('_')
-        and x.endswith('.py')
+        and not x.endswith('.pyc')
     ]},
 )
