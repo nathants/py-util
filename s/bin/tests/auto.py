@@ -4,7 +4,6 @@ import tornado.websocket
 import tornado.ioloop
 import tornado.web
 import s
-import argh
 
 
 _conns = []
@@ -58,6 +57,7 @@ def _print(terminal, text):
 def _app(terminal):
     last = None
     for test_datas in s.test.run_tests_auto():
+        print(_write_to_conns, '?')
         _write_to_conns(test_datas)
         text = '\n'.join(map(_view, test_datas))
         if text != last:
@@ -65,7 +65,7 @@ def _app(terminal):
         _print(terminal, text)
 
 
-def _main():
+def main():
     s.log.setup()
     assert s.net.port_free(_port), 'something already running on port: {}'.format(_port)
     s.thread.new(_server)
@@ -73,7 +73,3 @@ def _main():
     with terminal.fullscreen():
         with terminal.hidden_cursor():
             _app(terminal)
-
-
-def main():
-    argh.dispatch_command(_main)
