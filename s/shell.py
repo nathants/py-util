@@ -5,7 +5,6 @@ import subprocess
 import contextlib
 import os
 import s
-import collections
 import random
 import string
 import time
@@ -13,7 +12,7 @@ import argh
 import types
 
 
-# todo use https://pypi.python.org/pypi/subprocess32/ on python2.7
+# TODO use https://pypi.python.org/pypi/subprocess32/ on python2.7
 
 
 _state = {}
@@ -208,6 +207,7 @@ def dispatch_commands(_globals, _name_):
         if isinstance(v, types.FunctionType)
         and v.__module__ == _name_
         and not k.startswith('_')
+        and k != 'main'
     ], key=lambda x: x.__name__))
 
 
