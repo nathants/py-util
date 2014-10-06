@@ -65,7 +65,7 @@ def _app(terminal):
         _print(terminal, text)
 
 
-def main():
+def auto():
     s.log.setup()
     assert s.net.port_free(_port), 'something already running on port: {}'.format(_port)
     s.thread.new(_server)
