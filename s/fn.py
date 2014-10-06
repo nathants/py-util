@@ -22,7 +22,8 @@ _json_types = (list,
                int,
                float,
                tuple,
-               bool)
+               bool,
+               type(None))
 try:
     _json_types += (unicode,)
 except:
