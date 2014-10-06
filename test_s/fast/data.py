@@ -17,6 +17,7 @@ def test_immutalize_set():
     x.add(4)
     assert y == {1, 2, 3}
 
+
 def test_immutalize_nested():
     x = {1}
     y = s.data.immutalize({'val': x})

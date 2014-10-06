@@ -19,7 +19,7 @@ def test_stack():
     @s.fn.logic
     def fn2():
         assert s.fn._stack() == ('logic:{}:fn1'.format(__name__),
-                                'logic:{}:fn2'.format(__name__))
+                                 'logic:{}:fn2'.format(__name__))
         return True
     fn1()
     assert s.fn._stack() == start

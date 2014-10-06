@@ -44,8 +44,8 @@ def _logit(val, no_parse_types):
                 if _state['doit']:
                     if no_parse_types:
                         val.append((tuple(str(x) for x in _a),
-                                 (tuple((str(k), str(v)) for k, v in _kw.items())),
-                                 str(_res)))
+                                   (tuple((str(k), str(v)) for k, v in _kw.items())),
+                                   str(_res)))
 
                     else:
                         val.append((tuple(s.types.parse(x) for x in _a),
@@ -59,11 +59,11 @@ def _logit(val, no_parse_types):
         return decorated
     return decorator
 
+
 def _proceed(k, v, module_name):
-    return (type(v) is types.FunctionType
+    return (isinstance(v, types.FunctionType)
             and getattr(v, '__module__', None) == module_name
             and not k.startswith('_'))
-
 
 
 @argh.arg('where', nargs='?', default='.')
@@ -125,7 +125,6 @@ def _main(where, no_parse_types=False, regex='.*'):
                 else:
                     return type(x).__name__
 
-
             if usages and same_a and same_kw and same_res:
                 # todo this is failing for only
                 text += ' '
@@ -152,7 +151,6 @@ def _main(where, no_parse_types=False, regex='.*'):
 
         if text:
             logging.info('\n' + s.colors.green(path) + text)
-
 
 
 def main():

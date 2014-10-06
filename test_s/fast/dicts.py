@@ -14,6 +14,7 @@ def test_merge():
                          {1: {4: 5}}) == {1: {2: 3,
                                               4: 5}}
 
+
 def test_merge_simple():
     assert s.dicts.merge({1: 2},
                          {1: 3, 2: 4}) == {1: 3, 2: 4}
@@ -37,6 +38,7 @@ def test_only():
 
 def test_only_padded():
     assert s.dicts.only({1: True}, 1, 2, 3, padded=None) == {1: True, 2: None, 3: None}
+
 
 def test_drop():
     assert s.dicts.drop({1: 1, 2: 2}, 1) == {2: 2}

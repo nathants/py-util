@@ -56,9 +56,9 @@ def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=Tr
     output = ['path: {}'.format(path),
               'index: {}'.format(index)]
     for data, highlight in vals:
-         output += ['',
-                    _header(data, highlight),
-                    _body(data, hidden_keys, pretty, max_lines)]
+        output += ['',
+                   _header(data, highlight),
+                   _body(data, hidden_keys, pretty, max_lines)]
     return '\n'.join(output)
 
 
@@ -184,7 +184,6 @@ def _main(file_or_regex):
         except:
             print('no debug logs found')
             sys.exit(1)
-
 
     t = blessed.Terminal()
     with t.fullscreen():

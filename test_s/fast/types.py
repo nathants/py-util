@@ -1,5 +1,4 @@
 import s
-import pytest
 
 
 def setup_module():
@@ -54,7 +53,7 @@ def test_tuples():
 
 def test_list_fill_empties():
     assert s.types.parse([['asdf', ['asdf'], []],
-                          ['asdf', ['asdf'], ['asdf']],]) == [[str, [str], [str]]]
+                          ['asdf', ['asdf'], ['asdf']]]) == [[str, [str], [str]]]
 
 
 def test_list_repeats():
@@ -96,7 +95,7 @@ def test_dict_duplicate_keys():
 
 
 def test_dict_duplicate_keys_ordering():
-    assert s.types.parse({1: False, 2: None}) == {(int,0): bool, (int,1): type(None)}
+    assert s.types.parse({1: False, 2: None}) == {(int, 0): bool, (int, 1): type(None)}
 
 
 def test_dict_matching_duplicates():
