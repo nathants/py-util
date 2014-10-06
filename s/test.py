@@ -4,7 +4,6 @@ import time
 import itertools
 import types
 import traceback
-import collections
 import os
 import s
 import itertools as i
@@ -229,8 +228,10 @@ def run_tests_auto():
         predicate = lambda f: (f.endswith('.py')
                                and not f.startswith('.')
                                and '_flymake' not in f)
-        val = s.shell.walk_files_mtime(dirs, predicate)
-        modules = [s.shell.module_name(x) for x, _ in val]
+        orig = s.shell.walk_files_mtime(dirs, predicate)
+        # TODO update modules when orig.filepaths != now.filepaths
+        # module_name() hits disk, so should call it rarely or pay penalty
+        modules = [s.shell.module_name(x['filepath']) for x in orig]
         last = None
         while True:
             now = s.shell.walk_files_mtime(dirs, predicate)
