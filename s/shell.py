@@ -193,7 +193,8 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
 
 
 def walk_files_mtime(directories=['.'], predicate=lambda filepath: True):
-    return [(os.path.join(path, f), os.stat(os.path.join(path, f)).st_mtime)
+    return [{'filepath': os.path.join(path, f),
+             'mtime': os.stat(os.path.join(path, f)).st_mtime}
             for d in directories
             for path, _, files in os.walk(d)
             for f in files
