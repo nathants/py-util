@@ -170,11 +170,11 @@ def tempdir(cleanup=True, intemp=True):
 def cron_rm_path_later(path, hours):
     cmd = "python -c 'import time; assert {} + 60 * 60 * {}  < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), hours, path)
     when = '{} * * * *'.format(random.randint(0, 59))
-    cron(path, when, cmd, selfdestruct=True)
+    cron(path.replace('/', '_'), when, cmd, selfdestruct=True)
 
 
 def cron(name, when, cmd, user='root', selfdestruct=False):
-    if os.path.isdir('/etc/cron.d'):
+    if not os.path.isdir('/etc/cron.d'):
         return
     assert name not in os.listdir('/etc/cron.d'), '"{}" already exists in /etc/cron.d'.format(name)
     name = '/etc/cron.d/{}'.format(name)
