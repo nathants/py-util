@@ -6,7 +6,7 @@ import s
 _color = re.compile(r'\$(red|green|blue|cyan|yellow|magenta)\(')
 
 
-def color(text): # todo 'red(foo yellow(123) bar)' doesnt work right
+def color(text):
     while True:
         try:
             head, color, tail = _color.split(text, 1)
