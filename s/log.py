@@ -181,7 +181,7 @@ class _NotTrace(logging.Filter):
 
 def _process_record(record):
     if not hasattr(record, '_processed'):
-        record = s.fn.thrush(
+        record = s.func.thrush(
             record,
             _ensure_args_list,
             _pprint,

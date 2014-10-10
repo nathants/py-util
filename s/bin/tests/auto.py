@@ -38,7 +38,7 @@ def _view(test_data):
     return val
 
 
-@s.fn.badfunc
+@s.func.bad
 def _write_to_conns(test_datas):
     message = 'green'
     if any(y['result'] for x in test_datas for y in x):

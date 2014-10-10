@@ -125,10 +125,10 @@ def test_climb_git_root():
         path = os.getcwd()
         s.shell.run('mkdir .git')
         with s.shell.cd('a/b/c'):
-            assert path == s.fn.thrush(
+            assert path == s.func.thrush(
                 s.shell.climb(),
                 s.test._git_root,
             )
 
 
-s.hacks.decorate(globals(), __name__, s.fn.badfunc)
+s.hacks.decorate(globals(), __name__, s.func.bad)

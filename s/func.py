@@ -79,7 +79,7 @@ _trace_funcs = {
 }
 
 
-for name in ['glue', 'flow', 'badfunc']:
+for name in ['glue', 'flow', 'bad']:
     _trace_funcs[name] = _trace_funcs['logic']
 
 
@@ -210,7 +210,7 @@ def _logic_rules():
 logic = _make_fn_type('logic', _logic_rules, immutalize=True)
 
 
-badfunc = _make_fn_type('badfunc', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
+bad = _make_fn_type('bad', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
 
 
 def inline(*funcs):

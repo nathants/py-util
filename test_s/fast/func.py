@@ -3,7 +3,7 @@ import s
 
 
 def test_logic_immutalizes():
-    @s.fn.logic
+    @s.func.logic
     def fn(x):
         x[1] = 2
     with pytest.raises(ValueError):
@@ -11,25 +11,25 @@ def test_logic_immutalizes():
 
 
 def test_stack():
-    start = s.fn._stack()
-    @s.fn.logic
+    start = s.func._stack()
+    @s.func.logic
     def fn1():
-        assert s.fn._stack() == ('logic:{}:fn1'.format(__name__),)
+        assert s.func._stack() == ('logic:{}:fn1'.format(__name__),)
         return fn2()
-    @s.fn.logic
+    @s.func.logic
     def fn2():
-        assert s.fn._stack() == ('logic:{}:fn1'.format(__name__),
-                                 'logic:{}:fn2'.format(__name__))
+        assert s.func._stack() == ('logic:{}:fn1'.format(__name__),
+                                   'logic:{}:fn2'.format(__name__))
         return True
     fn1()
-    assert s.fn._stack() == start
+    assert s.func._stack() == start
 
 
 def test_flow_in_logic():
-    @s.fn.flow
+    @s.func.flow
     def flow():
         return True
-    @s.fn.logic
+    @s.func.logic
     def logic():
         flow()
     with pytest.raises(AssertionError):
@@ -38,7 +38,7 @@ def test_flow_in_logic():
 
 def test_immutalize():
     val = {'a': 1}
-    @s.fn._immutalize
+    @s.func._immutalize
     def fn2(x):
         x['a'] = 3
     with pytest.raises(ValueError):
@@ -46,10 +46,10 @@ def test_immutalize():
 
 
 def test_glue_in_logic():
-    @s.fn.glue
+    @s.func.glue
     def glue():
         return True
-    @s.fn.logic
+    @s.func.logic
     def logic():
         return glue()
     with pytest.raises(AssertionError):
@@ -69,39 +69,39 @@ def _three_minus(x):
 
 
 def test_inline():
-    assert s.fn.inline(_plus_one, _times_two, _three_minus)(1) == -1
-    assert s.fn.inline(_plus_one, _times_two, _three_minus)(1) == _three_minus(_times_two(_plus_one(1)))
-    assert s.fn.inline(_three_minus, _times_two, _plus_one)(1) == 5
-    assert s.fn.inline(_three_minus, _times_two, _plus_one)(1) == _plus_one(_times_two(_three_minus(1)))
+    assert s.func.inline(_plus_one, _times_two, _three_minus)(1) == -1
+    assert s.func.inline(_plus_one, _times_two, _three_minus)(1) == _three_minus(_times_two(_plus_one(1)))
+    assert s.func.inline(_three_minus, _times_two, _plus_one)(1) == 5
+    assert s.func.inline(_three_minus, _times_two, _plus_one)(1) == _plus_one(_times_two(_three_minus(1)))
 
 
 def test_inline_noncallable():
     with pytest.raises(AssertionError):
-        s.fn.inline(_three_minus, _times_two, 1)(1)
+        s.func.inline(_three_minus, _times_two, 1)(1)
 
 
 def test_thrush():
-    assert s.fn.thrush(1, _plus_one, _times_two, _three_minus) == -1
+    assert s.func.thrush(1, _plus_one, _times_two, _three_minus) == -1
 
 
 def test_thread_noncallable():
     with pytest.raises(AssertionError):
-        s.fn.thrush(1, _plus_one, _times_two, 2)
+        s.func.thrush(1, _plus_one, _times_two, 2)
 
 
 def test_logic_generator():
-    @s.fn.logic
+    @s.func.logic
     def logic():
         for x in range(3):
-            assert s.fn._stack() == ('logic:test_s.fast.fn:logic',)
+            assert s.func._stack() == ('logic:test_s.fast.func:logic',)
             yield x
     for i, x in enumerate(logic()):
         assert i == x
-        assert s.fn._stack() == ()
+        assert s.func._stack() == ()
 
 
 def test_logic_raise():
-    @s.fn.logic
+    @s.func.logic
     def logic():
         1 / 0
     with pytest.raises(ZeroDivisionError):
@@ -109,7 +109,7 @@ def test_logic_raise():
 
 
 def test_logic_gen_raise():
-    @s.fn.logic
+    @s.func.logic
     def logic():
         for x in range(3):
             yield x

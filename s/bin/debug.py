@@ -155,7 +155,7 @@ def _app(t, path):
 @argh.arg('file_or_regex', nargs='?', default=None)
 def _main(file_or_regex):
     """
-    visualizer for data flow debug logs created with s.fn.* decorators and s.log.setup().
+    visualizer for data flow debug logs created with s.func.* decorators and s.log.setup().
 
     when called with no args, uses the latest debug log.
 

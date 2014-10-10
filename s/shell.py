@@ -247,7 +247,7 @@ def _module_name(filepath, climb_data):
 
 
 def _pref_path(_file_):
-    _file_ = expand(_file_)
+    _file_ = abspand(_file_)
     name = '.{}.{}.{}.yaml'.format(*map(os.path.basename, [
         os.path.dirname(os.path.dirname(_file_)),
         os.path.dirname(_file_),
@@ -276,5 +276,5 @@ def get_or_prompt_pref(key, _file_, default=None, message=None):
         return data[key]
 
 
-def expand(path):
+def abspand(path):
     return os.path.abspath(os.path.expanduser(path))

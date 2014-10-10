@@ -7,7 +7,7 @@ import argh
 def repos():
     message = 'comma seperated directories to look for git repos in'
     search_dirs = s.shell.get_or_prompt_pref('search_dirs', __file__, message=message)
-    search_dirs = [s.shell.expand(x) for x in search_dirs.split(',')]
+    search_dirs = [s.shell.abspand(x) for x in search_dirs.split(',')]
     return [repo
             for search_dir in search_dirs
             for repo in s.shell.dirs(search_dir, abs=True)

@@ -9,7 +9,7 @@ import s
 import itertools as i
 
 
-@s.fn.logic
+@s.func.logic
 def _test_file(code_file):
     assert not code_file.startswith('/')
     assert code_file.endswith('.py')
@@ -20,7 +20,7 @@ def _test_file(code_file):
     return val
 
 
-@s.fn.logic
+@s.func.logic
 def _code_file(test_file):
     assert not test_file.startswith('/')
     assert test_file.endswith('.py')
@@ -31,7 +31,7 @@ def _code_file(test_file):
     return val
 
 
-@s.fn.logic
+@s.func.logic
 def _git_root(climb_data):
     climb_data = list(climb_data)
     val = [path for path, dirs, _ in climb_data if '.git' in dirs]
@@ -39,7 +39,7 @@ def _git_root(climb_data):
     return val[0]
 
 
-@s.fn.logic
+@s.func.logic
 def _filter_test_files(walk_data):
     return [os.path.join(path, f)
             for path, _, files in walk_data
@@ -52,17 +52,17 @@ def _filter_test_files(walk_data):
             and path.split('/')[-2].startswith('test_')]
 
 
-@s.fn.logic
+@s.func.logic
 def _filter_fast_test_files(paths):
     return [x for x in paths if 'fast' in x.split('/')]
 
 
-@s.fn.logic
+@s.func.logic
 def _filter_slow_test_files(paths):
     return [x for x in paths if 'slow' in x.split('/')]
 
 
-@s.fn.logic
+@s.func.logic
 def _filter_code_files(walk_datas):
     return [os.path.join(path, f)
             for data in walk_datas
@@ -75,7 +75,7 @@ def _filter_code_files(walk_datas):
             and not any(x.startswith('test_') for x in path.split('/'))]
 
 
-@s.fn.logic
+@s.func.logic
 def _python_packages(walk_data):
     walk_data = list(walk_data)
     return [path
@@ -84,12 +84,12 @@ def _python_packages(walk_data):
             and '__init__.py' in files]
 
 
-@s.fn.glue
+@s.func.glue
 def _mapwalk(dirs):
     return [s.shell.walk(x) for x in dirs]
 
 
-@s.fn.glue
+@s.func.glue
 def _collect_tests(test_file):
     keep = ['<Function']
     text = s.shell.run('py.test --collect-only', test_file)
@@ -104,10 +104,10 @@ def _result(result, path, seconds):
     return s.dicts.new(locals(), 'result', 'path', 'seconds')
 
 
-@s.fn.glue
+@s.func.glue
 def _run_test(path, name, test):
-    _bak = s.fn._state.get('_stack')
-    s.fn._state['_stack'] = None # stub out _stack, since its used *here* as well
+    _bak = s.func._state.get('_stack')
+    s.func._state['_stack'] = None # stub out _stack, since its used *here* as well
     try:
         with s.time.timer() as t:
             try:
@@ -121,10 +121,10 @@ def _run_test(path, name, test):
                     val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
         return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
     finally:
-        s.fn._state['_stack'] = _bak
+        s.func._state['_stack'] = _bak
 
 
-@s.fn.flow
+@s.func.flow
 def _test(path):
     assert path.endswith('.py')
     name = s.shell.module_name(path)
@@ -142,14 +142,14 @@ def _test(path):
     return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
 
 
-@s.fn.flow
+@s.func.flow
 def _pytest_insight(test_file, query):
     val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
     assert not any(x.startswith('ERROR: file not found:') for x in val['output'].splitlines())
     assert not any(x.startswith('ERROR: not found:') for x in val['output'].splitlines())
     assert os.path.isfile(test_file)
     assert val['exitcode'] != 0
-    return s.fn.thrush(
+    return s.func.thrush(
         val['output'],
         str.splitlines,
         reversed,
@@ -163,21 +163,21 @@ def _pytest_insight(test_file, query):
     )
 
 
-@s.fn.logic
+@s.func.logic
 def _linenum(text):
     return [int(x.split(', line ')[-1].split(',')[0])
             for x in text.splitlines()
             if 'File "<string>"' in x][-1]
 
 
-@s.fn.flow
+@s.func.flow
 def _test_all(paths):
     return [_test(x) for x in paths]
 
 
-@s.fn.flow
+@s.func.flow
 def all_test_files():
-    return s.fn.thrush(
+    return s.func.thrush(
         s.shell.climb(),
         _git_root,
         s.shell.walk,
@@ -185,25 +185,25 @@ def all_test_files():
     )
 
 
-@s.fn.flow
+@s.func.flow
 def all_slow_test_files():
-    return s.fn.thrush(
+    return s.func.thrush(
         all_test_files(),
         _filter_slow_test_files,
     )
 
 
-@s.fn.flow
+@s.func.flow
 def all_fast_test_files():
-    return s.fn.thrush(
+    return s.func.thrush(
         all_test_files(),
         _filter_fast_test_files,
     )
 
 
-@s.fn.flow
+@s.func.flow
 def all_code_files():
-    return s.fn.thrush(
+    return s.func.thrush(
         s.shell.climb(),
         _git_root,
         s.shell.walk,
@@ -213,15 +213,15 @@ def all_code_files():
     )
 
 
-@s.fn.flow
+@s.func.flow
 def run_tests_once():
-    return s.fn.thrush(
+    return s.func.thrush(
         all_fast_test_files(),
         _test_all,
     )
 
 
-@s.fn.flow
+@s.func.flow
 def run_tests_auto():
     with s.shell.climb_git_root():
         dirs = _python_packages(s.shell.walk())

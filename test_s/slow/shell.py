@@ -57,4 +57,4 @@ def test_interactive():
     s.shell.run('false', interactive=True, warn=True)
 
 
-s.hacks.decorate(globals(), __name__, s.fn.badfunc)
+s.hacks.decorate(globals(), __name__, s.func.bad)
