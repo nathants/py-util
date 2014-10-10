@@ -72,8 +72,8 @@ def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
     stream = kw.pop('stream', _state.get('stream', False))
-    logging_cb = _logging_cb(stream)
     user_cb = kw.pop('callback', lambda x: None)
+    logging_cb = _logging_cb(stream)
     cmd = ' '.join(a)
     logging_cb('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
@@ -246,18 +246,18 @@ def _module_name(filepath, climb_data):
     return '.'.join(parts)
 
 
-def _pref_path(__file__):
-    __file__ = os.path.abspath(os.path.expanduser(__file__))
+def _pref_path(_file_):
+    _file_ = expand(_file_)
     name = '.{}.{}.{}.yaml'.format(*map(os.path.basename, [
-        os.path.dirname(os.path.dirname(__file__)),
-        os.path.dirname(__file__),
-        __file__.replace('.py', ''),
+        os.path.dirname(os.path.dirname(_file_)),
+        os.path.dirname(_file_),
+        _file_.replace('.pyc', '').replace('.py', ''),
     ]))
     return os.path.join(os.environ['HOME'], name)
 
 
-def get_or_prompt_pref(key, __file__, default=None):
-    path = _pref_path(__file__)
+def get_or_prompt_pref(key, _file_, default=None, message=None):
+    path = _pref_path(_file_)
     try:
         with open(path) as _file:
             data = yaml.safe_load(_file)
@@ -267,6 +267,8 @@ def get_or_prompt_pref(key, __file__, default=None):
     try:
         return data[key]
     except KeyError:
+        if message:
+            print(message)
         default = 'or default: {}'.format(default) if default else ''
         data[key] = six.moves.input('value for {key} {default}? '.format(**locals()))
         with open(path, 'w') as _file:
