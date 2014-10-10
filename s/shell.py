@@ -274,3 +274,7 @@ def get_or_prompt_pref(key, _file_, default=None, message=None):
         with open(path, 'w') as _file:
             yaml.dump(data, _file, default_flow_style=False)
         return data[key]
+
+
+def expand(path):
+    return os.path.abspath(os.path.expanduser(path))
