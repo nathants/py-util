@@ -32,13 +32,6 @@ def test_interactive_excepts():
         s.shell.run('false', interactive=True)
 
 
-def test_callback():
-    val = []
-    cb = lambda x: val.append(x)
-    s.shell.run('echo asdf', callback=cb)
-    assert val == ['asdf']
-
-
 def test_echo():
     assert 'asdf' == s.shell.run('echo asdf')
 
