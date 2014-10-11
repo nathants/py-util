@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import logging
 import six
 import yaml
 import subprocess
@@ -37,32 +38,31 @@ def _set_state(key):
 set_stream = _set_state('stream')
 
 
-def _readlines(proc, *callbacks):
+def _stream_and_log_lines(proc, log):
     lines = []
     def cb(line):
-        line = s.hacks.stringify(line)
+        line = s.hacks.stringify(line).rstrip()
         if line.strip():
-            for callback in callbacks:
-                callback(line)
+            log(line)
             lines.append(line)
     while proc.poll() is None:
-        cb(proc.stdout.readline().rstrip())
+        cb(proc.stdout.readline())
     for line in proc.communicate()[0].strip().splitlines(): # sometimes the last line disappears, especially when there is very little stdout
-        cb(line.rstrip())
+        cb(line)
     return '\n'.join(lines)
 
 
-def _logging_cb(stream):
+def _get_log_or_print(stream):
     def fn(x):
         if stream:
             if hasattr(s.log.setup, s.cached._attr):
-                s.log.info(x)
+                logging.info(x)
             else:
                 print(x)
     return fn
 
 
-_interactive_fn = {False: subprocess.check_call, True: subprocess.call}
+_interactive_func = {False: subprocess.check_call, True: subprocess.call}
 
 
 _call_kw = {'shell': True, 'executable': '/bin/bash'}
@@ -72,22 +72,23 @@ def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
     stream = kw.pop('stream', _state.get('stream', False))
-    user_cb = kw.pop('callback', lambda x: None)
-    logging_cb = _logging_cb(stream)
-    cmd = ' '.join(a)
-    logging_cb('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
+    log_or_print = _get_log_or_print(stream)
+    cmd = ' '.join(map(str, a))
+    log_or_print('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
-        _interactive_fn[warn](cmd, **_call_kw)
-    else:
+        _interactive_func[warn](cmd, **_call_kw)
+    elif stream or warn:
         proc = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, **_call_kw)
-        output = _readlines(proc, logging_cb, user_cb)
+        output = _stream_and_log_lines(proc, log_or_print)
         if warn:
-            logging_cb('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
+            log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
             return {'output': output, 'exitcode': proc.returncode}
         elif proc.returncode != 0:
-            output = output if not stream else ''
+            output = '' if stream else output
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
         return output
+    else:
+        return s.hacks.stringify(subprocess.check_output(cmd, **_call_kw).rstrip())
 
 
 def listdir(path='.', abs=False):
