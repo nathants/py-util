@@ -14,6 +14,13 @@ def repos():
             if '.git' in s.shell.dirs(repo)]
 
 
+def _less(text):
+    with s.shell.tempdir():
+        with open('temp', 'w') as _file:
+            _file.write(text)
+        s.shell.run('less -R temp', interactive=True)
+
+
 @argh.alias('s')
 def status():
     text = ''
@@ -21,11 +28,13 @@ def status():
         with s.shell.cd(repo):
             output = s.shell.run('git -c color.ui=always status -s')
             if output:
-                text += s.strings.color('\n$red({repo})\n{output}\n'.format(**locals()))
-    with s.shell.tempdir():
-        with open('temp', 'w') as _file:
-            _file.write(text)
-        s.shell.run('less -R temp', interactive=True)
+                text += s.strings.color('\n$red({repo})\n{output}'.format(**locals()))
+    _less(text)
+
+
+@argh.alias('c')
+def commit():
+    pass
 
 
 def main():
