@@ -72,8 +72,8 @@ def _main(where, no_parse_types=False, regex='.*'):
 
     with s.shell.cd(where):
         skips = ['types.py', 'log.py']
-        filepaths = [x for x in s.test.all_code_files() if not any(x.endswith(y) for y in skips)]
-        testpaths = [x for x in s.test.all_fast_test_files() if not any(x.endswith(y) for y in skips)]
+        filepaths = [x for x in s.test.code_files() if not any(x.endswith(y) for y in skips)]
+        testpaths = [x for x in s.test.fast_test_files() if not any(x.endswith(y) for y in skips)]
         for path in filepaths:
             module_name = s.shell.module_name(path)
             data[module_name] = _data = {}
