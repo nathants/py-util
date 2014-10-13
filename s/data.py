@@ -14,18 +14,14 @@ _banned_attrs_dict = [
 ]
 
 
-def _fn():
-    pass
-
-
 _immutable_types = (
     int,
     float,
     str,
     bytes,
     type(None),
-    type(lambda: None),
-    type(_fn),
+    types.LambdaType,
+    types.FunctionType,
 )
 
 
