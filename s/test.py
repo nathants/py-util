@@ -1,18 +1,26 @@
 from __future__ import absolute_import, print_function
 import sys
 import time
-import itertools
 import types
 import traceback
 import os
 import s
-import itertools as i
+import itertools
+
+
+@s.func.glue
+def code_file(test_file):
+    assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
+
+@s.func.glue
+def test_file(code_file):
+    assert os.path.isfile(code_file), 'no such file: {}'.format(code_file)
 
 
 @s.func.logic
 def _test_file(code_file):
-    assert not code_file.startswith('/')
-    assert code_file.endswith('.py')
+    assert not code_file.startswith('/'), 'code_file is not relative path from project root: {}'.format(code_file)
+    assert code_file.endswith('.py'), 'code_file does not end with .py: {}'.format(code_file)
     val = code_file.split('/')
     val[0] = 'test_{}'.format(val[0])
     val = val[:1] + ['fast'] + val[1:]
@@ -22,8 +30,8 @@ def _test_file(code_file):
 
 @s.func.logic
 def _code_file(test_file):
-    assert not test_file.startswith('/')
-    assert test_file.endswith('.py')
+    assert not test_file.startswith('/'), 'test_file is not relative path from project root: {}'.format(test_file)
+    assert test_file.endswith('.py'), 'test_file does not end with .py: {}'.format(test_file)
     val = test_file.split('/')
     val[0] = val[0].replace('test_', '')
     val.pop(1)
@@ -125,36 +133,37 @@ def _run_test(path, name, test):
 
 
 @s.func.flow
-def _test(path):
-    assert path.endswith('.py')
-    name = s.shell.module_name(path)
+def _test(test_path):
+    assert test_path.endswith('.py'), 'test_path does not end with .py: {}'.format(test_path)
+    assert os.path.isfile(test_path), 'no such file: {}'.format(test_path)
+    name = s.shell.module_name(test_path)
     try:
         module = __import__(name, fromlist='*')
     except:
-        return [_result(traceback.format_exc(), path, 0)]
+        return [_result(traceback.format_exc(), test_path, 0)]
     items = module.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
              and k.startswith('test')
              and isinstance(v, types.FunctionType)]
-    path = module.__file__.replace('.pyc', '.py')
+    test_path = module.__file__.replace('.pyc', '.py')
     # todo should i run setups/teardowns? or enforce pure testing?
-    return [_run_test(path, k, v) for k, v in items] or [_result(None, path, 0)]
+    return [_run_test(test_path, k, v) for k, v in items] or [_result(None, test_path, 0)]
 
 
 @s.func.flow
 def _pytest_insight(test_file, query):
+    assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
     assert not any(x.startswith('ERROR: file not found:') for x in val['output'].splitlines())
     assert not any(x.startswith('ERROR: not found:') for x in val['output'].splitlines())
-    assert os.path.isfile(test_file)
     assert val['exitcode'] != 0
     return s.func.thrush(
         val['output'],
         str.splitlines,
         reversed,
-        lambda x: i.dropwhile(lambda y: y.startswith('===='), x),
-        lambda x: i.takewhile(lambda y: not y.startswith('_____'), x),
+        lambda x: itertools.dropwhile(lambda y: y.startswith('===='), x),
+        lambda x: itertools.takewhile(lambda y: not y.startswith('_____'), x),
         list,
         reversed,
         list,
@@ -186,7 +195,7 @@ def all_test_files():
 
 
 @s.func.flow
-def all_slow_test_files():
+def slow_test_files():
     return s.func.thrush(
         all_test_files(),
         _filter_slow_test_files,
@@ -194,7 +203,7 @@ def all_slow_test_files():
 
 
 @s.func.flow
-def all_fast_test_files():
+def fast_test_files():
     return s.func.thrush(
         all_test_files(),
         _filter_fast_test_files,
@@ -202,7 +211,7 @@ def all_fast_test_files():
 
 
 @s.func.flow
-def all_code_files():
+def code_files():
     return s.func.thrush(
         s.shell.climb(),
         _git_root,
@@ -216,7 +225,7 @@ def all_code_files():
 @s.func.flow
 def run_tests_once():
     return s.func.thrush(
-        all_fast_test_files(),
+        fast_test_files(),
         _test_all,
     )
 
