@@ -3,6 +3,7 @@ import s
 import argh
 import sys
 import six
+import pager
 
 
 @s.cached.func
@@ -33,7 +34,7 @@ def _git_diff_cached_less(path):
 
 
 def _prompt_and_commit(path):
-    msg = six.moves.input('commit message: ')
+    msg = six.moves.input('\ncommit message: ')
     assert '"' not in msg and "'" not in msg, 'quotes in messages unsupported: {}'.format(msg)
     s.shell.run('git commit -m "{}"'.format(msg), stream=True)
 
@@ -72,7 +73,8 @@ def commit():
             for path in paths:
                 s.shell.run('git add', path)
                 _git_diff_cached_less(path)
-                action = six.moves.input('[c]ommit, [s]kip, [p]atch ? ')
+                print('[c]ommit, [s]kip, [p]atch ? ', end='')
+                action = pager.getch()
                 if action == 'c':
                     _prompt_and_commit(path)
                 elif action == 's':
