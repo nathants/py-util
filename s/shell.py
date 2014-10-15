@@ -52,9 +52,9 @@ def _stream_and_log_lines(proc, log):
     return '\n'.join(lines)
 
 
-def _get_log_or_print(stream):
+def _get_log_or_print(should_log):
     def fn(x):
-        if stream:
+        if should_log:
             if hasattr(s.log.setup, s.cached._attr):
                 logging.info(x)
             else:
@@ -71,8 +71,9 @@ _call_kw = {'shell': True, 'executable': '/bin/bash'}
 def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
+    echo = kw.pop('echo', False)
     stream = kw.pop('stream', _state.get('stream', False))
-    log_or_print = _get_log_or_print(stream)
+    log_or_print = _get_log_or_print(stream or echo)
     cmd = ' '.join(map(str, a))
     log_or_print('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
