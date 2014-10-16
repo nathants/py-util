@@ -9,19 +9,19 @@ def test_python_packages():
     assert s.test._python_packages(data) == ['/foo/bar']
 
 
-def test_test_file():
+def test__test_file():
     assert s.test._test_file('foo/bar.py') == 'test_foo/fast/bar.py'
 
 
-def test_test_file_init():
+def test_handles_init__test_file():
     assert s.test._test_file('foo/__init__.py') == 'test_foo/fast/__init__.py'
 
 
-def test_code_file():
+def test__code_file():
     assert s.test._code_file(s.test._test_file('foo/bar.py')) == 'foo/bar.py'
 
 
-def test_code_file_init():
+def test_handles_init__code_file():
     assert s.test._code_file(s.test._test_file('foo/__init__.py')) == 'foo/__init__.py'
 
 
