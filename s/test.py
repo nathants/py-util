@@ -8,13 +8,20 @@ import s
 import itertools
 
 
-@s.func.glue
+@s.func.flow
 def code_file(test_file):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
+    test_file_rel_path = s.shell.rel_path(test_file)
+    root = test_file.split(test_file_rel_path)[0]
+    return os.path.join(root, _code_file(test_file_rel_path))
 
-@s.func.glue
+
+@s.func.flow
 def test_file(code_file):
     assert os.path.isfile(code_file), 'no such file: {}'.format(code_file)
+    code_file_rel_path = s.shell.rel_path(code_file)
+    root = code_file.split(code_file_rel_path)[0]
+    return os.path.join(root, _test_file(code_file_rel_path))
 
 
 @s.func.logic
