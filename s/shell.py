@@ -237,12 +237,24 @@ def module_name(filepath):
     return _module_name(filepath, climb_data)
 
 
-def _module_name(filepath, climb_data):
+def rel_path(filepath):
+    assert os.path.isfile(filepath), 'not a file: {}'.format(filepath)
+    climb_data = climb(os.path.dirname(filepath))
+    return _rel_path(filepath, climb_data)
+
+
+def _rel_path(filepath, climb_data):
     for i, (path, _, files) in enumerate(climb_data, 1):
         if '__init__.py' not in files:
             break
-    filepath = filepath.replace('.pyc', '').replace('.py', '')
     parts = filepath.split('/')[-i:]
+    return '/'.join(parts)
+
+
+def _module_name(filepath, climb_data):
+    rel_path = _rel_path(filepath, climb_data)
+    rel_path = rel_path.replace('.pyc', '').replace('.py', '')
+    parts = rel_path.split('/')
     if parts[-1] == '__init__':
         parts = parts[:-1]
     return '.'.join(parts)
