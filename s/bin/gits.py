@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import os
 import s
 import argh
 import sys
@@ -36,7 +37,7 @@ def _git_diff_cached_less(path):
 def _prompt_and_commit(path):
     msg = six.moves.input('\ncommit message: ')
     assert '"' not in msg and "'" not in msg, 'quotes in messages unsupported: {}'.format(msg)
-    s.shell.run('git commit -m "{}"'.format(msg), stream=True)
+    s.shell.run('git commit -n -m "{}"'.format(msg), stream=True)
 
 
 def _git_reset_head():
@@ -58,7 +59,7 @@ def diff():
 
 
 @argh.named('c')
-def commit():
+def commit(skip_precommit=False):
     """
     git commit for all files in the current repo
     """
@@ -69,6 +70,9 @@ def commit():
             print('nothing to commit')
             sys.exit(1)
         else:
+            pre_commit = '.git/hooks/pre-commit'
+            if os.path.isfile(pre_commit) and not skip_precommit:
+                s.shell.run(pre_commit, stream=True)
             _less('going to walk through these files:\n\n {}'.format('\n '.join(paths)))
             for path in paths:
                 s.shell.run('git add', path)
