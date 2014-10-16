@@ -27,6 +27,12 @@ def test_module_name():
     assert 'b.c.foo' == s.shell.module_name(os.path.abspath('a/b/c/foo.py'))
 
 
+def test_rel_path():
+    s.shell.run('mkdir -p a/b/c')
+    s.shell.run('touch a/b/__init__.py a/b/c/__init__.py a/b/c/foo.py')
+    assert 'b/c/foo.py' == s.shell.rel_path(os.path.abspath('a/b/c/foo.py'))
+
+
 def test_interactive_excepts():
     with pytest.raises(Exception):
         s.shell.run('false', interactive=True)
