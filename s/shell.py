@@ -65,7 +65,7 @@ def _get_log_or_print(should_log):
 _interactive_func = {False: subprocess.check_call, True: subprocess.call}
 
 
-_call_kw = {'shell': True, 'executable': '/bin/bash'}
+_call_kw = {'shell': True, 'executable': '/bin/bash', 'stderr': subprocess.STDOUT}
 
 
 def run(*a, **kw):
@@ -79,7 +79,7 @@ def run(*a, **kw):
     if interactive:
         _interactive_func[warn](cmd, **_call_kw)
     elif stream or warn:
-        proc = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, **_call_kw)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
         output = _stream_and_log_lines(proc, log_or_print)
         if warn:
             log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
