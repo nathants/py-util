@@ -43,14 +43,17 @@ def test_climb():
 
 
 def test_fast_test_files():
-    s.shell.run('mkdir -p .git test_foo/fast foo && touch test_foo/fast/bar.py foo/bar.py foo/__init__.py')
-    assert s.test.fast_test_files() == [os.path.abspath('test_foo/fast/bar.py')]
+    s.shell.run('mkdir -p .git test_foo/fast foo')
+    s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
+    assert set(s.test.fast_test_files()) == {os.path.abspath('test_foo/fast/__init__.py'),
+                                             os.path.abspath('test_foo/fast/bar.py')}
 
 
 def test_code_files_and_python_packages():
     s.shell.run('mkdir -p .git foo && touch foo/bar.py foo/__init__.py')
     assert s.test._python_packages(s.shell.walk()) == [os.path.abspath('foo')]
-    assert set(s.test.code_files()) == {os.path.abspath(x) for x in ['foo/bar.py', 'foo/__init__.py']}
+    assert set(s.test.code_files()) == {os.path.abspath('foo/bar.py'),
+                                        os.path.abspath('foo/__init__.py')}
 
 
 def test_import_syntax_error():
