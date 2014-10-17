@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import re
 import sys
 import time
 import types
@@ -145,15 +146,15 @@ def _test(test_path):
     assert os.path.isfile(test_path), 'no such file: {}'.format(test_path)
     name = s.shell.module_name(test_path)
     try:
-        module = __import__(name, fromlist='*')
+        module_name = __import__(name, fromlist='*')
     except:
         return [_result(traceback.format_exc(), test_path, 0)]
-    items = module.__dict__.items()
+    items = module_name.__dict__.items()
     items = [(k, v) for k, v in items
              if k not in ['__builtins__', '__builtin__']
              and k.startswith('test')
              and isinstance(v, types.FunctionType)]
-    test_path = module.__file__.replace('.pyc', '.py')
+    test_path = module_name.__file__.replace('.pyc', '.py')
     # todo should i run setups/teardowns? or enforce pure testing?
     return [_run_test(test_path, k, v) for k, v in items] or [_result(None, test_path, 0)]
 
@@ -197,7 +198,8 @@ def all_test_files():
         s.shell.climb(),
         _git_root,
         s.shell.walk,
-        _filter_test_files
+        _filter_test_files,
+        sorted,
     )
 
 
@@ -226,6 +228,7 @@ def code_files():
         _python_packages,
         _mapwalk,
         _filter_code_files,
+        sorted,
     )
 
 
@@ -256,3 +259,30 @@ def run_tests_auto():
                 yield run_tests_once()
             time.sleep(.01)
             last = now
+
+
+@s.func.logic
+def _parse_coverage(module_name, text):
+    regex = re.compile('(?P<name>[\w\/]+) +\d+ +\d+ +(?P<percent>\d+)% +(?P<missing>[\d\-\, ]+)')
+    matches = map(regex.search, text.splitlines())
+    matches = [x.groupdict() for x in matches if x]
+    if not matches:
+        return {}
+    else:
+        if len(matches) > 1:
+            matches = [x for x in matches if x['name'] == module_name.replace('.', '/') + '/__init__']
+        assert len(matches) == 1, 'found multiple matches: {}'.format(matches)
+        data = matches.pop()
+        return {'name': data['name'].replace('/', '.').replace('.__init__', ''),
+                'percent': int(data['percent']),
+                'missing': (data['missing'].strip().split(', ')
+                            if data['missing'].strip()
+                            else [])}
+
+
+@s.func.flow
+def _cover(test_file):
+    assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
+    module_name = s.shell.module_name(s.test.code_file(test_file))
+    text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name, echo=True)
+    return _parse_coverage(module_name, text)
