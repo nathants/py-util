@@ -47,7 +47,7 @@ def _git_reset_head():
 @argh.named('d')
 def diff():
     """
-    git diff for all repos in your search_dirs
+    git diff for all files in the current repo
     """
     with s.shell.climb_git_root():
         _git_reset_head()
