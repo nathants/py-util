@@ -47,7 +47,7 @@ def _stream_and_log_lines(proc, log):
             lines.append(line)
     while proc.poll() is None:
         cb(proc.stdout.readline())
-    for line in proc.communicate()[0].strip().splitlines(): # sometimes the last line disappears, especially when there is very little stdout
+    for line in proc.communicate()[0].strip().splitlines(): # sometimes the last line disappears
         cb(line)
     return '\n'.join(lines)
 
@@ -170,7 +170,7 @@ def tempdir(cleanup=True, intemp=True):
 
 
 def cron_rm_path_later(path, hours):
-    cmd = "python -c 'import time; assert {} + 60 * 60 * {}  < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), hours, path)
+    cmd = "python -c 'import time; assert {} + 60 * 60 * {} < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), hours, path)
     when = '{} * * * *'.format(random.randint(0, 59))
     cron(path.replace('/', '_'), when, cmd, selfdestruct=True)
 

@@ -145,7 +145,7 @@ def _fn_type(decoratee, kind, rules, skip_return_check, immutalize):
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise
             else:
-                assert skip_return_check or isinstance(val, _json_types), 'must return primitive data from function: {}'.format(name)
+                assert skip_return_check or isinstance(val, _json_types), 'must return data from function: {}'.format(name)
             _trace_funcs[kind]['out'](name, 'fn', val=val)
         return val
     return decorated

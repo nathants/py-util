@@ -135,14 +135,16 @@ def test_climb_git_root():
 
 
 def test_test_file():
-    s.shell.run('mkdir -p test_foo/fast foo && touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
+    s.shell.run('mkdir -p test_foo/fast foo')
+    s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
     code_file = os.path.abspath('foo/bar.py')
     test_file = os.path.abspath('test_foo/fast/bar.py')
     assert s.test.test_file(code_file) == test_file
 
 
 def test_code_file():
-    s.shell.run('mkdir -p test_foo/fast foo && touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
+    s.shell.run('mkdir -p test_foo/fast foo')
+    s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
     code_file = os.path.abspath('foo/bar.py')
     test_file = os.path.abspath('test_foo/fast/bar.py')
     assert s.test.code_file(test_file) == code_file
