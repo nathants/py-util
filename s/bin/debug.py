@@ -103,8 +103,8 @@ def _print(t, text, wait=False):
 
 
 def _app(t, path):
-    with open(path) as fio:
-        datas = [json.loads(x) for x in fio.read().splitlines()]
+    with open(path) as _file:
+        datas = [json.loads(x) for x in _file.read().splitlines()]
 
     pair = False
     pretty = True

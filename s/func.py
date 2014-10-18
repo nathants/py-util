@@ -183,8 +183,8 @@ def _gen_type(decoratee, kind, rules, immutalize):
 
 def _rule_violation_message():
     caller = s.hacks.get_caller(4)
-    with open(caller['filename']) as fio:
-        line = fio.read().splitlines()[caller['linenum'] - 1].strip()
+    with open(caller['filename']) as _fio:
+        line = _fio.read().splitlines()[caller['linenum'] - 1].strip()
     return '\n'.join([
         '',
         '[{}:{}] {}'.format(caller['filename'], caller['linenum'], line),

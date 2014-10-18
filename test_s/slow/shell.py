@@ -34,25 +34,25 @@ def test_rel_path():
     assert 'b/c/foo.py' == s.shell.rel_path(os.path.abspath('a/b/c/foo.py'))
 
 
-def test_interactive_excepts():
+def test_interactive_excepts_run():
     with pytest.raises(Exception):
         s.shell.run('false', interactive=True)
 
 
-def test_echo():
+def test_echo_run():
     assert 'asdf' == s.shell.run('echo asdf')
 
 
-def test_exitcode():
+def test_exitcode_run():
     assert 1 == s.shell.run('false', warn=True)['exitcode']
 
 
-def test_excepts():
+def test_excepts_run():
     with pytest.raises(Exception):
         s.shell.run('false')
 
 
-def test_interactive():
+def test_interactive_run():
     s.shell.run('true', interactive=True)
     s.shell.run('false', interactive=True, warn=True)
 
@@ -67,6 +67,3 @@ def test_get_or_prompt_pref():
                 assert _raw_input.call_count == 1
                 with open(s.shell.files()[0]) as _file:
                     assert _file.read().strip() == 'foo: bar'
-
-
-s.hacks.decorate(globals(), __name__, s.func.bad)
