@@ -26,12 +26,9 @@ def _header(data, highlight):
 def _body(data, hide_keys, pretty, max_lines):
     val = []
     for k, v in s.dicts.drop(data, *hide_keys).items():
-        if k == 'traceback' and not v:
-            continue
         if not v:
             continue
-
-        if isinstance(v, (list, dict)) and pretty:
+        elif isinstance(v, (list, dict)) and pretty:
             v = pprint.pformat(v, width=1).splitlines()
             size = len(k) + 3
             if len(v) > max_lines:
@@ -39,7 +36,7 @@ def _body(data, hide_keys, pretty, max_lines):
                 v[-1] += ' ...'
             v = v[:1] + [s.strings.indent(x, size) for x in v[1:]]
             v = '\n'.join(v)
-        else:
+        elif k != 'traceback':
             v = repr(v)
             max_chars = 160
             if len(v) > max_chars:
@@ -89,7 +86,9 @@ _help = """
     gg - start
     p - show in/out pairs
     f - pretty format
-    t - truncate output
+    t - toggle truncate data
+    l - show less data
+    m - show more data
     a - show all data
     c - show cwd
 
@@ -110,7 +109,9 @@ def _app(t, path):
     pair = False
     pretty = True
     index = 0
-    max_lines = _max_lines = 10
+    max_lines_increment = 10
+    max_lines_high = 1e10
+    max_lines = max_lines_low = 10
     hidden_keys = _hidden_keys = ['direction', 'name', 'fntype', 'time', 'stack', 'cwd']
 
     while True:
@@ -136,10 +137,11 @@ def _app(t, path):
             elif char == 'f':
                 pretty = not pretty
             elif char == 't':
-                if max_lines == _max_lines:
-                    max_lines = 1e10
-                else:
-                    max_lines = _max_lines
+                max_lines = max_lines_low if max_lines == max_lines_high else max_lines_high
+            elif char == 'l':
+                max_lines = max(max_lines_low, max_lines - max_lines_increment)
+            elif char == 'm':
+                max_lines += max_lines_increment
             elif char == 'a':
                 if hidden_keys == _hidden_keys:
                     hidden_keys = []
