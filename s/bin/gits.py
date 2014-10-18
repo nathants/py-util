@@ -24,10 +24,11 @@ def _commitable_paths():
 
 
 def _less(text):
-    with s.shell.tempdir():
-        with open('_', 'w') as _file:
-            _file.write(text + '\n\n')
-        s.shell.run('less -cR _', interactive=True)
+    if text:
+        with s.shell.tempdir():
+            with open('_', 'w') as _file:
+                _file.write(text + '\n\n')
+            s.shell.run('less -cR _', interactive=True)
 
 
 def _git_diff_cached_less(path):
