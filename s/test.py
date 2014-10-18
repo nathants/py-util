@@ -11,18 +11,22 @@ import itertools
 
 @s.func.flow
 def code_file(test_file):
-    assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
+    assert os.path.isfile(test_file), 'no such test_file: {}'.format(test_file)
     test_file_rel_path = s.shell.rel_path(test_file)
     root = test_file.split(test_file_rel_path)[0]
-    return os.path.join(root, _code_file(test_file_rel_path))
+    path = os.path.join(root, _code_file(test_file_rel_path))
+    assert os.path.isfile(path), 'no such code_file: {}'.format(path)
+    return path
 
 
 @s.func.flow
 def test_file(code_file):
-    assert os.path.isfile(code_file), 'no such file: {}'.format(code_file)
+    assert os.path.isfile(code_file), 'no such code_file: {}'.format(code_file)
     code_file_rel_path = s.shell.rel_path(code_file)
     root = code_file.split(code_file_rel_path)[0]
-    return os.path.join(root, _test_file(code_file_rel_path))
+    path = os.path.join(root, _test_file(code_file_rel_path))
+    assert os.path.isfile(path), 'no such test_file: {}'.format(path)
+    return path
 
 
 @s.func.logic
@@ -267,13 +271,15 @@ def _parse_coverage(module_name, text):
     matches = map(regex.search, text.splitlines())
     matches = [x.groupdict() for x in matches if x]
     if not matches:
-        return {}
+        return {'percent': 0,
+                'missing': 'everything',
+                'name': module_name}
     else:
         if len(matches) > 1:
             matches = [x for x in matches if x['name'] == module_name.replace('.', '/') + '/__init__']
         assert len(matches) == 1, 'found multiple matches: {}'.format(matches)
         data = matches.pop()
-        return {'name': data['name'].replace('/', '.').replace('.__init__', ''),
+        return {'name': module_name,
                 'percent': int(data['percent']),
                 'missing': (data['missing'].strip().split(', ')
                             if data['missing'].strip()
@@ -283,6 +289,9 @@ def _parse_coverage(module_name, text):
 @s.func.flow
 def _cover(test_file):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
-    module_name = s.shell.module_name(s.test.code_file(test_file))
-    text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name, echo=True)
+    try:
+        module_name = s.shell.module_name(s.test.code_file(test_file))
+    except AssertionError:
+        return {}
+    text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name)
     return _parse_coverage(module_name, text)
