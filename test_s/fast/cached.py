@@ -7,25 +7,20 @@ def test_func():
     @s.cached.func
     def fn():
         state['val'] += 1
-        return state['val']
-    assert state['val'] == 0
-    fn()
-    assert state['val'] == 1
-    fn()
+    fn(), fn(), fn()
     assert state['val'] == 1
 
 
-def test_clear():
+def test_clear_func():
     state = {'val': 0}
     @s.cached.func
     def fn():
         state['val'] += 1
-        return state['val']
-    assert fn() == 1
-    assert fn() == 1
+    fn(), fn(), fn()
+    assert state['val'] == 1
     fn.clear_cache()
-    assert fn() == 2
-    assert fn() == 2
+    fn(), fn(), fn()
+    assert state['val'] == 2
 
 
 def test_memoize():
@@ -33,13 +28,28 @@ def test_memoize():
     @s.cached.memoize(2)
     def fn(arg):
         state[arg] += 1
+    fn('a'), fn('a'), fn('b'), fn('b')
+    assert state == {'a': 1, 'b': 1}
+
+
+def test_without_optional_args_memoize():
+    state = collections.Counter()
+    @s.cached.memoize
+    def fn(arg):
+        state[arg] += 1
+    fn('a'), fn('a'), fn('b'), fn('b')
+    assert state == {'a': 1, 'b': 1}
+
+
+def test_lru_is_correct_memoize():
+    state = collections.Counter()
+    @s.cached.memoize(2)
+    def fn(arg):
+        state[arg] += 1
         return arg
-    assert fn('a') == 'a'
-    assert fn('b') == 'b'
-    assert state == {'a': 1, 'b': 1}
-    assert fn('a') == 'a'
-    assert fn('b') == 'b'
-    assert state == {'a': 1, 'b': 1}
-    assert fn._data == {(('a', ), ()): 'a', (('b',), ()): 'b'}
-    assert fn('c') == 'c'
-    assert fn._data == {(('b',), ()): 'b', (('c', ), ()): 'c', }
+    fn('a')
+    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), ()), 'a')]
+    fn('b'),
+    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), ()), 'a'), ((('b',), ()), 'b')]
+    fn('c')
+    assert list(getattr(fn, s.cached._attr).items()) == [((('b',), ()), 'b'), ((('c',), ()), 'c')]
