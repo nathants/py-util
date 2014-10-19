@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import types
 import sys
 import six
 import inspect
@@ -64,3 +65,12 @@ def pformat_prep(val):
     elif isinstance(val, set):
         return {pformat_prep(x) for x in val}
     return val
+
+
+def optionally_parameterized_decorator(fn):
+    def decorated(*a, **kw):
+        if len(a) == 1 and isinstance(a[0], types.FunctionType) and not kw:
+            return fn()(*a, **kw)
+        else:
+            return fn(*a, **kw)
+    return decorated
