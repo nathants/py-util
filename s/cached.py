@@ -23,19 +23,21 @@ def func(fn):
     return cached_fn
 
 
-def memoize(max=1000):
+@s.hacks.optionally_parameterized_decorator
+def memoize(max_keys=10000):
     def decorator(fn):
         @functools.wraps(fn)
         def decorated(*a, **kw):
+            cache = getattr(decorated, _attr)
             key = tuple(map(s.data.immutalize, [a, kw.items()]))
-            if key not in decorated._data:
+            if key not in cache:
                 result = fn(*a, **kw)
             else:
-                result = decorated._data.pop(key)
-            decorated._data[key] = result
-            while len(decorated._data) > max: # trim lru to max
-                decorated._data.popitem(last=False)
+                result = cache.pop(key)
+            cache[key] = result
+            while len(cache) > max_keys: # trim lru to max_keys
+                cache.popitem(last=False)
             return result
-        decorated._data = collections.OrderedDict()
+        setattr(decorated, _attr, collections.OrderedDict())
         return decorated
     return decorator
