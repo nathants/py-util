@@ -10,8 +10,7 @@ def test1():
                 'code': 200,
                 'body': 'ok'}
     app = s.web.server([('/', {'GET': handler})])
-    url, proc = s.web.test(app)
-    resp = requests.get(url)
-    assert resp.text == 'ok'
-    assert resp.headers['foo'] == 'bar'
-    proc.terminate()
+    with s.web.test(app) as url:
+        resp = requests.get(url)
+        assert resp.text == 'ok'
+        assert resp.headers['foo'] == 'bar'

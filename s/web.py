@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import contextlib
 import tornado.web
 import tornado.ioloop
 import s
@@ -46,6 +47,7 @@ def server(routes, debug=False):
     return tornado.web.Application(routes, debug=debug)
 
 
+@contextlib.contextmanager
 def test(app):
     port = s.net.free_port()
     url = 'http://localhost:{}/'.format(port)
@@ -59,4 +61,9 @@ def test(app):
             break
         except:
             time.sleep(1e-6)
-    return url, proc
+    try:
+        yield url
+    except:
+        raise
+    finally:
+        proc.terminate()
