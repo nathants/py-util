@@ -30,7 +30,8 @@ with s.exceptions.ignore():
 
 
 _listy_types = (list,
-                tuple)
+                tuple,
+                types.GeneratorType)
 
 
 with s.exceptions.ignore():
@@ -40,14 +41,6 @@ with s.exceptions.ignore():
 
 
 def immutalize(val):
-    if isinstance(val, types.GeneratorType):
-        val = tuple(val)
-
-    if hasattr(val, '_immutalized'):
-        return val
-    with s.exceptions.ignore():
-        val._immutalized = True
-
     if isinstance(val, _immutable_types):
         return val
     elif isinstance(val, dict):
