@@ -34,20 +34,20 @@ def test__filter_test_files():
 
 def test__parse_coverage():
     text = 's/cached      29     22    24%   15-23, 27-41'
-    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': 24, 'missing': ['15-23', '27-41']}
+    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': '24', 'missing': ['15-23', '27-41']}
 
 
 def test_single_missing__parse_coverage():
     text = 's/cached      29     22    24%   27-41'
-    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': 24, 'missing': ['27-41']}
+    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': '24', 'missing': ['27-41']}
 
 
 def test_no_missing__parse_coverage():
     text = 's/cached      29     22    24%   '
-    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': 24, 'missing': []}
+    assert s.test._parse_coverage('s.cached', text) == {'name': 's.cached', 'percent': '24', 'missing': []}
 
 
 def test_init__parse_coverage():
     text = ('s/__init__      29     22    24%   \n'
             's/foo__init__      29     22    24%   \n')
-    assert s.test._parse_coverage('s', text) == {'name': 's', 'percent': 24, 'missing': []}
+    assert s.test._parse_coverage('s', text) == {'name': 's', 'percent': '24', 'missing': []}

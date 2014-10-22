@@ -159,7 +159,6 @@ def _test(test_path):
              and k.startswith('test')
              and isinstance(v, types.FunctionType)]
     test_path = module_name.__file__.replace('.pyc', '.py')
-    # todo should i run setups/teardowns? or enforce pure testing?
     return [_run_test(test_path, k, v) for k, v in items] or [_result(None, test_path, 0)]
 
 
@@ -271,8 +270,8 @@ def _parse_coverage(module_name, text):
     matches = map(regex.search, text.splitlines())
     matches = [x.groupdict() for x in matches if x]
     if not matches:
-        return {'percent': 0,
-                'missing': 'everything',
+        return {'percent': '0',
+                'missing': [],
                 'name': module_name}
     else:
         if len(matches) > 1:
@@ -280,7 +279,7 @@ def _parse_coverage(module_name, text):
         assert len(matches) == 1, 'found multiple matches: {}'.format(matches)
         data = matches.pop()
         return {'name': module_name,
-                'percent': int(data['percent']),
+                'percent': data['percent'],
                 'missing': (data['missing'].strip().split(', ')
                             if data['missing'].strip()
                             else [])}
@@ -292,6 +291,7 @@ def _cover(test_file):
     try:
         module_name = s.shell.module_name(s.test.code_file(test_file))
     except AssertionError:
-        return {}
-    text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name)
-    return _parse_coverage(module_name, text)
+        return
+    else:
+        text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name)
+        return _parse_coverage(module_name, text)
