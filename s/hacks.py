@@ -32,14 +32,15 @@ class ModuleRedirector(object):
         self._orig_module_ = sys.modules[name]
         sys.modules[name] = self
         self._everything_ = redirect_everything
-        self._fn_ = fn
+        fn.__module__ = __name__
+        self.__fn__ = fn
 
     def __getattr__(self, name):
         try:
             assert not self._everything_
             return getattr(object.__getattribute__(self, '_orig_module_'), name)
         except (AssertionError, AttributeError):
-            return object.__getattribute__(self, '_fn_')(name)
+            return object.__getattribute__(self, '__fn__')(name)
 
 
 def decorate(val, _name_, decorator):
