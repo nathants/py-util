@@ -48,8 +48,8 @@ def test_lru_is_correct_memoize():
         state[arg] += 1
         return arg
     fn('a')
-    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), ()), 'a')]
+    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), frozenset()), 'a')]
     fn('b'),
-    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), ()), 'a'), ((('b',), ()), 'b')]
+    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), frozenset()), 'a'), ((('b',), frozenset()), 'b')]
     fn('c')
-    assert list(getattr(fn, s.cached._attr).items()) == [((('b',), ()), 'b'), ((('c',), ()), 'c')]
+    assert list(getattr(fn, s.cached._attr).items()) == [((('b',), frozenset()), 'b'), ((('c',), frozenset()), 'c')]

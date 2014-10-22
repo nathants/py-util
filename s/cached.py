@@ -13,8 +13,8 @@ _attr = '_cached_value'
 
 def func(fn):
     def cached_fn(*a, **kw):
-        cached_fn.clear_cache = lambda: delattr(fn, _attr)
         if not hasattr(fn, _attr):
+            cached_fn.clear_cache = lambda: delattr(fn, _attr)
             setattr(fn, _attr, fn(*a, **kw))
         return getattr(fn, _attr)
     cached_fn.clear_cache = lambda: None
@@ -29,12 +29,13 @@ def memoize(max_keys=10000):
         @functools.wraps(fn)
         def decorated(*a, **kw):
             cache = getattr(decorated, _attr)
-            key = tuple(map(s.data.immutalize, [a, kw.items()]))
+            key = a, kw.items()
+            key = tuple(a), frozenset(kw.items())
             if key not in cache:
                 result = fn(*a, **kw)
+                cache[key] = result
             else:
-                result = cache.pop(key)
-            cache[key] = result
+                result = cache[key]
             while len(cache) > max_keys: # trim lru to max_keys
                 cache.popitem(last=False)
             return result
