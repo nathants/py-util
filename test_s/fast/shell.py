@@ -2,13 +2,13 @@ import s
 import os
 
 
-def test_module_name():
+def test__module_name():
     val = [['a/b/c', [], ['__init__.py', 'foo.py']],
            ['a/b', ['c'], []]]
     assert s.shell._module_name('a/b/c/foo.py', val) == 'c.foo'
 
 
-def test_module_name_init():
+def test_init__module_name():
     val = [['a/b/c', [], ['__init__.py', 'foo.py']],
            ['a/b', ['c'], []]]
     assert s.shell._module_name('a/b/c/__init__.py', val) == 'c'

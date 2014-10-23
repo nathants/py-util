@@ -15,17 +15,17 @@ def test_merge():
                                               4: 5}}
 
 
-def test_merge_simple():
+def test_simple_merge():
     assert s.dicts.merge({1: 2},
                          {1: 3, 2: 4}) == {1: 3, 2: 4}
 
 
-def test_merge_iterables():
+def test_iterables_merge():
     assert s.dicts.merge({1: {2: [1, 2]}},
                          {1: {2: [3, 4]}}) == {1: {2: [1, 2, 3, 4]}}
 
 
-def test_concatable():
+def test__concatable():
     assert s.dicts._concatable([], [])
     assert s.dicts._concatable((), ())
     assert not s.dicts._concatable((), [])
@@ -36,7 +36,7 @@ def test_only():
     assert s.dicts.only({1: True, 2: True, 3: True}, 1, 2) == {1: True, 2: True}
 
 
-def test_only_padded():
+def test_padded_only():
     assert s.dicts.only({1: True}, 1, 2, 3, padded=None) == {1: True, 2: None, 3: None}
 
 

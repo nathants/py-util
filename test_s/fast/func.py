@@ -2,7 +2,7 @@ import pytest
 import s
 
 
-def test_logic_immutalizes():
+def test_immutalizes_logic():
     @s.func.logic
     def fn(x):
         x[1] = 2
@@ -10,7 +10,7 @@ def test_logic_immutalizes():
         fn({})
 
 
-def test_stack():
+def test__stack():
     start = s.func._stack()
     @s.func.logic
     def fn1():
@@ -36,7 +36,7 @@ def test_flow_in_logic():
         logic()
 
 
-def test_immutalize():
+def test__immutalize():
     val = {'a': 1}
     @s.func._immutalize
     def fn2(x):
