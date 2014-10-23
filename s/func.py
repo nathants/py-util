@@ -229,28 +229,6 @@ def thrush(value, *funcs):
     return inline(*funcs)(value)
 
 
-_banned_attrs_dict = [
-    '__setitem__',
-    '__setattr__',
-    'pop',
-    'popitem',
-    'update',
-    'clear',
-    'setdefault',
-]
-
-
-_immutable_types = [
-    int,
-    float,
-    str,
-    bytes,
-    type(None),
-    types.FunctionType,
-    types.LambdaType,
-]
-
-
 def _immutalize(decoratee):
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
