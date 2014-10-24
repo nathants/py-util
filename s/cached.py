@@ -13,20 +13,23 @@ import os
 _attr = '_cached_value'
 
 
-def disk(fn):
-    file_name = s.hacks.get_caller()['filename']
+def _disk_cache_path(fn):
+    file_name = s.hacks.get_caller(3)['filename']
     module_name = s.shell.module_name(file_name)
     sha = s.shell.run('shasum', file_name, '| head -c7')
     func_name = fn.__name__
-    path = '/tmp/cache.{module_name}.{func_name}.{sha}'.format(**locals())
+    return '/tmp/cache.{module_name}.{func_name}.{sha}'.format(**locals())
+
+
+def disk(fn):
+    path = _disk_cache_path(fn)
     def cached_fn(*a, **kw):
         if not os.path.isfile(path):
-            cached_fn.clear_cache = lambda: s.shell.run('rm', path)
             with open(path, 'w') as _file:
                 json.dump(fn(*a, **kw), _file)
         with open(path) as _file:
             return json.load(_file)
-    cached_fn.clear_cache = lambda: None
+    cached_fn.clear_cache = lambda: s.shell.run('rm -f', path)
     with s.exceptions.ignore(AttributeError):
         cached_fn = functools.wraps(callable)(cached_fn)
     return cached_fn
