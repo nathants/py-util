@@ -23,8 +23,6 @@ def put(x, v, *ks):
 
 
 def merge(a, b, concat=True):
-    if not isinstance(a, dict):
-        return b
     a = copy.deepcopy(a)
     for bk, bv in b.items():
         if bk in a and isinstance(bv, dict):
