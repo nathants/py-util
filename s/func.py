@@ -30,26 +30,11 @@ except:
     _json_types += (bytes,)
 
 
-def _stringify(val):
-    if isinstance(val, dict):
-        return {_stringify(k): _stringify(v) for k, v in val.items()}
-    elif isinstance(val, (list, tuple, set)):
-        return [_stringify(x) for x in val]
-    elif isinstance(val, _json_types):
-        return val
-    else:
-        return str(val)
-
-
 def _trace(val):
     try:
         text = json.dumps(val)
     except:
-        try:
-            text = json.dumps(_stringify(val))
-        except:
-            logging.exception('bad val:', val)
-            raise
+        text = json.dumps('failed to jsonify: {}'.format(val))
     getattr(logging, 'trace', lambda x: None)(text)
 
 
