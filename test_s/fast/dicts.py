@@ -1,4 +1,5 @@
 import s
+import pytest
 
 
 def test_get():
@@ -42,3 +43,15 @@ def test_padded_only():
 
 def test_drop():
     assert s.dicts.drop({1: 1, 2: 2}, 1) == {2: 2}
+
+
+def test__ks():
+    assert s.dicts._ks([1, 2]) == (1, 2)
+    assert s.dicts._ks((1, 2)) == (1, 2)
+    with pytest.raises(TypeError):
+        s.dicts._ks(None)
+
+
+def test_new():
+    x, y = 1, 2
+    assert s.dicts.new(locals(), 'x', 'y') == {'x': 1, 'y': 2}
