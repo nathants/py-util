@@ -60,15 +60,20 @@ def _list_functions(module_name):
             and v.__module__ == module_name]
 
 
-def cover():
+def cover(grep_module=None):
     for test_file in s.test.fast_test_files():
         try:
             s.test.code_file(test_file)
         except AssertionError:
             continue
 
+        module = s.shell.module_name(s.test.code_file(test_file))
+        if grep_module and grep_module not in module:
+            continue
+
         _print_code_module_name(test_file)
         _print_cov_data(test_file)
         _print_missing_tests(test_file)
 
-    _print_missing_test_files()
+    if not grep_module:
+        _print_missing_test_files()
