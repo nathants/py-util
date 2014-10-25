@@ -16,6 +16,15 @@ import types
 # TODO use https://pypi.python.org/pypi/subprocess32/ on python2.7
 
 
+@s.cached.func
+def _sudo():
+    try:
+        run('sudo whoami')
+        return 'sudo'
+    except:
+        return ''
+
+
 _state = {}
 
 
@@ -166,7 +175,7 @@ def tempdir(cleanup=True, intemp=True):
         raise
     finally:
         if cleanup:
-            run('sudo rm -rf', path)
+            run(_sudo(), 'rm -rf', path)
 
 
 def cron_rm_path_later(path, hours):
@@ -176,7 +185,7 @@ def cron_rm_path_later(path, hours):
 
 
 def cron(name, when, cmd, user='root', selfdestruct=False):
-    if not os.path.isdir('/etc/cron.d'):
+    if not os.path.isdir('/etc/cron.d') or not _sudo():
         return
     assert name not in os.listdir('/etc/cron.d'), '"{}" already exists in /etc/cron.d'.format(name)
     name = '/etc/cron.d/{}'.format(name)
