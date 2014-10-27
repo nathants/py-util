@@ -1,6 +1,7 @@
 from __future__ import print_function, absolute_import
 import s
 import types
+import argh
 
 
 def _missing_funcs(test_file):
@@ -60,7 +61,8 @@ def _list_functions(module_name):
             and v.__module__ == module_name]
 
 
-def cover(grep_module=None):
+@argh.arg('grep_module', nargs='?', default=None)
+def cover(grep_module):
     for test_file in s.test.fast_test_files():
         try:
             s.test.code_file(test_file)
