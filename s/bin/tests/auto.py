@@ -38,7 +38,6 @@ def _view(test_data):
     return val
 
 
-@s.func.bad
 def _write_to_conns(test_datas):
     message = 'green'
     if any(y['result'] for x in test_datas for y in x):
@@ -55,13 +54,9 @@ def _print(terminal, text):
 
 
 def _app(terminal):
-    last = None
     for test_datas in s.test.run_tests_auto():
-        print(_write_to_conns, '?')
         _write_to_conns(test_datas)
         text = '\n'.join(map(_view, test_datas))
-        if text != last:
-            last = text
         _print(terminal, text)
 
 
