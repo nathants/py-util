@@ -7,6 +7,8 @@ import traceback
 import os
 import s
 import itertools
+import multiprocessing
+import Queue
 
 
 @s.func.flow
@@ -162,6 +164,22 @@ def _test(test_path):
     return [_run_test(test_path, k, v) for k, v in items] or [_result(None, test_path, 0)]
 
 
+def _format_pytest_output(text):
+    return s.func.thrush(
+        text,
+        str.splitlines,
+        reversed,
+        lambda x: itertools.dropwhile(lambda y: y.startswith('===='), x),
+        lambda x: itertools.takewhile(lambda y: not y.startswith('_____'), x),
+        lambda x: [y for y in x if '! Interrupted: stopping' not in y],
+        list,
+        reversed,
+        list,
+        lambda x: ['-' * 40] + x + ['-' * 40],
+        '\n'.join,
+    )
+
+
 @s.func.flow
 def _pytest_insight(test_file, query):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
@@ -169,18 +187,7 @@ def _pytest_insight(test_file, query):
     assert not any(x.startswith('ERROR: file not found:') for x in val['output'].splitlines())
     assert not any(x.startswith('ERROR: not found:') for x in val['output'].splitlines())
     assert val['exitcode'] != 0
-    return s.func.thrush(
-        val['output'],
-        str.splitlines,
-        reversed,
-        lambda x: itertools.dropwhile(lambda y: y.startswith('===='), x),
-        lambda x: itertools.takewhile(lambda y: not y.startswith('_____'), x),
-        list,
-        reversed,
-        list,
-        lambda x: ['-' * 40] + x + ['-' * 40],
-        '\n'.join,
-    )
+    return _format_pytest_output(val['output'])
 
 
 @s.func.logic
@@ -243,23 +250,55 @@ def run_tests_once():
     )
 
 
+def _run_slow_tests():
+    inq = multiprocessing.Queue()
+    outq = multiprocessing.Queue()
+    state = {'output': ''}
+    def main():
+        test_files = slow_test_files()
+        while True:
+            inq.get()
+            result = s.shell.run('py.test -x --tb native', *test_files, warn=True)
+            if result['exitcode'] != 0:
+                text = _format_pytest_output(result['output'])
+                outq.put(text)
+            else:
+                outq.put('')
+    s.proc.new(main)
+    def run():
+        with s.exceptions.ignore(Queue.Full):
+            inq.put(None, block=False)
+    def results():
+        with s.exceptions.ignore(Queue.Empty):
+            state['output'] = outq.get(block=False)
+        return state['output']
+    return run, results
+
+
 @s.func.flow
 def run_tests_auto():
+    run_slow_tests, slow_tests_results = _run_slow_tests()
     with s.shell.climb_git_root():
         dirs = _python_packages(s.shell.walk())
         predicate = lambda f: (f.endswith('.py')
                                and not f.startswith('.')
                                and '_flymake' not in f)
         orig = s.shell.walk_files_mtime(dirs, predicate)
-        # TODO update modules when orig.filepaths != now.filepaths
+        # TODO update modules when orig.filepaths != now.filepaths, so that
+        # adding a new file doesnt require a restart.
         # module_name() hits disk, so should call it rarely or pay penalty
         modules = [s.shell.module_name(x['filepath']) for x in orig]
         last = None
+        slow_tests_output = None
         while True:
             now = s.shell.walk_files_mtime(dirs, predicate)
-            if last != now:
+            if last != now or slow_tests_results() != slow_tests_output:
+                slow_tests_output = slow_tests_results()
+                run_slow_tests()
                 [sys.modules.pop(x, None) for x in modules]
-                yield run_tests_once()
+                yield run_tests_once() + [[{'result': slow_tests_output,
+                                            'path': 'test_*/slow/*.py',
+                                            'seconds': 0}]]
             time.sleep(.01)
             last = now
 
