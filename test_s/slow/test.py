@@ -92,7 +92,7 @@ def test_pass__test():
     assert not val[0]['result']
 
 
-def test_one_pass_one_fail_run_tests_once():
+def test_one_pass_one_fail_run_fast_tests_once():
     s.shell.run('mkdir .git')
     with s.shell.cd('test_foo/fast'):
         with open('test1.py', 'w') as _file:
@@ -102,12 +102,12 @@ def test_one_pass_one_fail_run_tests_once():
             _file.write('def test2():\n'
                         '    1/0')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
-    val = s.test.run_tests_once()
+    val = s.test.run_fast_tests_once()
     assert len(val) == 3
     assert len([x for x in val if x[0]['result']]) == 1
 
 
-def test_two_pass_run_tests_once():
+def test_two_pass_run_fast_tests_once():
     s.shell.run('mkdir .git')
     with s.shell.cd('test_foo/fast'):
         with open('test1.py', 'w') as _file:
@@ -117,7 +117,7 @@ def test_two_pass_run_tests_once():
             _file.write('def test2():\n'
                         '    pass')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
-    assert [x[0]['result'] for x in s.test.run_tests_once()] == [None, False, False]
+    assert [x[0]['result'] for x in s.test.run_fast_tests_once()] == [None, False, False]
 
 
 def test_climb_git_root():
