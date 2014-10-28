@@ -9,6 +9,7 @@ import s
 _conns = []
 _port = 8888
 _max_seconds = .01
+_state = {}
 
 
 def _server():
@@ -17,6 +18,7 @@ def _server():
             return True
         def open(self):
             _conns.append(self)
+            _write_to_conns()
         def on_close(self):
             with s.exceptions.ignore():
                 _conns.remove(self)
@@ -29,7 +31,9 @@ def _view(test_data):
     slows = ['{} ran in {}s, max is {}s'.format(x['path'],
                                                 x['seconds'],
                                                 _max_seconds)
-             for x in test_data if x['seconds'] > _max_seconds]
+             for x in test_data
+             if x['seconds'] > _max_seconds
+             and not x['result']]
     color = s.colors.red if failures or slows else s.colors.green
     name = test_data[0]['path'].split(':')[0]
     val = color(name)
@@ -38,12 +42,16 @@ def _view(test_data):
     return val
 
 
-def _write_to_conns(test_datas):
-    message = 'green'
-    if any(y['result'] for x in test_datas for y in x):
-        message = 'red'
-    for c in _conns:
-        c.write_message(message)
+def _write_to_conns(test_datas=None):
+    if test_datas:
+        _state['last'] = test_datas
+    test_datas = _state.get('last')
+    if test_datas:
+        message = 'green'
+        if any(y['result'] for x in test_datas for y in x):
+            message = 'red'
+        for c in _conns:
+            c.write_message(message)
 
 
 def _print(terminal, text):
