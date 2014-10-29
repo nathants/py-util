@@ -296,21 +296,32 @@ def run_tests_auto():
         predicate = lambda f: (f.endswith('.py')
                                and not f.startswith('.')
                                and '_flymake' not in f)
-        modules = [s.shell.module_name(x['filepath'])
-                   for x in s.shell.walk_files_mtime(dirs, predicate)]
+        modules = [s.shell.module_name(x) for x in s.shell.walk_files(dirs, predicate)]
         last = slow_tests_output = fast_tests_output = None
+        q = multiprocessing.Queue()
+        def files_changed():
+            with s.exceptions.ignore(six.moves.queue.Empty):
+                q.get(block=False)
+                print('pha?')
+                return True
+
+        def fn():
+            q.put(None)
+            try:
+                while True:
+                    s.shell.run("find -name '*py' | entr -d echo ''", callback=lambda _: q.put(None, block=False))
+            except KeyboardInterrupt:
+                s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|cut -d' ' -f1|xargs kill")
+        s.proc.new(fn)
+
         while True:
-            # this is *horrible* innefficient. use (entr +notify) instead and rm this code from s.shell
-            now = s.shell.walk_files_mtime(dirs, predicate)
             if (
-                last != now or
+                files_changed() or
                 results_slow_tests() != slow_tests_output or
                 _drop_seconds(results_fast_tests()) != _drop_seconds(fast_tests_output)
 
             ):
                 # if last.files != now.files then modules.append(dif.files) so we pickup new test files without a restart
-
-                # TODO run fg test here, for super fast feedback! will a unit test suite *ever* be slow enough to need this?
                 run_slow_tests()
                 run_fast_tests(modules)
 
@@ -320,8 +331,8 @@ def run_tests_auto():
                 if fast_tests_output:
                     yield fast_tests_output + [[{'result': slow_tests_output, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
 
+
             time.sleep(.01)
-            last = now
 
 
 @s.func.logic
