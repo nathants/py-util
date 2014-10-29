@@ -67,3 +67,9 @@ def test_get_or_prompt_pref():
                 assert _raw_input.call_count == 1
                 with open(s.shell.files()[0]) as _file:
                     assert _file.read().strip() == 'foo: bar'
+
+
+def test_callback():
+    val = []
+    s.shell.run('echo asdf', callback=lambda x: val.append(x))
+    assert val == ['asdf', '']

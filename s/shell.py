@@ -47,17 +47,19 @@ def _set_state(key):
 set_stream = _set_state('stream')
 
 
-def _stream_and_log_lines(proc, log):
+def _process_lines(proc, log, callback=None):
     lines = []
-    def cb(line):
+    def process(line):
         line = s.hacks.stringify(line).rstrip()
         if line.strip():
             log(line)
             lines.append(line)
+        if callback:
+            callback(line)
     while proc.poll() is None:
-        cb(proc.stdout.readline())
+        process(proc.stdout.readline())
     for line in proc.communicate()[0].strip().splitlines(): # sometimes the last line disappears
-        cb(line)
+        process(line)
     return '\n'.join(lines)
 
 
@@ -81,15 +83,16 @@ def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
     echo = kw.pop('echo', False)
+    callback = kw.pop('callback', None)
     stream = kw.pop('stream', _state.get('stream', False))
     log_or_print = _get_log_or_print(stream or echo)
     cmd = ' '.join(map(str, a))
     log_or_print('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
         _interactive_func[warn](cmd, **_call_kw)
-    elif stream or warn:
+    elif stream or warn or callback:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
-        output = _stream_and_log_lines(proc, log_or_print)
+        output = _process_lines(proc, log_or_print, callback)
         if warn:
             log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
             return {'output': output, 'exitcode': proc.returncode}
@@ -203,9 +206,8 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     run('sudo chmod 644', name)
 
 
-def walk_files_mtime(directories=['.'], predicate=lambda filepath: True):
-    return [{'filepath': os.path.join(path, f),
-             'mtime': os.stat(os.path.join(path, f)).st_mtime}
+def walk_files(directories=['.'], predicate=lambda filepath: True):
+    return [os.path.join(path, f)
             for d in directories
             for path, _, files in os.walk(d)
             for f in files
