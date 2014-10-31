@@ -97,6 +97,14 @@ def _filter_code_files(walk_datas):
             and not any(x.startswith('test_') for x in path.split('/'))]
 
 
+@s.func.flow
+def python_packages():
+    return s.func.thrush(
+        s.shell.walk(),
+        _python_packages,
+    )
+
+
 @s.func.logic
 def _python_packages(walk_data):
     walk_data = list(walk_data)
@@ -295,27 +303,27 @@ def _drop_seconds(test_datas):
         return test_datas
 
 
+def _modules_to_reload():
+    with s.shell.climb_git_root():
+        return [s.shell.module_name(x)
+                for x in s.shell.walk_files(python_packages(),
+                                            lambda f: (f.endswith('.py')
+                                                       and not f.startswith('.')
+                                                       and '_flymake' not in f))]
+
+
 @s.func.flow
 def run_tests_auto(pytest):
     files_changed = s.shell.watch_files()
-    async_run_slow_tests, results_slow_tests = _run_bg_tests(run_slow_tests_once)
-    if pytest:
-        async_run_fast_tests, results_fast_tests = _run_bg_tests(run_fast_tests_once)
-    else:
-        async_run_fast_tests, results_fast_tests = _run_bg_tests(run_lightweight_tests_once)
+    trigger_slow, results_slow = _run_bg_tests(run_slow_tests_once)
+    trigger_fast, results_fast = _run_bg_tests(run_fast_tests_once if pytest else run_lightweight_tests_once)
 
-    with s.shell.climb_git_root():
-        dirs = _python_packages(s.shell.walk())
-        predicate = lambda f: (f.endswith('.py')
-                               and not f.startswith('.')
-                               and '_flymake' not in f)
-        modules = [s.shell.module_name(x) for x in s.shell.walk_files(dirs, predicate)]
-
+    modules = _modules_to_reload()
     slow_tests_output = []
     fast_tests_output = []
 
-    slow_changed = lambda: results_slow_tests() != slow_tests_output
-    fast_changed = lambda: _drop_seconds(results_fast_tests()) != _drop_seconds(fast_tests_output) # seconds causes useless redraws
+    slow_changed = lambda: results_slow() != slow_tests_output
+    fast_changed = lambda: _drop_seconds(results_fast()) != _drop_seconds(fast_tests_output) # seconds causes useless redraws
 
     while True:
         """
@@ -325,11 +333,11 @@ def run_tests_auto(pytest):
         """
         if files_changed() or slow_changed() or fast_changed():
 
-            async_run_slow_tests()
-            async_run_fast_tests(modules)
+            trigger_slow()
+            trigger_fast(modules)
 
-            slow_tests_output = results_slow_tests()
-            fast_tests_output = results_fast_tests()
+            slow_tests_output = results_slow()
+            fast_tests_output = results_fast()
 
             yield fast_tests_output + slow_tests_output
 
