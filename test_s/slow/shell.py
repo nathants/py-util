@@ -72,4 +72,4 @@ def test_get_or_prompt_pref():
 def test_callback():
     val = []
     s.shell.run('echo asdf', callback=lambda x: val.append(x))
-    assert val == ['asdf', '']
+    assert 'asdf' in val
