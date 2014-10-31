@@ -43,15 +43,13 @@ def _view(test_data):
 
 
 def _write_to_conns(test_datas=None):
-    if test_datas:
-        _state['last'] = test_datas
-    test_datas = _state.get('last')
-    if test_datas:
+    test_datas = test_datas or []
+    if any(y['result'] for x in test_datas for y in x):
+        message = 'red'
+    else:
         message = 'green'
-        if any(y['result'] for x in test_datas for y in x):
-            message = 'red'
-        for c in _conns:
-            c.write_message(message)
+    for c in _conns:
+        c.write_message(message)
 
 
 def _print(terminal, text):
@@ -61,18 +59,21 @@ def _print(terminal, text):
     print(terminal.move(0, 0)) # hide_cursor broken in multi-term in emacs
 
 
-def _app(terminal):
-    for test_datas in s.test.run_tests_auto():
+def _app(terminal, pytest):
+    last = None
+    for test_datas in s.test.run_tests_auto(pytest):
         _write_to_conns(test_datas)
-        text = '\n'.join(map(_view, test_datas))
-        _print(terminal, text)
+        text = '\n'.join(map(_view, test_datas)) or s.colors.green('tests passed')
+        if text != last:
+            _print(terminal, text)
+            last = text
 
 
-def auto():
+def auto(pytest=False):
     s.log.setup()
     assert s.net.port_free(_port), 'something already running on port: {}'.format(_port)
     s.thread.new(_server)
     terminal = blessed.Terminal()
     with terminal.fullscreen():
         with terminal.hidden_cursor():
-            _app(terminal)
+            _app(terminal, pytest)

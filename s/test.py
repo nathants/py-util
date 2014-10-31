@@ -242,14 +242,6 @@ def code_files():
     )
 
 
-@s.func.flow
-def run_slow_tests_once():
-    result = s.shell.run('py.test -x --tb native', *slow_test_files(), warn=True)
-    if result['exitcode'] != 0:
-        text = _format_pytest_output(result['output'])
-        return text
-
-
 @s.func.flow # really? is this glue/logic/flow thing just silly?
 def _run_bg_tests(fn):
     inq = multiprocessing.Queue()
@@ -266,12 +258,28 @@ def _run_bg_tests(fn):
     def results():
         with s.exceptions.ignore(six.moves.queue.Empty):
             state['output'] = outq.get(block=False)
-        return state.get('output')
+        return state.get('output') or []
     return run, results
 
 
 @s.func.flow
+def run_slow_tests_once():
+    result = s.shell.run('py.test -x --tb native', *slow_test_files(), warn=True)
+    if result['exitcode'] != 0:
+        text = _format_pytest_output(result['output'])
+        return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
+
+
+@s.func.flow
 def run_fast_tests_once(modules=None):
+    result = s.shell.run('py.test -x --tb native', *fast_test_files(), warn=True)
+    if result['exitcode'] != 0:
+        text = _format_pytest_output(result['output'])
+        return [[{'result': text, 'path': 'test_*/fast/*.py', 'seconds': 0}]]
+
+
+@s.func.flow
+def run_lightweight_tests_once(modules=None):
     for x in modules or []:
         sys.modules.pop(x, None)
     return _test_all(fast_test_files())
@@ -288,51 +296,44 @@ def _drop_seconds(test_datas):
 
 
 @s.func.flow
-def run_tests_auto():
-    run_slow_tests, results_slow_tests = _run_bg_tests(run_slow_tests_once)
-    run_fast_tests, results_fast_tests = _run_bg_tests(run_fast_tests_once)
+def run_tests_auto(pytest):
+    files_changed = s.shell.watch_files()
+    async_run_slow_tests, results_slow_tests = _run_bg_tests(run_slow_tests_once)
+    if pytest:
+        async_run_fast_tests, results_fast_tests = _run_bg_tests(run_fast_tests_once)
+    else:
+        async_run_fast_tests, results_fast_tests = _run_bg_tests(run_lightweight_tests_once)
+
     with s.shell.climb_git_root():
         dirs = _python_packages(s.shell.walk())
         predicate = lambda f: (f.endswith('.py')
                                and not f.startswith('.')
                                and '_flymake' not in f)
         modules = [s.shell.module_name(x) for x in s.shell.walk_files(dirs, predicate)]
-        last = slow_tests_output = fast_tests_output = None
-        q = multiprocessing.Queue()
-        def files_changed():
-            with s.exceptions.ignore(six.moves.queue.Empty):
-                q.get(block=False)
-                print('pha?')
-                return True
 
-        def fn():
-            q.put(None)
-            try:
-                while True:
-                    s.shell.run("find -name '*py' | entr -d echo ''", callback=lambda _: q.put(None, block=False))
-            except KeyboardInterrupt:
-                s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|cut -d' ' -f1|xargs kill")
-        s.proc.new(fn)
+    slow_tests_output = []
+    fast_tests_output = []
 
-        while True:
-            if (
-                files_changed() or
-                results_slow_tests() != slow_tests_output or
-                _drop_seconds(results_fast_tests()) != _drop_seconds(fast_tests_output)
+    slow_changed = lambda: results_slow_tests() != slow_tests_output
+    fast_changed = lambda: _drop_seconds(results_fast_tests()) != _drop_seconds(fast_tests_output) # seconds causes useless redraws
 
-            ):
-                # if last.files != now.files then modules.append(dif.files) so we pickup new test files without a restart
-                run_slow_tests()
-                run_fast_tests(modules)
+    while True:
+        """
+        main proc uses tornado and watches zmq sockets
+        other procs send on zmq sockets when stuff happens
+        cpu usage < 20% ?
+        """
+        if files_changed() or slow_changed() or fast_changed():
 
-                slow_tests_output = results_slow_tests()
-                fast_tests_output = results_fast_tests()
+            async_run_slow_tests()
+            async_run_fast_tests(modules)
 
-                if fast_tests_output:
-                    yield fast_tests_output + [[{'result': slow_tests_output, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
+            slow_tests_output = results_slow_tests()
+            fast_tests_output = results_fast_tests()
 
+            yield fast_tests_output + slow_tests_output
 
-            time.sleep(.01)
+        time.sleep(.01)
 
 
 @s.func.logic
