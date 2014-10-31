@@ -76,12 +76,16 @@ def _filter_test_files(walk_data):
 
 @s.func.logic
 def _filter_fast_test_files(paths):
-    return [x for x in paths if 'fast' in x.split('/')]
+    return [x for x in paths
+            if 'fast' in x.split('/')
+            or 'unit' in x.split('/')]
 
 
 @s.func.logic
 def _filter_slow_test_files(paths):
-    return [x for x in paths if 'slow' in x.split('/')]
+    return [x for x in paths
+            if 'slow' in x.split('/')
+            or 'integration' in x.split('/')]
 
 
 @s.func.logic
