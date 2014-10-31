@@ -43,7 +43,9 @@ def _view(test_data):
 
 
 def _write_to_conns(test_datas=None):
-    test_datas = test_datas or []
+    if test_datas:
+        _state['last'] = test_datas
+    test_datas = _state.get('last') or []
     if any(y['result'] for x in test_datas for y in x):
         message = 'red'
     else:
