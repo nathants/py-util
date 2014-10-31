@@ -11,6 +11,7 @@ import string
 import time
 import argh
 import types
+import multiprocessing
 
 
 # TODO use https://pypi.python.org/pypi/subprocess32/ on python2.7
@@ -263,9 +264,9 @@ def _rel_path(filepath, climb_data):
 
 
 def _module_name(filepath, climb_data):
-    rel_path = _rel_path(filepath, climb_data)
-    rel_path = rel_path.replace('.pyc', '').replace('.py', '')
-    parts = rel_path.split('/')
+    val = _rel_path(filepath, climb_data)
+    val = val.replace('.pyc', '').replace('.py', '')
+    parts = val.split('/')
     if parts[-1] == '__init__':
         parts = parts[:-1]
     return '.'.join(parts)
@@ -303,3 +304,21 @@ def get_or_prompt_pref(key, _file_, default=None, message=None):
 
 def abspand(path):
     return os.path.abspath(os.path.expanduser(path))
+
+
+def watch_files():
+    queue = multiprocessing.Queue()
+    def files_changed():
+        with s.exceptions.ignore(six.moves.queue.Empty):
+            queue.get(block=False)
+            return True
+    def fn():
+        queue.put(None)
+        try:
+            with s.shell.climb_git_root():
+                while True:
+                    s.shell.run("find -name '*py' | entr -d echo ''", callback=lambda _: queue.put(None, block=False))
+        except KeyboardInterrupt:
+            s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|cut -d' ' -f1|xargs kill")
+    s.proc.new(fn)
+    return files_changed
