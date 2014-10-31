@@ -31,6 +31,14 @@ def _new_factory(cls):
     return _new
 
 
+def _wait_factory(cls):
+    _new = _new_factory(cls)
+    def _wait(*fns):
+        objs = [_new(fn) for fn in fns]
+        [obj.join() for obj in objs]
+    return _wait
+
+
 def _submit_factory(cls, _globals):
     def _submit(fn, *a, **kw):
         pool = _globals['_pool'](cls, _globals['_size'])
@@ -43,3 +51,6 @@ submit = _submit_factory(concurrent.futures.ThreadPoolExecutor, globals())
 
 
 new = _new_factory(threading.Thread)
+
+
+wait = _wait_factory(threading.Thread)

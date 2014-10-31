@@ -14,3 +14,6 @@ submit = s.thread._submit_factory(concurrent.futures.ProcessPoolExecutor, global
 
 
 new = s.thread._new_factory(multiprocessing.Process)
+
+
+wait = s.thread._wait_factory(multiprocessing.Process)
