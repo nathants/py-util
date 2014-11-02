@@ -124,7 +124,7 @@ def test_climb_git_root():
     path = os.getcwd()
     s.shell.run('mkdir .git')
     with s.shell.cd('a/b/c'):
-        assert path == s.func.thrush(
+        assert path == s.func.pipe(
             s.shell.climb(),
             s.test._git_root,
         )

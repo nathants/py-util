@@ -104,22 +104,21 @@ def _module_name(fn):
     return module
 
 
-def _make_fn_type(kind, rules, skip_return_check=False, immutalize=False):
+def _make_fn_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
-            return _gen_type(decoratee, kind, rules, immutalize)
-        fn = _fn_type(decoratee, kind, rules, skip_return_check, immutalize)
+            return _gen_type(decoratee, kind, rules)
+        fn = _fn_type(decoratee, kind, rules, skip_return_check)
         return fn
     return decorator
 
 
-def _fn_type(decoratee, kind, rules, skip_return_check, immutalize):
-    if immutalize:
-        decoratee = _immutalize(decoratee)
+def _fn_type(decoratee, kind, rules, skip_return_check):
+    name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
+    @_immutalize
     def decorated(*a, **kw):
         # TODO assert all args are _json_types
-        name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         _trace_funcs[kind]['in'](name, 'fn', *a, **kw)
         with _state_layer(name):
             try:
@@ -136,10 +135,9 @@ def _fn_type(decoratee, kind, rules, skip_return_check, immutalize):
     return decorated
 
 
-def _gen_type(decoratee, kind, rules, immutalize):
-    if immutalize:
-        decoratee = _immutalize(decoratee)
+def _gen_type(decoratee, kind, rules):
     @functools.wraps(decoratee)
+    @_immutalize
     def decorated(*a, **kw):
         # TODO assert args are _json_types
         name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
@@ -192,14 +190,13 @@ flow = _make_fn_type('flow', _flow_rules)
 
 def _logic_rules():
     assert _get_state(offset=1) != 'glue', 'glue cannot contain logic\n{}'.format(_rule_violation_message())
-logic = _make_fn_type('logic', _logic_rules, immutalize=True)
+logic = _make_fn_type('logic', _logic_rules)
 
 
 bad = _make_fn_type('bad', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
 
 
 def inline(*funcs):
-    """inline(f, g)(x) == g(f(x))"""
     for fn in funcs:
         assert callable(fn), '{} is not callable'.format(fn)
     def _fn(val):
@@ -209,8 +206,7 @@ def inline(*funcs):
     return _fn
 
 
-def thrush(value, *funcs):
-    """thread(123, f, g) == g(f(123))"""
+def pipe(value, *funcs):
     return inline(*funcs)(value)
 
 
@@ -221,10 +217,16 @@ def _immutalize(decoratee):
             a = map(s.data.immutalize, a)
             kw = s.data.immutalize(kw)
         except Exception as e:
-            try:
-                name = '{}.{}'.format(decoratee.__module__, decoratee.__name__)
-            except:
-                name = decoratee
-            raise Exception('for {}, {}'.format(name, e))
+            raise Exception('for {}, {}'.format(name(decoratee), e))
         return decoratee(*a, **kw)
     return decorated
+
+
+def name(fn):
+    with s.exceptions.ignore():
+        return '{}.{}'.format(fn.__module__, fn.__name__)
+    with s.exceptions.ignore():
+        return fn.__name__
+    with s.exceptions.ignore():
+        return str(fn)
+    return fn

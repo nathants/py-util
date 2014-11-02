@@ -103,7 +103,7 @@ def _filter_code_files(walk_datas):
 
 @s.func.flow
 def python_packages():
-    return s.func.thrush(
+    return s.func.pipe(
         s.shell.walk(),
         _python_packages,
     )
@@ -177,7 +177,7 @@ def _test(test_path):
 
 
 def _format_pytest_output(text):
-    return s.func.thrush(
+    return s.func.pipe(
         text,
         str.splitlines,
         reversed,
@@ -216,7 +216,7 @@ def _test_all(paths):
 
 @s.func.flow
 def all_test_files():
-    return s.func.thrush(
+    return s.func.pipe(
         s.shell.climb(),
         _git_root,
         s.shell.walk,
@@ -227,7 +227,7 @@ def all_test_files():
 
 @s.func.flow
 def slow_test_files():
-    return s.func.thrush(
+    return s.func.pipe(
         all_test_files(),
         _filter_slow_test_files,
     )
@@ -235,7 +235,7 @@ def slow_test_files():
 
 @s.func.flow
 def fast_test_files():
-    return s.func.thrush(
+    return s.func.pipe(
         all_test_files(),
         _filter_fast_test_files,
     )
@@ -243,7 +243,7 @@ def fast_test_files():
 
 @s.func.flow
 def code_files():
-    return s.func.thrush(
+    return s.func.pipe(
         s.shell.climb(),
         _git_root,
         s.shell.walk,

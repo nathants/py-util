@@ -13,7 +13,7 @@ def _missing_funcs(test_file):
 
 
 def _print_code_module_name(test_file):
-    return s.func.thrush(
+    return s.func.pipe(
         test_file,
         s.test.code_file,
         s.shell.module_name,

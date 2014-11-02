@@ -80,13 +80,13 @@ def test_inline_noncallable():
         s.func.inline(_three_minus, _times_two, 1)(1)
 
 
-def test_thrush():
-    assert s.func.thrush(1, _plus_one, _times_two, _three_minus) == -1
+def test_pipe():
+    assert s.func.pipe(1, _plus_one, _times_two, _three_minus) == -1
 
 
 def test_thread_noncallable():
     with pytest.raises(AssertionError):
-        s.func.thrush(1, _plus_one, _times_two, 2)
+        s.func.pipe(1, _plus_one, _times_two, 2)
 
 
 def test_logic_generator():

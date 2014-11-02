@@ -157,15 +157,15 @@ def _app(t, path):
 @argh.arg('file_or_regex', nargs='?', default=None)
 def _main(file_or_regex):
     """
-    visualizer for data flow debug logs created with s.func.* decorators and s.log.setup().
+    visualizer for data flow trace logs created with s.func.* decorators and s.log.setup().
 
-    when called with no args, uses the latest debug log.
+    when called with no args, uses the latest trace log.
 
     when called with one arg, uses that as a file name, and then falls back to re.search.
     """
 
     vals = s.shell.files('/tmp', True)
-    vals = [x for x in vals if x.endswith(':debug.log')]
+    vals = [x for x in vals if x.endswith(':trace.log')]
     vals = sorted(vals, key=lambda x: os.stat(x).st_mtime, reverse=True)
 
     if file_or_regex:
@@ -184,7 +184,7 @@ def _main(file_or_regex):
         try:
             path = vals[0]
         except:
-            print('no debug logs found')
+            print('no trace logs found')
             sys.exit(1)
 
     t = blessed.Terminal()
