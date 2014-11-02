@@ -54,5 +54,7 @@ def immutalize(val):
 
 
 class _ImmutableDict(dict):
-    def __setitem__(self, *a):
+    def __setitem__(self, *a, **kw):
         raise ValueError('this dict is read-only')
+
+    update = clear = pop = popitem = __setitem__

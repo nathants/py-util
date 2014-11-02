@@ -7,6 +7,26 @@ def test_setitem_immutalize():
         s.data.immutalize({'a': 1})['a'] = 2
 
 
+def test_pop_immutalize():
+    with pytest.raises(ValueError):
+        s.data.immutalize({'a': 1}).pop()
+
+
+def test_popitem_immutalize():
+    with pytest.raises(ValueError):
+        s.data.immutalize({'a': 1}).popitem()
+
+
+def test_update_immutalize():
+    with pytest.raises(ValueError):
+        s.data.immutalize({'a': 1}).update()
+
+
+def test_clear_immutalize():
+    with pytest.raises(ValueError):
+        s.data.immutalize({'a': 1}).clear()
+
+
 def test_append_immutalize():
     with pytest.raises(AttributeError):
         s.data.immutalize([]).append(1)
