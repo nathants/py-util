@@ -3,7 +3,8 @@ import copy
 
 
 def new(scope, *names):
-    return {name: scope[name] for name in names}
+    return {name: scope[name]
+            for name in names}
 
 
 def get(x, *ks):
@@ -35,14 +36,20 @@ def merge(a, b, concat=True):
 
 
 def only(x, *ks, **kw):
-    val = {k: x[k] for k in x if k in ks}
+    val = {k: x[k]
+           for k in x
+           if k in ks}
     if 'padded' in kw:
-        val = merge({k: kw['padded'] for k in ks}, val)
+        val = merge({k: kw['padded']
+                     for k in ks},
+                    val)
     return val
 
 
 def drop(x, *ks):
-    return {k: v for k, v in x.items() if k not in ks}
+    return {k: v
+            for k, v in x.items()
+            if k not in ks}
 
 
 def _ks(ks):
@@ -54,4 +61,4 @@ def _ks(ks):
 
 
 def _concatable(*xs):
-    return {type(x) for x in xs} ^ {list, tuple} in [{list}, {tuple}]
+    return ({type(x) for x in xs} ^ {list, tuple}) in [{list}, {tuple}]
