@@ -23,6 +23,7 @@ def _disk_cache_path(fn):
 
 def disk(fn):
     path = _disk_cache_path(fn)
+    @functools.wraps(fn)
     def cached_fn(*a, **kw):
         if not os.path.isfile(path):
             with open(path, 'w') as _file:
@@ -36,6 +37,7 @@ def disk(fn):
 
 
 def func(fn):
+    @functools.wraps(fn)
     def cached_fn(*a, **kw):
         if not hasattr(fn, _attr):
             cached_fn.clear_cache = lambda: delattr(fn, _attr)
