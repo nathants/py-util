@@ -46,7 +46,7 @@ def _make_handler(handler, level, format, pprint, filter=None):
 
 def _get_format(format, short):
     return (format if format
-            else _short_format if short
+            else _short_format if _get_short(short)
             else _standard_format)
 
 
@@ -55,104 +55,37 @@ def _add_trace_level():
     logging.TRACE = 9
     logging.addLevelName(logging.TRACE, "TRACE")
     logging.trace = lambda msg, *a, **kw: logging.root._log(logging.TRACE, msg, a, **kw)
+    logging.root.setLevel('TRACE')
+
+
+def _trace_file_handler(name):
+    path = _get_trace_path(name)
+    s.shell.cron_rm_path_later(path, hours=24)
+    handler = logging.handlers.WatchedFileHandler(path)
+    return _make_handler(handler, 'trace', '%(message)s', False, _TraceOnly)
+
+
+def _stream_handler(level, format):
+    level = _get_level(level)
+    assert level in ('debug', 'info')
+    return _make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace)
 
 
 @s.cached.func
 def setup(name=None, level='info', short=False, pprint=False, format=None):
-
-    level = _get_level(level)
-    assert level in ('debug', 'info')
-    short = _get_short(short)
-    format = _get_format(format, short)
-    handlers = []
-
-    _add_trace_level()
-
-    # add trace file handler
-    path = _get_debug_path(name)
-    s.shell.cron_rm_path_later(path, hours=24)
-    handler = logging.handlers.WatchedFileHandler(path)
-    handlers.append(_make_handler(handler, 'trace', '%(message)s', False, _TraceOnly))
-
-    # add the stream handler
-    handlers.append(_make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace))
-    # rm all root handlers
-    [logging.root.removeHandler(x) for x in logging.root.handlers]
-    [logging.root.addHandler(x) for x in handlers]
-    logging.root.setLevel('TRACE')
     # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
+    _add_trace_level()
+    for x in logging.root.handlers:
+        logging.root.removeHandler(x)
+    logging.root.addHandler(_trace_file_handler(name))
+    logging.root.addHandler(_stream_handler(level, _get_format(format, short)))
 
 
-def _get_debug_path(name):
+def _get_trace_path(name):
     caller = s.hacks.get_caller(4)
     funcname = caller['funcname'] if caller['funcname'] != '<module>' else '__main__'
     name = s.shell.module_name(caller['filename'])
-    return '/tmp/{}:{}:{}:debug.log'.format(name, funcname, time.time())
-
-
-try:
-    _pretty_main_skip_types = basestring,
-    _pretty_arg_skip_types = basestring, int, long, float
-except NameError:
-    _pretty_main_skip_types = str, bytes
-    _pretty_arg_skip_types = str, bytes, int, float
-
-
-def _pprint(record):
-    indent = 1
-    width = 1
-    with s.exceptions.ignore():
-        pprint_arg = '!pprint' in record.args
-        if pprint_arg:
-            record.args = tuple(x for x in record.args if x != '!pprint')
-        if not record._pprint and not pprint_arg:
-            return record
-        val = []
-        for x in record.args:
-            try:
-                assert not isinstance(x, _pretty_arg_skip_types)
-                x = s.hacks.pformat_prep(x)
-                val.append('\n' + pprint.pformat(x, indent=indent, width=width))
-            except:
-                val.append(x)
-        record.args = val
-        if not isinstance(record.msg, _pretty_main_skip_types):
-            with s.exceptions.ignore():
-                record.msg = s.hacks.pformat_prep(record.msg)
-                record.msg = pprint.pformat(record.msg, indent=indent, width=width)
-                if not record.args:
-                    record.msg = '\n' + record.msg
-    return record
-
-
-def _old_style(record):
-    with s.exceptions.ignore():
-        msg = record.msg % tuple(record.args)
-        if msg != record.msg:
-            record.args = []
-            record.msg = msg
-
-    return record
-
-
-def _color(record):
-    with s.exceptions.ignore():
-        record.msg = s.strings.color(record.msg)
-    return record
-
-
-def _space_join_args(record):
-    with s.exceptions.ignore():
-        record.msg = ' '.join([str(record.msg)] + map(str, record.args))
-        record.args = []
-    return record
-
-
-def _ensure_args_list(record):
-    with s.exceptions.ignore():
-        if not isinstance(record.args, (list, tuple)):
-            record.args = [record.args]
-    return record
+    return '/tmp/{}:{}:{}:trace.log'.format(name, funcname, time.time())
 
 
 def _better_pathname(record):
@@ -181,14 +114,9 @@ class _NotTrace(logging.Filter):
 
 def _process_record(record):
     if not hasattr(record, '_processed'):
-        record = s.func.thrush(
+        record = s.func.pipe(
             record,
-            _ensure_args_list,
-            _pprint,
-            _old_style,
-            _space_join_args,
             _better_pathname,
-            _color,
             _short_levelname,
         )
         record._processed = True
@@ -202,7 +130,8 @@ class _Formatter(logging.Formatter):
 
     def format(self, record):
         record._pprint = self.pprint
-        return logging.Formatter.format(self, _process_record(record))
+        record = _process_record(record)
+        return logging.Formatter.format(self, record)
 
 
 @contextlib.contextmanager
@@ -212,7 +141,7 @@ def disable(*loggers):
         assert isinstance(name, str), 'loggers must be a list of string names of loggers '
         logger = logging.getLogger(name)
         levels.append(logger.level)
-        logger.setLevel('CRITICAL')
+        logger.setLevel('ERROR')
     try:
         yield
     except:
