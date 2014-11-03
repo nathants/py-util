@@ -6,3 +6,4 @@ tornado
 futures
 requests
 pyaml
+pyzmq
