@@ -3,27 +3,27 @@ import pytest
 
 
 def test_setitem_immutalize():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         s.data.immutalize({'a': 1})['a'] = 2
 
 
 def test_pop_immutalize():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         s.data.immutalize({'a': 1}).pop()
 
 
 def test_popitem_immutalize():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         s.data.immutalize({'a': 1}).popitem()
 
 
 def test_update_immutalize():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         s.data.immutalize({'a': 1}).update()
 
 
 def test_clear_immutalize():
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         s.data.immutalize({'a': 1}).clear()
 
 

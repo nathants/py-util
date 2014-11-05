@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import s
 import types
+import pyrsistent
 
 
 _immutable_types = (
@@ -59,3 +60,7 @@ class _ImmutableDict(dict):
 
     for k in _banned_attrs_dict:
         locals()[k] = _raise_error
+
+
+def use_pyrsistent():
+    globals()['_ImmutableDict'] = pyrsistent.pmap
