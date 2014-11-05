@@ -3,17 +3,6 @@ import s
 import types
 
 
-_banned_attrs_dict = [
-    '__setitem__',
-    '__setattr__',
-    'pop',
-    'popitem',
-    'update',
-    'clear',
-    'setdefault',
-]
-
-
 _immutable_types = (
     int,
     float,
@@ -22,6 +11,7 @@ _immutable_types = (
     type(None),
     types.LambdaType,
     types.FunctionType,
+    types.GeneratorType,
 )
 
 
@@ -49,12 +39,23 @@ def immutalize(val):
         return tuple(immutalize(x) for x in val)
     elif isinstance(val, set):
         return frozenset(immutalize(x) for x in val)
-
     raise ValueError('type "{}" is not immutalizable'.format(type(val).__name__))
 
 
+_banned_attrs_dict = [
+    '__setitem__',
+    '__setattr__',
+    'pop',
+    'popitem',
+    'update',
+    'clear',
+    'setdefault',
+]
+
+
 class _ImmutableDict(dict):
-    def __setitem__(self, *a, **kw):
+    def _raise_error(self, *a, **kw):
         raise ValueError('this dict is read-only')
 
-    update = clear = pop = popitem = __setitem__
+    for k in _banned_attrs_dict:
+        locals()[k] = _raise_error
