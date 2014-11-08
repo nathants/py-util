@@ -5,44 +5,57 @@ import tornado.ioloop
 import s
 import requests
 import time
+import six
 
 
-def new_handler_method(fn):
-    def method(self, *captures):
-        request = request_to_dict(self.request, captures)
+def _new_handler_method(fn):
+    def method(self, **arguments):
+        request = _request_to_dict(self.request, arguments)
         response = fn(request)
-        modify_handler(response, self)
+        _modify_handler(response, self)
     return method
 
 
-def verbs_to_handler(**verbs):
+def _verbs_to_handler(**verbs):
     class Handler(tornado.web.RequestHandler):
         for verb, fn in verbs.items():
-            locals()[verb.lower()] = new_handler_method(fn)
+            locals()[verb.lower()] = _new_handler_method(fn)
         del verb, fn
     return Handler
 
 
-def modify_handler(response, handler):
+def _modify_handler(response, handler):
     handler.write(response.get('body', 'ok'))
     handler.set_status(response.get('code', 200))
     for header, value in response.get('headers', {'ring-ish-server': 'yes'}).items():
         handler.set_header(header, value)
 
 
-def request_to_dict(obj, captures):
+def _query_parse(query):
+    parsed = six.moves.urllib.parse.parse_qs(query, True)
+    return {k: v if len(v) > 1 else v.pop()
+            for k, v in parsed.items()}
+
+
+def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
             'path': obj.path,
-            'query': obj.query,
+            'query': _query_parse(obj.query),
             'headers': dict(obj.headers),
             'body': obj.body,
-            'arguments': obj.arguments,
-            'captures': captures}
+            'arguments': arguments}
+
+
+def _parse_path(path):
+    return '/'.join(['(?P<{}>.*)'.format(x[1:])
+                     if x.startswith(':')
+                     else x
+                     for x in path.split('/')])
 
 
 def server(routes, debug=False):
-    routes = [(path, verbs_to_handler(**verbs))
+    routes = [(_parse_path(path), _verbs_to_handler(**verbs))
               for path, verbs in routes]
     return tornado.web.Application(routes, debug=debug)
 
