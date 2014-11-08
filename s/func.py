@@ -35,7 +35,8 @@ def _trace(val):
         text = json.dumps(val)
     except:
         text = json.dumps('failed to jsonify: {}'.format(val))
-    getattr(logging, 'trace', lambda x: None)(text)
+    if hasattr(s.log.setup, s.cached._attr):
+        getattr(logging, 'trace', lambda x: None)(text)
 
 
 _trace_funcs = {
