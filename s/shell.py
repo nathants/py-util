@@ -317,7 +317,9 @@ def watch_files():
         try:
             with s.shell.climb_git_root():
                 while True:
-                    s.shell.run("find -name '*py' | entr -d echo ''", callback=lambda _: queue.put(None, block=False))
+                    s.shell.run("find -name '*py' | entr -d echo ''",
+                                callback=lambda _: queue.put(None, block=False),
+                                warn=True)
         except KeyboardInterrupt:
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
     s.proc.new(fn)
