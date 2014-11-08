@@ -1,5 +1,7 @@
+from __future__ import print_function, absolute_import
 import s
 import socket
+import re
 
 
 def port_free(port):
@@ -12,3 +14,8 @@ def free_port():
     port_num = sock.getsockname()[1]
     sock.close()
     return port_num
+
+
+def eth0_address():
+    text = s.shell.run('ifconfig eth0 | grep "inet addr"')
+    return re.search('inet addr:([\d\.]+) ', text).group(1)
