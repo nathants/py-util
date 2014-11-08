@@ -276,7 +276,11 @@ def _run_bg_tests(fn):
 
 @s.func.flow
 def run_slow_tests_once():
-    result = s.shell.run('py.test -x --tb native', *slow_test_files(), warn=True)
+    if six.PY2:
+        pytest = 'py.test'
+    else:
+        pytest = 'py.test3'
+    result = s.shell.run(pytest, '-x --tb native', *slow_test_files(), warn=True)
     if result['exitcode'] != 0:
         text = _format_pytest_output(result['output'])
         return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
