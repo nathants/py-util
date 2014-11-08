@@ -7,6 +7,7 @@ _keys = list(sys.modules.keys())
 
 
 def setup_function(fn):
+    s.log.setup.clear_cache()
     fn.tempdir_context = s.shell.tempdir()
     fn.tempdir_context.__enter__()
     for k, v in list(sys.modules.items()):
