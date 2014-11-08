@@ -39,10 +39,10 @@ def disk(fn):
 def func(fn):
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
-        if not hasattr(fn, _attr):
-            cached_fn.clear_cache = lambda: delattr(fn, _attr)
-            setattr(fn, _attr, fn(*a, **kw))
-        return getattr(fn, _attr)
+        if not hasattr(cached_fn, _attr):
+            cached_fn.clear_cache = lambda: hasattr(cached_fn, _attr) and delattr(cached_fn, _attr)
+            setattr(cached_fn, _attr, fn(*a, **kw))
+        return getattr(cached_fn, _attr)
     cached_fn.clear_cache = lambda: None
     with s.exceptions.ignore(AttributeError):
         cached_fn = functools.wraps(callable)(cached_fn)
