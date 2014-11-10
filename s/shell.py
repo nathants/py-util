@@ -67,7 +67,7 @@ def _process_lines(proc, log, callback=None):
 def _get_log_or_print(should_log):
     def fn(x):
         if should_log:
-            if hasattr(s.log.setup, s.cached._attr):
+            if s.cached.is_cached(s.log.setup):
                 logging.info(x)
             else:
                 print(x)

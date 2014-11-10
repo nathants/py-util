@@ -36,6 +36,10 @@ def disk(fn):
     return cached_fn
 
 
+def is_cached(fn):
+    return hasattr(fn, _attr)
+
+
 def func(fn):
     @functools.wraps(fn)
     def cached_fn(*a, **kw):

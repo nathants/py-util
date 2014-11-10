@@ -11,6 +11,16 @@ def test_func():
     assert state['val'] == 1
 
 
+def test_is_cached():
+    state = {'val': 0}
+    @s.cached.func
+    def fn():
+        state['val'] += 1
+    assert not s.cached.is_cached(fn)
+    fn()
+    assert s.cached.is_cached(fn)
+
+
 def test_clear_func():
     state = {'val': 0}
     @s.cached.func
