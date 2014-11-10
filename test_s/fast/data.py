@@ -1,5 +1,6 @@
 import s
 import pytest
+import mock
 
 
 def test_setitem_immutalize():
@@ -55,3 +56,17 @@ def test_list_immutalize():
     y = s.data.immutalize(x)
     x.append(4)
     assert y == (1, 2, 3)
+
+
+def test_dont_reimmutalize():
+    fn = s.data.immutalize
+    with mock.patch.object(s.data, 'immutalize') as m:
+        m.side_effect = fn
+        x = [1, 2, 3]
+        assert m.call_count == 0
+        x = s.data.immutalize(x)
+        assert m.call_count == 4 # called once for [] and once for each element
+        s.data.immutalize(x)
+        assert m.call_count == 5 # called once for [] and shortcircuit
+        s.data.immutalize(x)
+        assert m.call_count == 6 # called once for [] and shortcircuit

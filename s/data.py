@@ -3,6 +3,33 @@ import s
 import types
 
 
+_banned_attrs_dict = [
+    '__setitem__',
+    '__setattr__',
+    'pop',
+    'popitem',
+    'update',
+    'clear',
+    'setdefault',
+]
+
+
+class _ImmutableDict(dict):
+    def _raise_error(self, *a, **kw):
+        raise ValueError('this dict is read-only')
+
+    for k in _banned_attrs_dict:
+        locals()[k] = _raise_error
+
+
+class _ImmutableSeq(tuple):
+    pass
+
+
+class _ImmutableSet(frozenset):
+    pass
+
+
 _immutable_types = (
     int,
     float,
@@ -12,6 +39,9 @@ _immutable_types = (
     types.LambdaType,
     types.FunctionType,
     types.GeneratorType,
+    _ImmutableDict,
+    _ImmutableSeq,
+    _ImmutableSet,
 )
 
 
@@ -36,26 +66,7 @@ def immutalize(val):
     elif isinstance(val, dict):
         return _ImmutableDict({k: immutalize(v) for k, v in val.items()})
     elif isinstance(val, _listy_types):
-        return tuple(immutalize(x) for x in val)
+        return _ImmutableSeq(immutalize(x) for x in val)
     elif isinstance(val, set):
-        return frozenset(immutalize(x) for x in val)
+        return _ImmutableSet(immutalize(x) for x in val)
     raise ValueError('type "{}" is not immutalizable'.format(type(val).__name__))
-
-
-_banned_attrs_dict = [
-    '__setitem__',
-    '__setattr__',
-    'pop',
-    'popitem',
-    'update',
-    'clear',
-    'setdefault',
-]
-
-
-class _ImmutableDict(dict):
-    def _raise_error(self, *a, **kw):
-        raise ValueError('this dict is read-only')
-
-    for k in _banned_attrs_dict:
-        locals()[k] = _raise_error
