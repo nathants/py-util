@@ -5,14 +5,15 @@ import pytest
 import mock
 
 
-_keys = list(sys.modules.keys())
+def setup_module():
+    globals()['_keys'] = list(sys.modules.keys())
 
 
 def setup_function(fn):
     fn.ctx = s.shell.tempdir()
     fn.ctx.__enter__()
     for k, v in list(sys.modules.items()):
-        if k not in _keys:
+        if k not in globals()['_keys']:
             del sys.modules[k]
     sys.path.insert(0, os.getcwd())
 
