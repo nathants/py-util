@@ -9,10 +9,12 @@ import six
 
 
 def _new_handler_method(fn):
+    assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
+    @s.async.coroutine(immutalize=False)
     def method(self, **arguments):
         request = _request_to_dict(self.request, arguments)
-        response = fn(request)
-        _modify_handler(response, self)
+        response = yield fn(request)
+        _mutate_handler(response, self)
     return method
 
 
@@ -24,10 +26,10 @@ def _verbs_to_handler(**verbs):
     return Handler
 
 
-def _modify_handler(response, handler):
+def _mutate_handler(response, handler):
     handler.write(response.get('body', 'ok'))
     handler.set_status(response.get('code', 200))
-    for header, value in response.get('headers', {'ring-ish-server': 'yes'}).items():
+    for header, value in response.get('headers', {}).items():
         handler.set_header(header, value)
 
 
@@ -72,7 +74,7 @@ def test(app):
         try:
             str(requests.get(url)) # wait for http requests to succeed
             break
-        except:
+        except requests.exceptions.ConnectionError:
             time.sleep(1e-6)
     try:
         yield url
