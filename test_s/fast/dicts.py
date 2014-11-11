@@ -10,10 +10,30 @@ def test_put():
     assert s.dicts.put({}, 3, 1, 2) == {1: {2: 3}}
 
 
+def test_merge_immutalizes():
+    assert s.dicts.merge({1: 2}, {1: [3, 4]}) == {1: (3, 4)}
+
+
 def test_merge():
     assert s.dicts.merge({1: {2: 3}},
                          {1: {4: 5}}) == {1: {2: 3,
                                               4: 5}}
+
+
+def test_merge_dict_with_nondict():
+    assert s.dicts.merge({1: 2}, {1: {2: 3}}) == {1: {2: 3}}
+
+
+def test_mutability_merge_a():
+    a = {1: 2}
+    assert s.dicts.merge(a, {1: 3}) == {1: 3}
+    assert a == {1: 2}
+
+
+def test_mutability_merge_b():
+    b = {1: 3}
+    assert s.dicts.merge({1: 2}, b) == {1: 3}
+    assert b == {1: 3}
 
 
 def test_simple_merge():
@@ -21,9 +41,9 @@ def test_simple_merge():
                          {1: 3, 2: 4}) == {1: 3, 2: 4}
 
 
-def test_iterables_merge():
-    assert s.dicts.merge({1: {2: [1, 2]}},
-                         {1: {2: [3, 4]}}) == {1: {2: [1, 2, 3, 4]}}
+def test_iterables_concatted():
+    assert s.dicts.merge({1: {2: (1, 2)}},
+                         {1: {2: (3, 4)}}, concat=True) == {1: {2: (1, 2, 3, 4)}}
 
 
 def test__concatable():

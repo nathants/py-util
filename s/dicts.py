@@ -1,5 +1,5 @@
 from __future__ import absolute_import, print_function
-import copy
+import s
 
 
 def new(scope, *names):
@@ -23,16 +23,27 @@ def put(x, v, *ks):
     return merge(x, val)
 
 
-def merge(a, b, concat=True):
-    a = copy.deepcopy(a)
-    for bk, bv in b.items():
-        if bk in a and isinstance(bv, dict):
-            a[bk] = merge(a[bk], bv)
-        elif bk in a and _concatable(a[bk], bv) and concat:
-            a[bk] += bv
+def merge(a, b, concat=False):
+    return {k: _merge(k, a, b, concat)
+            for k in set(list(a.keys()) +
+                         list(b.keys()))}
+
+
+def _merge(k, a, b, concat):
+    a, b, = s.data.immutalize(a), s.data.immutalize(b)
+    assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
+    if k in a and k in b:
+        if isinstance(a[k], dict) and isinstance(b[k], dict):
+            return merge(a[k], b[k], concat)
+        elif _concatable(a[k], b[k]):
+            return a[k] + b[k]
         else:
-            a[bk] = bv
-    return a
+            return b[k]
+    else:
+        if k in a:
+            return a[k]
+        else:
+            return b[k]
 
 
 def only(x, *ks, **kw):
@@ -40,9 +51,7 @@ def only(x, *ks, **kw):
            for k in x
            if k in ks}
     if 'padded' in kw:
-        val = merge({k: kw['padded']
-                     for k in ks},
-                    val)
+        val = merge({k: kw['padded'] for k in ks}, val)
     return val
 
 
@@ -61,4 +70,5 @@ def _ks(ks):
 
 
 def _concatable(*xs):
-    return ({type(x) for x in xs} ^ {list, tuple}) in [{list}, {tuple}]
+    return (all(isinstance(x, tuple) for x in xs) or
+            all(isinstance(x, list) for x in xs))
