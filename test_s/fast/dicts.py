@@ -54,11 +54,11 @@ def test__concatable():
 
 
 def test_only():
-    assert s.dicts.only({1: True, 2: True, 3: True}, 1, 2) == {1: True, 2: True}
+    assert s.dicts.take({1: True, 2: True, 3: True}, 1, 2) == {1: True, 2: True}
 
 
 def test_padded_only():
-    assert s.dicts.only({1: True}, 1, 2, 3, padded=None) == {1: True, 2: None, 3: None}
+    assert s.dicts.take({1: True}, 1, 2, 3, padded=None) == {1: True, 2: None, 3: None}
 
 
 def test_drop():

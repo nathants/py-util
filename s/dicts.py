@@ -46,7 +46,7 @@ def _merge(k, a, b, concat):
             return b[k]
 
 
-def only(x, *ks, **kw):
+def take(x, *ks, **kw):
     val = {k: x[k]
            for k in x
            if k in ks}
