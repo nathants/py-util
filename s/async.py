@@ -34,7 +34,8 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
         def decorated(*a, **kw):
             if coroutine_kw.get('immutalize', True):
                 a, kw = s.data.immutalize(a), s.data.immutalize(kw)
-            future = tornado.gen.coroutine(fn)(*a, **kw)
+            trace_fn = s.func.flow(fn)
+            future = tornado.gen.coroutine(trace_fn)(*a, **kw)
             callback = _log_exceptions(*ignore_exceptions)
             tornado.ioloop.IOLoop.current().add_future(future, callback)
             return future
@@ -56,3 +57,4 @@ Return = tornado.gen.Return
 moment = tornado.gen.moment
 ioloop = tornado.ioloop.IOLoop.current
 run_sync = ioloop().run_sync
+Future = tornado.concurrent.Future

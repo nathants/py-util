@@ -11,10 +11,15 @@ import logging
 import time
 import types
 import s
+import tornado.concurrent
+import concurrent.futures
 
 
 _state = {}
 
+
+_future_types = (tornado.concurrent.Future,
+                 concurrent.futures.Future)
 
 _json_types = (list,
                str,
@@ -105,12 +110,11 @@ def _module_name(fn):
     return module
 
 
-def _make_fn_type(kind, rules, skip_return_check=False):
+def _make_traceable_type(kind, rules, skip_return_check=False):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
             return _gen_type(decoratee, kind, rules)
-        fn = _fn_type(decoratee, kind, rules, skip_return_check)
-        return fn
+        return _fn_type(decoratee, kind, rules, skip_return_check)
     return decorator
 
 
@@ -146,21 +150,28 @@ def _gen_type(decoratee, kind, rules):
         generator = decoratee(*a, **kw)
         assert isinstance(generator, types.GeneratorType)
         to_send = None
+        first_send = True
         while True:
                 with _state_layer(name):
                     try:
                         rules()
-                        # TODO assert to_send is _json_types or None
+                        assert isinstance(to_send, _json_types)
+                        if not first_send:
+                            _trace_funcs[kind]['in'](name, 'gen.send', to_send)
+                        first_send = False
                         to_yield = generator.send(to_send)
-                    except StopIteration as e:
-                        _trace_funcs[kind]['out'](name, 'gen', val=e)
+                        assert isinstance(to_yield, _json_types + _future_types)
+                    except (s.async.Return, StopIteration) as e:
+                        _trace_funcs[kind]['out'](name, 'gen', val=getattr(e, 'value', None))
                         raise
-                    except:
+                    except Exception:
                         _trace_funcs[kind]['out'](name, 'gen', traceback=traceback.format_exc())
                         raise
                     else:
-                        _trace_funcs[kind]['out'](name, 'gen', val=to_yield)
-                # TODO assert to_yield is _json_types
+                        val = to_yield
+                        if isinstance(to_yield, _future_types):
+                            val = str(val)
+                        _trace_funcs[kind]['out'](name, 'gen.yield', val=val)
                 to_send = yield to_yield
     return decorated
 
@@ -180,21 +191,21 @@ def _rule_violation_message():
 
 def _glue_rules():
     assert _get_state(offset=1) != 'logic', 'logic cannot contain glue\n{}'.format(_rule_violation_message())
-glue = _make_fn_type('glue', _glue_rules)
+glue = _make_traceable_type('glue', _glue_rules)
 
 
 # todo, define better the difference between glue and flow. are two types necessary?
 def _flow_rules():
     assert _get_state(offset=1) != 'logic', 'logic cannot contain flow\n{}'.format(_rule_violation_message())
-flow = _make_fn_type('flow', _flow_rules)
+flow = _make_traceable_type('flow', _flow_rules)
 
 
 def _logic_rules():
     assert _get_state(offset=1) != 'glue', 'glue cannot contain logic\n{}'.format(_rule_violation_message())
-logic = _make_fn_type('logic', _logic_rules)
+logic = _make_traceable_type('logic', _logic_rules)
 
 
-bad = _make_fn_type('bad', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
+bad = _make_traceable_type('bad', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
 
 
 def inline(*funcs):
