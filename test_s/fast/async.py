@@ -19,5 +19,5 @@ def test_coroutine():
     def main():
         result = yield [a(), b()]
         raise s.async.Return(result)
-    assert s.async.run_sync(main) == ['a', 'b']
+    assert s.async.run_sync(main) == ('a', 'b')
     assert state == [0, 10, 1, 11, 2, 12]
