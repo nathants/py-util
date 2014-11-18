@@ -9,7 +9,6 @@ import json
 import contextlib
 import logging
 import time
-import types
 import s
 import tornado.concurrent
 import concurrent.futures
@@ -35,11 +34,28 @@ except:
     _json_types += (bytes,)
 
 
+def _jsonify(val):
+    if isinstance(val, dict):
+        return {_jsonify(k): _jsonify(v) for k, v in val.items()}
+    elif isinstance(val, (list, tuple)):
+        return [_jsonify(x) for x in val]
+    elif isinstance(val, _json_types):
+        return val
+    else:
+        val = str(val)
+        if ' at 0x' in val:
+            val = val.split()[0].split('.')[-1]
+        return '<{}>'.format(val.strip('<>'))
+
+
 def _trace(val):
     try:
         text = json.dumps(val)
     except:
-        text = json.dumps('failed to jsonify: {}'.format(val))
+        try:
+            text = json.dumps(_jsonify(val))
+        except:
+            text = json.dumps('failed to jsonify: {}'.format(val))
     if s.cached.is_cached(s.log.setup):
         getattr(logging, 'trace', lambda x: None)(text)
 
@@ -110,70 +126,79 @@ def _module_name(fn):
     return module
 
 
-def _make_traceable_type(kind, rules, skip_return_check=False):
+def _make_traceable_type(kind, rules, immutalize=True):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
-            return _gen_type(decoratee, kind, rules)
-        return _fn_type(decoratee, kind, rules, skip_return_check)
+            return _gen_type(decoratee, kind, rules, immutalize)
+        return _fn_type(decoratee, kind, rules, immutalize)
     return decorator
 
 
-def _fn_type(decoratee, kind, rules, skip_return_check):
+def _fn_type(decoratee, kind, rules, immutalize):
     name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
-    @_immutalize
     def decorated(*a, **kw):
-        # TODO assert all args are _json_types
         _trace_funcs[kind]['in'](name, 'fn', *a, **kw)
         with _state_layer(name):
             try:
+                if immutalize:
+                    a, kw = s.data.immutalize(a), s.data.immutalize(kw)
                 rules()
                 val = decoratee(*a, **kw)
-                assert not isinstance(val, types.GeneratorType)
+                if immutalize:
+                    val = s.data.immutalize(val)
+                assert val is not None, 'you cannot return None from: {name}'.format(**locals())
             except:
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise
-            else:
-                assert skip_return_check or isinstance(val, _json_types), 'must return data from function: {}'.format(name)
             _trace_funcs[kind]['out'](name, 'fn', val=val)
         return val
     return decorated
 
 
-def _gen_type(decoratee, kind, rules):
+def _gen_type(decoratee, kind, rules, immutalize):
+    name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
-    @_immutalize
     def decorated(*a, **kw):
-        # TODO assert args are _json_types
-        name = '{}:{}:{}'.format(kind, _module_name(decoratee), decoratee.__name__)
         _trace_funcs[kind]['in'](name, 'gen', *a, **kw)
+        if immutalize:
+            a, kw = s.data.immutalize(a), s.data.immutalize(kw)
         generator = decoratee(*a, **kw)
-        assert isinstance(generator, types.GeneratorType)
         to_send = None
         first_send = True
         while True:
                 with _state_layer(name):
                     try:
                         rules()
-                        assert isinstance(to_send, _json_types)
+                        if immutalize:
+                            to_send = s.data.immutalize(to_send)
                         if not first_send:
                             _trace_funcs[kind]['in'](name, 'gen.send', to_send)
                         first_send = False
                         to_yield = generator.send(to_send)
-                        assert isinstance(to_yield, _json_types + _future_types)
+                        if immutalize and not _is_futury(to_yield):
+                            to_yield = s.data.immutalize(to_yield)
                     except (s.async.Return, StopIteration) as e:
                         _trace_funcs[kind]['out'](name, 'gen', val=getattr(e, 'value', None))
-                        raise
-                    except Exception:
+                        raise e
+                    except:
                         _trace_funcs[kind]['out'](name, 'gen', traceback=traceback.format_exc())
                         raise
                     else:
-                        val = to_yield
-                        if isinstance(to_yield, _future_types):
-                            val = str(val)
-                        _trace_funcs[kind]['out'](name, 'gen.yield', val=val)
+                        _trace_funcs[kind]['out'](name, 'gen.yield', val=to_yield)
                 to_send = yield to_yield
     return decorated
+
+
+def _is_futury(obj):
+    if isinstance(obj, _future_types):
+        return True
+    elif isinstance(obj, (list, tuple)) and all(isinstance(x, _future_types) for x in obj):
+        return True
+    elif isinstance(obj, dict) and all(isinstance(x, _future_types) for x in obj.values()):
+        return True
+    else:
+        return False
 
 
 def _rule_violation_message():
@@ -205,7 +230,7 @@ def _logic_rules():
 logic = _make_traceable_type('logic', _logic_rules)
 
 
-bad = _make_traceable_type('bad', lambda: True, skip_return_check=True) # use for tests, and other non-system functions
+bad = _make_traceable_type('bad', lambda: True, immutalize=False) # use for tests, and other non-system functions
 
 
 def inline(*funcs):
@@ -220,18 +245,6 @@ def inline(*funcs):
 
 def pipe(value, *funcs):
     return inline(*funcs)(value)
-
-
-def _immutalize(decoratee):
-    @functools.wraps(decoratee)
-    def decorated(*a, **kw):
-        try:
-            a = map(s.data.immutalize, a)
-            kw = s.data.immutalize(kw)
-        except Exception as e:
-            raise Exception('for {}, {}'.format(name(decoratee), e))
-        return decoratee(*a, **kw)
-    return decorated
 
 
 def name(fn):
