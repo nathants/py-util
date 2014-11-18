@@ -16,6 +16,10 @@ def _header(data, highlight):
         val = val[1:] + '<'
     else:
         val += '>'
+    if data['fntype'] in ['gen.send', 'gen.yield']:
+        val = val + val[-1]
+    if data['fntype'] == 'gen.send':
+        val = val[1:]
     name = data['name']
     if highlight:
         val = s.colors.green(val)
@@ -45,11 +49,13 @@ def _body(data, hide_keys, pretty, max_lines):
     return '\n'.join(val)
 
 
+@s.func.logic
 def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=True):
-    if pair:
-        vals = _pair(index, datas)
-    else:
+    if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
         vals = [(datas[index], True)]
+    else:
+        vals = _pair(index, datas)
+
     output = ['path: {}'.format(path),
               'index: {}'.format(index)]
     for data, highlight in vals:
@@ -59,21 +65,27 @@ def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=Tr
     return '\n'.join(output)
 
 
+@s.func.logic
 def _pair(index, datas):
     data = datas[index]
     inward = datas[index]['direction'] == 'in'
+
     if inward:
         datas = datas[index + 1:]
     else:
         datas = reversed(datas[:index])
+
     for pair in datas:
         match_names = pair['name'] == data['name']
-        match_stack = pair['stack'] == data['stack'][:-1] or pair['stack'][:-1] == data['stack']
-        if match_names and match_stack:
+        opposite_directions = pair['direction'], data['direction'] == 'in', 'out'
+        send_or_yield = pair['fntype'] in ['gen.send', 'gen.yield']
+        if match_names and opposite_directions and not send_or_yield:
             break
+    else:
+        raise Exception('no pair found')
     vals = [(pair, False), (data, True)]
     if inward:
-        vals = reversed(vals)
+        vals = list(reversed(vals))
     return vals
 
 
@@ -91,6 +103,7 @@ _help = """
     m - show more data
     a - show all data
     c - show cwd
+    s - disable stack visualization
 
 """
 
@@ -112,7 +125,7 @@ def _app(t, path):
     max_lines_increment = 10
     max_lines_high = 1e10
     max_lines = max_lines_low = 10
-    hidden_keys = _hidden_keys = ['direction', 'name', 'fntype', 'time', 'stack', 'cwd']
+    hidden_keys = _hidden_keys = ['direction', 'name', 'time', 'stack', 'cwd']
 
     while True:
         _print(t, _visualize(index, path, datas, hidden_keys, max_lines, pair, pretty))
@@ -175,15 +188,16 @@ def _main(file_or_regex):
             path = os.path.join('/tmp', file_or_regex)
         else:
             for val in vals:
-                if re.search(file_or_regex, val):
+                if re.search(file_or_regex, val) and os.path.getsize(val) > 0:
                     path = val
                     break
             print('nothing matched regex: {}'.format(file_or_regex))
             sys.exit(1)
     else:
-        try:
-            path = vals[0]
-        except:
+        for path in vals:
+            if os.path.getsize(path) > 0:
+                break
+        else:
             print('no trace logs found')
             sys.exit(1)
 
