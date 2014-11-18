@@ -64,9 +64,9 @@ def immutalize(val):
     if isinstance(val, _immutable_types):
         return val
     elif isinstance(val, dict):
-        return _ImmutableDict({k: immutalize(v) for k, v in val.items()})
+        return _ImmutableDict({immutalize(k): immutalize(v) for k, v in val.items()})
     elif isinstance(val, _listy_types):
         return _ImmutableSeq(immutalize(x) for x in val)
     elif isinstance(val, set):
         return _ImmutableSet(immutalize(x) for x in val)
-    raise ValueError('type "{}" is not immutalizable'.format(type(val).__name__))
+    raise ValueError('{} ({}) not immutalizable'.format(val, type(val)))
