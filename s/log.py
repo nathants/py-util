@@ -82,10 +82,14 @@ def setup(name=None, level='info', short=False, pprint=False, format=None):
 
 
 def _get_trace_path(name):
-    caller = s.hacks.get_caller(4)
+    caller = s.hacks.get_caller(5)
     funcname = caller['funcname'] if caller['funcname'] != '<module>' else '__main__'
-    name = s.shell.module_name(caller['filename'])
-    return '/tmp/{}:{}:{}:trace.log'.format(name, funcname, time.time())
+    modname = s.shell.module_name(caller['filename'])
+    when = time.time()
+    val = '{modname}:{funcname}:{when}'.format(**locals())
+    if name:
+        val = '{name}:{val}'.format(**locals())
+    return '/tmp/{val}:trace.log'.format(**locals())
 
 
 def _better_pathname(record):
