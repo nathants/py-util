@@ -73,7 +73,8 @@ def commit(skip_precommit=False):
         else:
             pre_commit = '.git/hooks/pre-commit'
             if os.path.isfile(pre_commit) and not skip_precommit:
-                s.shell.run(pre_commit, stream=True)
+                if s.shell.run(pre_commit, stream=True, warn=True)['exitcode'] != 0:
+                    sys.exit(1)
             _less('going to walk through these files:\n\n {}'.format('\n '.join(paths)))
             for path in paths:
                 s.shell.run('git add', path)
