@@ -9,16 +9,24 @@ def test_python_packages():
     assert s.test._python_packages(data) == ('/foo/bar',)
 
 
+def test_nested__test_file():
+    assert s.test._test_file('foo/bin/bar.py') == 'test_foo/fast/bin/bar.py'
+
+
+def test_nested__code_file():
+    assert s.test._code_file('test_foo/fast/bin/bar.py') == 'foo/bin/bar.py'
+
+
 def test__test_file():
     assert s.test._test_file('foo/bar.py') == 'test_foo/fast/bar.py'
 
 
+def test__code_file():
+    assert s.test._code_file('test_foo/fast/bar.py') == 'foo/bar.py'
+
+
 def test_handles_init__test_file():
     assert s.test._test_file('foo/__init__.py') == 'test_foo/fast/__init__.py'
-
-
-def test__code_file():
-    assert s.test._code_file(s.test._test_file('foo/bar.py')) == 'foo/bar.py'
 
 
 def test_handles_init__code_file():
