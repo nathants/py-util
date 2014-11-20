@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 import threading
 import concurrent.futures
 import s
+import logging
 
 
 # todo better management of changing pool size mid program, and choosing whether to replace existing or create new pool
@@ -13,7 +14,7 @@ _size = 50
 def _pool_factory():
     @s.cached.func
     def _pool(cls, size):
-        print('new:', cls, 'size:', size)
+        logging.info('new:', cls, 'size:', size)
         return cls(size)
     return _pool
 
