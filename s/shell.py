@@ -11,7 +11,6 @@ import string
 import time
 import argh
 import types
-import multiprocessing
 
 
 # TODO use https://pypi.python.org/pypi/subprocess32/ on python2.7
@@ -96,7 +95,7 @@ def run(*a, **kw):
         output = _process_lines(proc, log_or_print, callback)
         if warn:
             log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
-            return {'output': output, 'exitcode': proc.returncode}
+            return {'output': output, 'exitcode': proc.returncode, 'cmd': cmd}
         elif proc.returncode != 0:
             output = '' if stream else output
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
@@ -307,20 +306,16 @@ def abspand(path):
 
 
 def watch_files():
-    queue = multiprocessing.Queue()
-    def files_changed():
-        with s.exceptions.ignore(six.moves.queue.Empty):
-            queue.get(block=False)
-            return True
+    route = s.net.new_ipc_route()
     def fn():
-        queue.put(None)
+        pubber = s.zmq.socket('PUB', 'bind', route)
         try:
             with s.shell.climb_git_root():
                 while True:
                     s.shell.run("find -name '*py' | entr -d echo ''",
-                                callback=lambda _: queue.put(None, block=False),
+                                callback=lambda _: pubber.send_string(''),
                                 warn=True)
         except KeyboardInterrupt:
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
     s.proc.new(fn)
-    return files_changed
+    return route
