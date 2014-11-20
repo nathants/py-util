@@ -3,6 +3,22 @@ import s
 import pytest
 
 
+def test_optional_key():
+    schema = {'a': 'apple',
+              'b': lambda x: x == s.schema.default and 'banana' or x == 'banana'}
+    assert s.schema.validate(schema, {'a': 'apple'}) == {'a': 'apple', 'b': 'banana'}
+    assert s.schema.validate(schema, {'a': 'apple', 'b': 'banana'}) == {'a': 'apple', 'b': 'banana'}
+    with pytest.raises(ValueError):
+        s.schema.validate(schema, {'a': 'apple', 'b': 'notbanana'})
+
+
+def test_value_schema():
+    schema = 1
+    assert s.schema.validate(schema, 1) == 1
+    with pytest.raises(ValueError):
+        s.schema.validate(schema, 2)
+
+
 def test_single_type_schema():
     schema = int
     assert s.schema.validate(schema, 1) == 1
@@ -110,6 +126,21 @@ def test_nested_iterables():
     assert s.schema.validate(schema, {'1': [['1'], ['2']]}) == {'1': [['1'], ['2']]}
     with pytest.raises(ValueError):
         assert s.schema.validate(schema, {'1': [['1'], [1]]})
+
+
+def test_many_keys():
+    schema = {str: int}
+    assert s.schema.validate(schema, {'1': 2, '3': 4}) == {'1': 2, '3': 4}
+    with pytest.raises(ValueError):
+        s.schema.validate(schema, {'1': 2, '3': 4.0})
+
+
+def test_value_matches_are_higher_precedence_than_type_matches():
+    schema = {str: int,
+              'foo': 'bar'}
+    assert s.schema.validate(schema, {'1': 2, 'foo': 'bar'}) == {'1': 2, 'foo': 'bar'}
+    with pytest.raises(ValueError):
+        s.schema.validate(schema, {'1': 2, 'foo': 'asdf'})
 
 
 def test_complex_types():

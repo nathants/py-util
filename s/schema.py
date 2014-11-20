@@ -1,9 +1,30 @@
 from __future__ import print_function, absolute_import
 import s
 import types
+import uuid
+
+
+default = str(uuid.uuid4()) # sentinel used to signal default values
 
 
 def validate(schema, value):
+    """
+    >>> import pytest
+
+    lists represent variable length homogenous lists/tuples
+
+    >>> validate([int], [1, 2])
+    [1, 2]
+    >>> with pytest.raises(ValueError):
+    ...     validate([int], [1, '2'])
+
+    tuples represent fixed length heterogenous lists/tuples
+
+    >>> validate((int, int), [1, 2])
+    [1, 2]
+    >>> with pytest.raises(ValueError):
+    ...     validate((int, int), [1])
+    """
     if isinstance(schema, dict):
         assert isinstance(value, dict), 'value {}, should be a dict for schema: {}'.format(value, schema)
         for k, v in value.items():
@@ -13,6 +34,10 @@ def validate(schema, value):
                 raise ValueError('key: {} ({}), does not match schema keys: {}'.format(k, type(k), schema.keys()))
             else:
                 _validate(schema[type(k)] if value_mismatch else schema[k], v)
+        for k, v in schema.items():
+            if k not in value and isinstance(v, types.LambdaType):
+                value = s.dicts.merge(value, {k: v(default)})
+
     else:
         _validate(schema, value)
     return value
