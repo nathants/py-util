@@ -74,17 +74,55 @@ def test_pub_sub():
     def pubber():
         with s.zmq.socket('PUB', 'bind', route, **_kw) as pub:
             while state['send']:
-                pub.send_multipart_string(['topic1', 'asdf'])
+                pub.send_string('asdf')
                 time.sleep(.001)
     s.thread.new(pubber)
 
     # then we should be able to subscribe to those messages
     with s.zmq.socket('SUB', 'connect', route, **_kw) as sub:
-        assert sub.recv_multipart_string() == ['topic1', 'asdf']
+        assert sub.recv_string() == 'asdf'
+        state['send'] = False
+
+
+def test_pub_sub_multipart():
+    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    state = {'send': True}
+
+    # when we publish messages
+    def pubber():
+        with s.zmq.socket('PUB', 'bind', route, **_kw) as pub:
+            while state['send']:
+                pub.send_multipart_string(['', 'asdf'])
+                time.sleep(.001)
+    s.thread.new(pubber)
+
+    # then we should be able to subscribe to those messages
+    with s.zmq.socket('SUB', 'connect', route, **_kw) as sub:
+        assert sub.recv_multipart_string() == ['', 'asdf']
         state['send'] = False
 
 
 def test_pub_sub_subscriptions():
+    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    state = {'send': True}
+
+    # when we publish messages on multiple topics
+    def pubber():
+        with s.zmq.socket('PUB', 'bind', route, **_kw) as pub:
+            while state['send']:
+                pub.send_string('topic1 asdf')
+                pub.send_string('topic2 123')
+                time.sleep(.001)
+    s.thread.new(pubber)
+
+    # then we should be able to subscribe to specific topics
+    with s.zmq.socket('SUB', 'connect', route, subscriptions=['topic1'], **_kw) as sub:
+        assert sub.recv_string() == 'topic1 asdf'
+        assert sub.recv_string() == 'topic1 asdf'
+        state['send'] = False
+
+
+def test_pub_sub_subscriptions_multipart():
     route = 'ipc:///tmp/{}'.format(uuid.uuid4())
     state = {'send': True}
 
