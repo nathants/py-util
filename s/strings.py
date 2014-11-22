@@ -24,5 +24,14 @@ def rm_color(text):
 
 
 def indent(text, spaces):
-    indenter = lambda x: ' ' * spaces + x
-    return '\n'.join(map(indenter, text.splitlines()))
+    fn = lambda x: ' ' * spaces + x
+    return '\n'.join(map(fn, text.splitlines()))
+
+
+def unindent(text, spaces):
+    if spaces == 0:
+        return text
+    def fn(x):
+        assert set(x[:spaces]) == {' '}, 'cannot unindent {spaces} spaces: {x}'.format(**locals())
+        return x[spaces:]
+    return '\n'.join(map(fn, text.splitlines()))
