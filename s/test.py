@@ -11,7 +11,7 @@ import multiprocessing
 import six
 
 
-@s.func.flow
+@s.trace.glue
 def code_file(test_file):
     assert os.path.isfile(test_file), 'no such test_file: {}'.format(test_file)
     test_file_rel_path = s.shell.rel_path(test_file)
@@ -21,7 +21,7 @@ def code_file(test_file):
     return path
 
 
-@s.func.flow
+@s.trace.glue
 def test_file(code_file):
     assert os.path.isfile(code_file), 'no such code_file: {}'.format(code_file)
     code_file_rel_path = s.shell.rel_path(code_file)
@@ -31,7 +31,7 @@ def test_file(code_file):
     return path
 
 
-@s.func.logic
+@s.trace.logic
 def _test_file(code_file):
     assert not code_file.startswith('/'), 'code_file is not relative path from project root: {}'.format(code_file)
     assert code_file.endswith('.py'), 'code_file does not end with .py: {}'.format(code_file)
@@ -42,7 +42,7 @@ def _test_file(code_file):
     return val
 
 
-@s.func.logic
+@s.trace.logic
 def _code_file(test_file):
     assert not test_file.startswith('/'), 'test_file is not relative path from project root: {}'.format(test_file)
     assert test_file.endswith('.py'), 'test_file does not end with .py: {}'.format(test_file)
@@ -53,7 +53,7 @@ def _code_file(test_file):
     return val
 
 
-@s.func.logic
+@s.trace.logic
 def _git_root(climb_data):
     climb_data = list(climb_data)
     val = [path for path, dirs, _ in climb_data if '.git' in dirs]
@@ -61,7 +61,7 @@ def _git_root(climb_data):
     return val[0]
 
 
-@s.func.logic
+@s.trace.logic
 def _filter_test_files(walk_data):
     return [os.path.join(path, f)
             for path, _, files in walk_data
@@ -74,21 +74,21 @@ def _filter_test_files(walk_data):
             and path.split('/')[-2].startswith('test_')]
 
 
-@s.func.logic
+@s.trace.logic
 def _filter_fast_test_files(paths):
     return [x for x in paths
             if 'fast' in x.split('/')
             or 'unit' in x.split('/')]
 
 
-@s.func.logic
+@s.trace.logic
 def _filter_slow_test_files(paths):
     return [x for x in paths
             if 'slow' in x.split('/')
             or 'integration' in x.split('/')]
 
 
-@s.func.logic
+@s.trace.logic
 def _filter_code_files(walk_datas):
     return [os.path.join(path, f)
             for data in walk_datas
@@ -101,7 +101,7 @@ def _filter_code_files(walk_datas):
             and not any(x.startswith('test_') for x in path.split('/'))]
 
 
-@s.func.flow
+@s.trace.glue
 def python_packages():
     return s.func.pipe(
         s.shell.walk(),
@@ -109,7 +109,7 @@ def python_packages():
     )
 
 
-@s.func.logic
+@s.trace.logic
 def _python_packages(walk_data):
     walk_data = list(walk_data)
     return [path
@@ -118,12 +118,12 @@ def _python_packages(walk_data):
             and '__init__.py' in files]
 
 
-@s.func.glue
+@s.trace.io
 def _mapwalk(dirs):
     return [s.shell.walk(x) for x in dirs]
 
 
-@s.func.glue
+@s.trace.io
 def _collect_tests(test_file):
     keep = ['<Function']
     text = s.shell.run('py.test --collect-only', test_file)
@@ -138,10 +138,10 @@ def _result(result, path, seconds):
     return s.dicts.new(locals(), 'result', 'path', 'seconds')
 
 
-@s.func.glue
+@s.trace.io
 def _run_test(path, name, test):
-    _bak = s.func._state.get('_stack')
-    s.func._state['_stack'] = None # stub out _stack, since its used *here* as well
+    _bak = s.trace._state.get('_stack')
+    s.trace._state['_stack'] = None # stub out _stack, since its used *here* as well
     try:
         with s.time.timer() as t:
             try:
@@ -155,10 +155,10 @@ def _run_test(path, name, test):
                     val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
         return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
     finally:
-        s.func._state['_stack'] = _bak
+        s.trace._state['_stack'] = _bak
 
 
-@s.func.flow
+@s.trace.glue
 def _test(test_path):
     assert test_path.endswith('.py'), 'test_path does not end with .py: {}'.format(test_path)
     assert os.path.isfile(test_path), 'no such file: {}'.format(test_path)
@@ -192,7 +192,7 @@ def _format_pytest_output(text):
     )
 
 
-@s.func.flow
+@s.trace.glue
 def _pytest_insight(test_file, query):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
@@ -202,19 +202,19 @@ def _pytest_insight(test_file, query):
     return _format_pytest_output(val['output'])
 
 
-@s.func.logic
+@s.trace.logic
 def _linenum(text):
     return [int(x.split(', line ')[-1].split(',')[0])
             for x in text.splitlines()
             if 'File "<string>"' in x][-1]
 
 
-@s.func.flow
+@s.trace.glue
 def _test_all(paths):
     return [_test(x) for x in paths]
 
 
-@s.func.flow
+@s.trace.glue
 def all_test_files():
     return s.func.pipe(
         s.shell.climb(),
@@ -225,7 +225,7 @@ def all_test_files():
     )
 
 
-@s.func.flow
+@s.trace.glue
 def slow_test_files():
     return s.func.pipe(
         all_test_files(),
@@ -233,7 +233,7 @@ def slow_test_files():
     )
 
 
-@s.func.flow
+@s.trace.glue
 def fast_test_files():
     return s.func.pipe(
         all_test_files(),
@@ -241,7 +241,7 @@ def fast_test_files():
     )
 
 
-@s.func.flow
+@s.trace.glue
 def code_files():
     return s.func.pipe(
         s.shell.climb(),
@@ -254,7 +254,7 @@ def code_files():
     )
 
 
-@s.func.flow # really? is this glue/logic/flow thing just silly?
+@s.trace.glue # really? is this glue/logic/flow thing just silly?
 def _run_bg_tests(fn):
     inq = multiprocessing.Queue()
     outq = multiprocessing.Queue()
@@ -274,7 +274,7 @@ def _run_bg_tests(fn):
     return run, results
 
 
-@s.func.flow
+@s.trace.glue
 def run_slow_tests_once():
     if six.PY2:
         pytest = 'py.test'
@@ -286,7 +286,7 @@ def run_slow_tests_once():
         return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
 
 
-@s.func.flow
+@s.trace.glue
 def run_fast_tests_once(modules=None):
     result = s.shell.run('py.test -x --tb native', *fast_test_files(), warn=True)
     if result['exitcode'] != 0:
@@ -294,14 +294,14 @@ def run_fast_tests_once(modules=None):
         return [[{'result': text, 'path': 'test_*/fast/*.py', 'seconds': 0}]]
 
 
-@s.func.flow
+@s.trace.glue
 def run_lightweight_tests_once(modules=None):
     for x in modules or []:
         sys.modules.pop(x, None)
     return _test_all(fast_test_files())
 
 
-@s.func.logic
+@s.trace.logic
 def _drop_seconds(test_datas):
     if test_datas:
         return [s.dicts.drop(y, 'seconds')
@@ -320,7 +320,7 @@ def _modules_to_reload():
                                                        and '_flymake' not in f))]
 
 
-@s.func.flow
+@s.trace.glue
 def run_tests_auto(pytest):
     files_changed = s.shell.watch_files()
     trigger_slow, results_slow = _run_bg_tests(run_slow_tests_once)
@@ -352,7 +352,7 @@ def run_tests_auto(pytest):
         time.sleep(.01)
 
 
-@s.func.logic
+@s.trace.logic
 def _parse_coverage(module_name, text):
     regex = re.compile('(?P<name>[\w\/]+) +\d+ +\d+ +(?P<percent>\d+)% +(?P<missing>[\d\-\, ]+)')
     matches = map(regex.search, text.splitlines())
@@ -373,7 +373,7 @@ def _parse_coverage(module_name, text):
                             else [])}
 
 
-@s.func.flow
+@s.trace.glue
 def _cover(test_file):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     try:

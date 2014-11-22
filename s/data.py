@@ -2,6 +2,33 @@ from __future__ import absolute_import
 import s
 import types
 
+_json_types = (list,
+               str,
+               dict,
+               int,
+               float,
+               tuple,
+               bool,
+               type(None))
+try:
+    _json_types += (unicode,)
+except:
+    _json_types += (bytes,)
+
+
+def jsonify(val):
+    if isinstance(val, dict):
+        return {jsonify(k): jsonify(v) for k, v in val.items()}
+    elif isinstance(val, (list, tuple, set)):
+        return [jsonify(x) for x in val]
+    elif isinstance(val, _json_types):
+        return val
+    else:
+        val = str(val)
+        if ' at 0x' in val:
+            val = val.split()[0].split('.')[-1]
+        return '<{}>'.format(val.strip('<>'))
+
 
 _banned_attrs_dict = [
     '__setitem__',

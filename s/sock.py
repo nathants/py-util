@@ -12,7 +12,7 @@ def ioloop():
     return tornado.ioloop.IOLoop.current()
 
 
-def socket(kind, action, route, subscriptions=[""], sockopts={}, async=False, timeout=None, hwm=1):
+def new(kind, action, route, subscriptions=[""], sockopts={}, async=False, timeout=None, hwm=1):
     assert kind in ['PUB', 'SUB', 'REQ', 'REP', 'PUSH', 'PULL', 'ROUTER', 'DEALER', 'PAIR'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
@@ -47,8 +47,8 @@ _devices = {
 
 def device(kind, in_route, out_route, **kw):
     in_kind, out_kind = _devices[kind]
-    in_sock = socket(in_kind, 'bind', in_route, **kw)
-    out_sock = socket(out_kind, 'bind', out_route, **kw)
+    in_sock = new(in_kind, 'bind', in_route, **kw)
+    out_sock = new(out_kind, 'bind', out_route, **kw)
     return zmq.device(getattr(zmq, kind), in_sock, out_sock)
     return zmq.device(getattr(zmq, kind), in_sock, out_sock)
 

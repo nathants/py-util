@@ -34,9 +34,9 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
         def decorated(*a, **kw):
             if coroutine_kw.get('immutalize', True):
                 a, kw = s.data.immutalize(a), s.data.immutalize(kw)
-                trace_fn = s.func.flow(fn)
+                trace_fn = s.trace.glue(fn)
             else:
-                trace_fn = s.func.bad(fn)
+                trace_fn = s.trace.bad_func(fn)
             future = tornado.gen.coroutine(trace_fn)(*a, **kw)
             callback = _log_exceptions(*ignore_exceptions)
             tornado.ioloop.IOLoop.current().add_future(future, callback)

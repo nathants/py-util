@@ -49,7 +49,7 @@ def _body(data, hide_keys, pretty, max_lines):
     return '\n'.join(val)
 
 
-@s.func.logic
+@s.trace.logic
 def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=True):
     if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
         vals = [(datas[index], True)]
@@ -65,7 +65,7 @@ def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=Tr
     return '\n'.join(output)
 
 
-@s.func.logic
+@s.trace.logic
 def _pair(index, datas):
     data = datas[index]
     inward = datas[index]['direction'] == 'in'
