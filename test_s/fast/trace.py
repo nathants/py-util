@@ -66,7 +66,6 @@ def test_trace_coroutine_nested():
                    for x in results]
 
 
-
 def test_trace_fn_returning_fn():
     @s.trace.logic
     def fn():
@@ -97,7 +96,7 @@ def test__stack():
     @s.trace.logic
     def fn2():
         assert s.trace._stack() == ('logic:{}:fn1'.format(__name__),
-                                   'logic:{}:fn2'.format(__name__))
+                                    'logic:{}:fn2'.format(__name__))
         return True
     fn1()
     assert s.trace._stack() == start
