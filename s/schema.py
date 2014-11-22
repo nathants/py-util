@@ -65,7 +65,7 @@ def validate(schema, value):
             validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
             value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
         else:
-            _validate(schema, value)
+            _check(schema, value)
         return value
     except AssertionError as e:
         try:
@@ -82,7 +82,7 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
         assert not value_mismatch or not type_mismatch, '{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()]))
         key = type(k) if value_mismatch else k
         validated_schema_items.append((key, schema[key]))
-        _validate(schema[key], v)
+        _check(schema[key], v)
     return validated_schema_items
 
 
@@ -105,17 +105,17 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
     return value
 
 
-def _validate(validator, value):
+def _check(validator, value):
     if isinstance(validator, (list, tuple)):
         assert isinstance(value, (list, tuple)), '{} <{}> is not a {} <{}>'.format(value, type(value), validator, type(validator))
         if isinstance(validator, list):
             assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
             for v in value:
-                _validate(validator[0], v)
+                _check(validator[0], v)
         elif isinstance(validator, tuple):
             assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
             for _validator, _val in zip(validator, value):
-                _validate(_validator, _val)
+                _check(_validator, _val)
     elif isinstance(validator, dict):
         assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
         validate(validator, value)
