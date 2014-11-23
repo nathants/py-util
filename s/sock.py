@@ -18,7 +18,7 @@ def timeout(seconds):
     route = new_ipc_route()
     ioloop().add_timeout(
         datetime.timedelta(seconds=seconds),
-        lambda: s.sock.connect('push', route).send_string('')
+        lambda: s.sock.connect('push', route).send('')
     )
     return s.sock.bind('pull', route)
 
@@ -66,8 +66,9 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, async=True, timeou
     sock.setsockopt(zmq.SNDHWM, hwm)
     sock.setsockopt(zmq.RCVHWM, hwm)
     if async:
-        sock = AsyncSock(sock)
-    return sock
+        return AsyncSock(sock)
+    else:
+        return Sock(sock)
 
 
 # TODO calls to bind and connection should cache socket objects. only new creates new sockets every time, and should be used with "with"
@@ -77,67 +78,6 @@ bind = functools.partial(new, 'bind')
 
 
 connect = functools.partial(new, 'connect')
-
-
-# TODO drop all the _string methods from Sock and AsyncSock, they should always decode utf-8
-# need to *attempt* to encode and decode all parts of the message
-# failure will happen, because of the routing binaries inserted by router/dealer and friends
-# send(maybe_encode(msg))
-# recv(maybe_decode(msg))
-
-
-class AsyncSock(object):
-    def __init__(self, sock):
-        self._stream = zmq.eventloop.zmqstream.ZMQStream(sock)
-
-    def recv_string(self, *a, **kw):
-        return self._recv(lambda x: x[0].decode('utf-8'), *a, **kw)
-
-    def recv_json(self, *a, **kw):
-        return self._recv(lambda x: json.loads(x[0].decode('utf-8')), *a, **kw)
-
-    def recv_multipart(self, *a, **kw):
-        return self._recv(lambda x: x, *a, **kw)
-
-    def recv_multipart_string(self, *a, **kw):
-        return self._recv(lambda x: [y.decode('utf-8') for y in x], *a, **kw)
-
-    def on_recv(self, fn):
-        self._stream.on_recv(fn)
-
-    def on_send(self, fn):
-        self._stream.on_send(fn)
-
-    def stop_on_send(self):
-        self._stream.stop_on_send()
-
-    def stop_on_recv(self):
-        self._stream.stop_on_recv()
-
-    def _recv(self, transform, *a, **kw):
-        future = s.async.Future()
-        def fn(msg):
-            self._stream.stop_on_send()
-            future.set_result(transform(msg))
-        self._stream.on_recv(fn)
-        return future
-
-    def _action(method_name):
-        def fn(self, *a, **kw):
-            future = s.async.Future()
-            def fn(*a):
-                future.set_result(None)
-            kw['callback'] = fn
-            getattr(self._stream, method_name)(*a, **kw)
-            return future
-        return fn
-
-    for name in ['send',
-                 'send_string',
-                 'send_multipart',
-                 'send_multipart_string',
-                 'send_json']:
-        locals()[name] = _action(name)
 
 
 _devices = {
@@ -151,36 +91,95 @@ def device(kind, in_route, out_route, **kw):
     in_kind, out_kind = _devices[kind.lower()]
     in_sock = bind(in_kind, in_route, **kw)
     out_sock = bind(out_kind, out_route, **kw)
-    return zmq.device(getattr(zmq, kind.upper()), in_sock, out_sock)
-    return zmq.device(getattr(zmq, kind.upper()), in_sock, out_sock)
+    return zmq.device(getattr(zmq, kind.upper()), in_sock._sock, out_sock._sock)
 
 
-# TODO open a pr to pyzmq for these inconsistencies and stop monkey patching it
+maybe_encode = s.func.try_fn(lambda x: x.encode('utf-8'))
+maybe_decode = s.func.try_fn(lambda x: x.decode('utf-8'))
 
 
-def _send_multipart_string_stream(self, parts, flags=0, copy=True, encoding='utf-8', callback=None):
-    return self.send_multipart([x.encode(encoding) for x in parts], flags=flags, copy=copy, callback=callback)
+class Sock(object):
+    def __init__(self, sock):
+        self._sock = sock
+
+    def _recv(method_name):
+        def fn(self, *a, **kw):
+            msg = getattr(self._sock, method_name)(*a, **kw)
+            if isinstance(msg, (list, tuple)):
+                return [maybe_decode(x) for x in msg]
+            else:
+                return maybe_decode(msg)
+        return fn
+
+    for name in ['recv',
+                 'recv_multipart',
+                 'recv_json']:
+        locals()[name] = _recv(name)
+
+    def _send(method_name):
+        def fn(self, msg, *a, **kw):
+            if isinstance(msg, (list, tuple)):
+                msg = [maybe_encode(x) for x in msg]
+            else:
+                msg = maybe_encode(msg)
+            return getattr(self._sock, method_name)(msg, *a, **kw)
+        return fn
+
+    for name in ['send',
+                 'send_multipart',
+                 'send_json']:
+        locals()[name] = _send(name)
 
 
-def _send_multipart_string(self, parts, flags=0, copy=True, encoding='utf-8'):
-    return self.send_multipart([x.encode(encoding) for x in parts], flags=flags, copy=copy)
+class AsyncSock(object):
+    def __init__(self, sock):
+        self._stream = zmq.eventloop.zmqstream.ZMQStream(sock)
 
+    def on_recv(self, fn):
+        self._stream.on_recv(fn)
 
-def _recv_multipart_string(self, flags=0, encoding='utf-8'):
-    return [x.decode(encoding) for x in self.recv_multipart(flags=flags)]
+    def on_send(self, fn):
+        self._stream.on_send(fn)
 
+    def stop_on_send(self):
+        self._stream.stop_on_send()
 
-def _enter(self):
-    return self
+    def stop_on_recv(self):
+        self._stream.stop_on_recv()
 
+    def _recv(transform):
+        def fn(self):
+            future = s.async.Future()
+            def cb(msg):
+                self._stream.stop_on_recv()
+                msg = [maybe_decode(x) for x in msg]
+                msg = transform(msg)
+                future.set_result(msg)
+            self._stream.on_recv(cb)
+            return future
+        return fn
 
-def _exit(self, *a, **kw):
-    self.close()
+    for name, fn in [('recv', lambda x: x[0]),
+                     ('recv_json', lambda x: json.loads(x[0])),
+                     ('recv_multipart', lambda x: x)]:
+        locals()[name] = _recv(fn)
 
+    def _send(method_name):
+        def fn(self, msg, *a, **kw):
+            future = s.async.Future()
+            def fn(*_):
+                self.stop_on_send()
+                future.set_result(None)
+            kw['callback'] = fn
+            if isinstance(msg, (list, tuple)):
+                msg = [maybe_encode(x) for x in msg]
+            else:
+                msg = maybe_encode(msg)
+            getattr(self._stream, method_name)(msg, *a, **kw)
+            return future
+        return fn
 
-zmq.sugar.Socket.send_multipart_string = _send_multipart_string
-zmq.sugar.Socket.recv_multipart_string = _recv_multipart_string
-zmq.eventloop.zmqstream.ZMQStream.send_multipart_string = _send_multipart_string_stream
-zmq.eventloop.zmqstream.ZMQStream.recv_multipart_string = _recv_multipart_string
-zmq.eventloop.zmqstream.ZMQStream.__enter__ = _enter
-zmq.eventloop.zmqstream.ZMQStream.__exit__ = _exit
+    for name in ['send',
+                 'send_multipart',
+                 'send_json']:
+        locals()[name] = _send(name)
