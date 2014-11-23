@@ -1,6 +1,4 @@
 from __future__ import print_function, absolute_import
-import uuid
-import os
 import s
 import socket
 import re
@@ -21,10 +19,3 @@ def free_port():
 def eth0_address():
     text = s.shell.run('ifconfig eth0 | grep "inet addr"')
     return re.search('inet addr:([\d\.]+) ', text).group(1)
-
-
-def new_ipc_route():
-    while True:
-        route = '/tmp/{}'.format(uuid.uuid4())
-        if not os.path.isfile(route):
-            return 'ipc://' + route

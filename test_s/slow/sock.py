@@ -1,290 +1,292 @@
 from __future__ import print_function, absolute_import
 import s
 import time
-import uuid
 import s.sock
 
 
-_kw = {'timeout': 1000}
+_async_kw = {'timeout': 1000}
+_sync_kw = s.dicts.merge(_async_kw, {'async': False})
+
+
+def test_push_pull_device_middleware_coroutine():
+    upstream_route = s.sock.new_ipc_route()
+    downstream_route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.connect('push', upstream_route, **_async_kw).send_string('job1')
+    @s.async.coroutine
+    def streamer():
+        msg = yield s.sock.bind('pull', upstream_route, **_async_kw).recv_string()
+        yield s.sock.bind('push', downstream_route, **_async_kw).send_string(msg + ' [streamer]')
+    @s.async.coroutine
+    def main():
+        msg = yield s.sock.connect('pull', downstream_route, **_async_kw).recv_string()
+        assert msg == 'job1 [streamer]'
+    pusher()
+    streamer()
+    s.async.run_sync(main)
+
+
+def test_push_pull_coroutine():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.bind('push', route, **_async_kw).send_string('asdf')
+    @s.async.coroutine
+    def puller():
+        msg = yield s.sock.connect('pull', route, **_async_kw).recv_string()
+        assert msg == 'asdf'
+    pusher()
+    s.async.run_sync(puller)
+
+
+def test_push_pull_coroutine_multipart_string():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.bind('push', route, **_async_kw).send_multipart_string(('a', 'b'))
+    @s.async.coroutine
+    def puller():
+        msg = yield s.sock.connect('pull', route, **_async_kw).recv_multipart_string()
+        assert msg == ('a', 'b')
+    pusher()
+    s.async.run_sync(puller)
+
+
+def test_push_pull_coroutine_json():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.bind('push', route, **_async_kw).send_json([1, 2])
+    @s.async.coroutine
+    def puller():
+        msg = yield s.sock.connect('pull', route, **_async_kw).recv_json()
+        assert msg == (1, 2)
+    pusher()
+    s.async.run_sync(puller)
+
+
+def test_req_rep_coroutine():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def requestor():
+        req = s.sock.bind('req', route, **_async_kw)
+        yield req.send_string('asdf')
+        msg = yield req.recv_string()
+        assert msg == 'asdf!!'
+    @s.async.coroutine
+    def replier():
+        rep = s.sock.connect('rep', route, **_async_kw)
+        msg = yield rep.recv_string()
+        yield rep.send_string(msg + '!!')
+    requestor()
+    s.async.run_sync(replier)
 
 
 def test_push_pull_tcp():
     route = 'tcp://localhost:{}'.format(s.net.free_port())
-
-    # when we push a message on tcp
-    def pusher():
-        with s.sock.new('PUSH', 'bind', route.replace('localhost', '*'), **_kw) as push:
-            push.send_string('asdf')
-    s.thread.new(pusher)
-
-    # then we should pull that same message
-    with s.sock.new('PULL', 'connect', route, **_kw) as pull:
-        assert pull.recv_string() == 'asdf'
+    s.thread.new(lambda: s.sock.bind('push', route.replace('localhost', '*'), **_sync_kw).send_string('asdf'))
+    assert s.sock.connect('pull', route, **_sync_kw).recv_string() == 'asdf'
 
 
 def test_push_pull_reverse_connect_bind_order():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we push a message on a connect socket
-    def pusher():
-        with s.sock.new('PUSH', 'connect', route, **_kw) as push:
-            push.send_string('asdf')
-    s.thread.new(pusher)
-
-    # then we should pull that same message on a bind socket
-    with s.sock.new('PULL', 'bind', route, **_kw) as pull:
-        assert pull.recv_string() == 'asdf'
+    route = s.sock.new_ipc_route()
+    s.thread.new(lambda: s.sock.connect('push', route, **_sync_kw).send_string('asdf'))
+    assert s.sock.bind('pull', route, **_sync_kw).recv_string() == 'asdf'
 
 
 def test_push_pull():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we push a message on a bind socket
-    def pusher():
-        with s.sock.new('PUSH', 'bind', route, **_kw) as push:
-            push.send_string('asdf')
-    s.thread.new(pusher)
-
-    # then we should pull that same message on a connect socket
-    with s.sock.new('PULL', 'connect', route, **_kw) as pull:
-        assert pull.recv_string() == 'asdf'
+    route = s.sock.new_ipc_route()
+    s.thread.new(lambda: s.sock.bind('push', route, **_sync_kw).send_string('asdf'))
+    assert s.sock.connect('pull', route, **_sync_kw).recv_string() == 'asdf'
 
 
 def test_req_rep():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we have a replier
+    route = s.sock.new_ipc_route()
     def replier():
-        with s.sock.new('REP', 'bind', route, **_kw) as rep:
-            msg = rep.recv_string()
-            rep.send_string('thanks for: ' + msg)
+        rep = s.sock.bind('rep', route, **_sync_kw)
+        msg = rep.recv_string()
+        rep.send_string('thanks for: ' + msg)
     s.thread.new(replier)
-
-    # then we should see it reply to a request
-    with s.sock.new('REQ', 'connect', route, **_kw) as req:
-        req.send_string('asdf')
-        assert 'thanks for: asdf' == req.recv_string()
+    req = s.sock.connect('req', route, **_sync_kw)
+    req.send_string('asdf')
+    assert 'thanks for: asdf' == req.recv_string()
 
 
 def test_pub_sub():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we publish messages
     def pubber():
-        with s.sock.new('PUB', 'bind', route, **_kw) as pub:
-            while state['send']:
-                pub.send_string('asdf')
-                time.sleep(.001)
+        pub = s.sock.bind('pub', route, **_sync_kw)
+        while state['send']:
+            pub.send_string('asdf')
+            time.sleep(.001)
     s.thread.new(pubber)
-
-    # then we should be able to subscribe to those messages
-    with s.sock.new('SUB', 'connect', route, **_kw) as sub:
-        assert sub.recv_string() == 'asdf'
-        state['send'] = False
+    assert s.sock.connect('sub', route, **_sync_kw).recv_string() == 'asdf'
+    state['send'] = False
 
 
 def test_pub_sub_multipart():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we publish messages
     def pubber():
-        with s.sock.new('PUB', 'bind', route, **_kw) as pub:
-            while state['send']:
-                pub.send_multipart_string(['', 'asdf'])
-                time.sleep(.001)
+        pub = s.sock.bind('pub', route, **_sync_kw)
+        while state['send']:
+            pub.send_multipart_string(['', 'asdf'])
+            time.sleep(.001)
     s.thread.new(pubber)
-
-    # then we should be able to subscribe to those messages
-    with s.sock.new('SUB', 'connect', route, **_kw) as sub:
-        assert sub.recv_multipart_string() == ['', 'asdf']
-        state['send'] = False
+    assert s.sock.connect('sub', route, **_sync_kw).recv_multipart_string() == ['', 'asdf']
+    state['send'] = False
 
 
 def test_pub_sub_subscriptions():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we publish messages on multiple topics
     def pubber():
-        with s.sock.new('PUB', 'bind', route, **_kw) as pub:
-            while state['send']:
-                pub.send_string('topic1 asdf')
-                pub.send_string('topic2 123')
-                time.sleep(.001)
+        pub = s.sock.bind('pub', route, **_sync_kw)
+        while state['send']:
+            pub.send_string('topic1 asdf')
+            pub.send_string('topic2 123')
+            time.sleep(.001)
     s.thread.new(pubber)
-
-    # then we should be able to subscribe to specific topics
-    with s.sock.new('SUB', 'connect', route, subscriptions=['topic1'], **_kw) as sub:
-        assert sub.recv_string() == 'topic1 asdf'
-        assert sub.recv_string() == 'topic1 asdf'
-        state['send'] = False
+    sub = s.sock.connect('sub', route, subscriptions=['topic1'], **_sync_kw)
+    assert sub.recv_string() == 'topic1 asdf'
+    assert sub.recv_string() == 'topic1 asdf'
+    state['send'] = False
 
 
 def test_pub_sub_subscriptions_multipart():
-    route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we publish messages on multiple topics
     def pubber():
-        with s.sock.new('PUB', 'bind', route, **_kw) as pub:
-            while state['send']:
-                pub.send_multipart_string(['topic1', 'asdf'])
-                pub.send_multipart_string(['topic2', '123'])
-                time.sleep(.001)
+        pub = s.sock.bind('pub', route, **_sync_kw)
+        while state['send']:
+            pub.send_multipart_string(['topic1', 'asdf'])
+            pub.send_multipart_string(['topic2', '123'])
+            time.sleep(.001)
     s.thread.new(pubber)
-
-    # then we should be able to subscribe to specific topics
-    with s.sock.new('SUB', 'connect', route, subscriptions=['topic1'], **_kw) as sub:
-        assert sub.recv_multipart_string() == ['topic1', 'asdf']
-        assert sub.recv_multipart_string() == ['topic1', 'asdf']
-        state['send'] = False
+    sub = s.sock.connect('sub', route, subscriptions=['topic1'], **_sync_kw)
+    assert sub.recv_multipart_string() == ['topic1', 'asdf']
+    assert sub.recv_multipart_string() == ['topic1', 'asdf']
+    state['send'] = False
 
 
 def test_req_rep_device():
-    req_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    rep_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we have multiple repliers connected to a device
+    req_route = s.sock.new_ipc_route()
+    rep_route = s.sock.new_ipc_route()
     def replier(x):
-        with s.sock.new('REP', 'connect', rep_route, **_kw) as rep:
-            msg = rep.recv_string()
-            rep.send_string('thanks for: {msg}, from rep{x}'.format(**locals()))
+        rep = s.sock.connect('rep', rep_route, **_sync_kw)
+        msg = rep.recv_string()
+        rep.send_string('thanks for: {msg}, from rep{x}'.format(**locals()))
     s.thread.new(replier, 1)
     s.thread.new(replier, 2)
-    s.thread.new(s.sock.device, 'QUEUE', req_route, rep_route, **_kw)
-
-    # then we should see our requests to that device fair queued among them
-    with s.sock.new('REQ', 'connect', req_route, **_kw) as req:
-        responses = set()
-        for _ in range(2):
-            req.send_string('asdf')
-            responses.add(req.recv_string())
-        assert responses == {'thanks for: asdf, from rep1',
-                             'thanks for: asdf, from rep2'}
+    s.thread.new(s.sock.device, 'QUEUE', req_route, rep_route, **_sync_kw)
+    req = s.sock.connect('req', req_route, **_sync_kw)
+    responses = set()
+    for _ in range(2):
+        req.send_string('asdf')
+        responses.add(req.recv_string())
+    assert responses == {'thanks for: asdf, from rep1',
+                         'thanks for: asdf, from rep2'}
 
 
 def test_req_rep_device_middleware():
-    req_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    rep_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we have a replier connected to a device with middleware
+    req_route = s.sock.new_ipc_route()
+    rep_route = s.sock.new_ipc_route()
     def replier():
-        with s.sock.new('REP', 'connect', rep_route, **_kw) as rep:
-            msg = rep.recv_string()
-            rep.send_string('thanks for: ' + msg)
+        rep = s.sock.connect('rep', rep_route, **_sync_kw)
+        msg = rep.recv_string()
+        rep.send_string('thanks for: ' + msg)
     def queue():
-        with s.sock.new('ROUTER', 'bind', req_route, async=True, **_kw) as router:
-            with s.sock.new('DEALER', 'bind', rep_route, async=True, **_kw) as dealer:
-                @router.on_recv
-                def router_on_recv(msg):
-                    msg[-1] = msg[-1] + b' [router.on_recv]'
-                    dealer.send_multipart(msg)
-                @dealer.on_recv
-                def dealer_on_recv(msg):
-                    msg[-1] = msg[-1] + b' [dealer.on_recv]'
-                    router.send_multipart(msg)
-                s.sock.ioloop().start()
+        router = s.sock.bind('router', req_route, **_async_kw)
+        dealer = s.sock.bind('dealer', rep_route, **_async_kw)
+        @router.on_recv
+        def router_on_recv(msg):
+            msg[-1] = msg[-1] + b' [router.on_recv]'
+            dealer.send_multipart(msg)
+        @dealer.on_recv
+        def dealer_on_recv(msg):
+            msg[-1] = msg[-1] + b' [dealer.on_recv]'
+            router.send_multipart(msg)
+        s.sock.ioloop().start()
     s.thread.new(replier)
     s.thread.new(queue)
-
-    # then we should see our requests to that device affected by that middleware
-    with s.sock.new('REQ', 'connect', req_route, **_kw) as req:
-        req.send_string('asdf')
-        assert req.recv_string() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
-        s.sock.ioloop().stop()
+    req = s.sock.connect('req', req_route, **_sync_kw)
+    req.send_string('asdf')
+    assert req.recv_string() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
+    s.sock.ioloop().stop()
 
 
 def test_pub_sub_device():
-    sub_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    pub_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    sub_route = s.sock.new_ipc_route()
+    pub_route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we have multiple publishers connected to a device
     def pubber(x):
-        with s.sock.new('PUB', 'connect', sub_route, **_kw) as pub:
-            while state['send']:
-                pub.send_multipart_string(['topic{}'.format(x), 'asdf'])
-                time.sleep(.01)
+        pub = s.sock.connect('pub', sub_route, **_sync_kw)
+        while state['send']:
+            pub.send_multipart_string(['topic{}'.format(x), 'asdf'])
+            time.sleep(.01)
     s.thread.new(pubber, 1)
     s.thread.new(pubber, 2)
-    s.thread.new(s.sock.device, 'FORWARDER', sub_route, pub_route, **_kw)
-
-    # then we should see all of their messages when we subscribe to that device
-    with s.sock.new('SUB', 'connect', pub_route, **_kw) as sub:
-        responses = {tuple(sub.recv_multipart_string()) for _ in range(100)}
-        assert responses == {('topic1', 'asdf'),
-                             ('topic2', 'asdf')}
-        state['send'] = False
+    s.thread.new(s.sock.device, 'forwarder', sub_route, pub_route, **_sync_kw)
+    sub = s.sock.connect('sub', pub_route, **_sync_kw)
+    responses = {tuple(sub.recv_multipart_string()) for _ in range(100)}
+    assert responses == {('topic1', 'asdf'),
+                         ('topic2', 'asdf')}
+    state['send'] = False
 
 
 def test_pub_sub_device_middleware():
-    sub_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    pub_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
+    sub_route = s.sock.new_ipc_route()
+    pub_route = s.sock.new_ipc_route()
     state = {'send': True}
-
-    # when we have a publisher connected to a device with middleware
     def pubber():
-        with s.sock.new('PUB', 'connect', sub_route, **_kw) as pub:
-            while state['send']:
-                pub.send_multipart_string(['topic1', 'asdf'])
-                time.sleep(.01)
+        pub = s.sock.connect('pub', sub_route, **_sync_kw)
+        while state['send']:
+            pub.send_multipart_string(['topic1', 'asdf'])
+            time.sleep(.01)
     def forwarder():
-        with s.sock.new('SUB', 'bind', sub_route, async=True, **_kw) as sub:
-            with s.sock.new('PUB', 'bind', pub_route, async=True, **_kw) as pub:
-                @sub.on_recv
-                def sub_on_recv(msg):
-                    msg[-1] = msg[-1] + b' [sub.on_recv]'
-                    pub.send_multipart(msg)
-                s.sock.ioloop().start()
+        sub = s.sock.bind('sub', sub_route, **_async_kw)
+        pub = s.sock.bind('pub', pub_route, **_async_kw)
+        @sub.on_recv
+        def sub_on_recv(msg):
+            msg[-1] = msg[-1] + b' [sub.on_recv]'
+            pub.send_multipart(msg)
+        s.sock.ioloop().start()
     s.thread.new(pubber)
     s.thread.new(forwarder)
-
-    # then we should see the messages effected by that middleware
-    with s.sock.new('SUB', 'connect', pub_route, **_kw) as sub:
-        assert sub.recv_multipart_string() == ['topic1', 'asdf [sub.on_recv]']
-        state['send'] = False
-        s.sock.ioloop().stop()
+    sub = s.sock.connect('sub', pub_route, **_sync_kw)
+    assert sub.recv_multipart_string() == ['topic1', 'asdf [sub.on_recv]']
+    state['send'] = False
+    s.sock.ioloop().stop()
 
 
 def test_push_pull_device():
-    pull_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    push_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we have multiple pushers connected to a device
+    pull_route = s.sock.new_ipc_route()
+    push_route = s.sock.new_ipc_route()
     def pusher(x):
-        with s.sock.new('PUSH', 'connect', pull_route, **_kw) as push:
-            push.send_string('job{}'.format(x))
+        s.sock.connect('push', pull_route, **_sync_kw).send_string('job{}'.format(x))
     s.thread.new(pusher, 1)
     s.thread.new(pusher, 2)
-    s.thread.new(s.sock.device, 'STREAMER', pull_route, push_route, **_kw)
-
-    # then we should see receive all of their messages when we pull on that device
-    with s.sock.new('PULL', 'connect', push_route, **_kw) as pull:
-        responses = {pull.recv_string() for _ in range(2)}
-        assert responses == {'job1', 'job2'}
+    s.thread.new(s.sock.device, 'streamer', pull_route, push_route, **_sync_kw)
+    pull = s.sock.connect('pull', push_route, **_sync_kw)
+    responses = {pull.recv_string() for _ in range(2)}
+    assert responses == {'job1', 'job2'}
 
 
 def test_push_pull_device_middleware():
-    pull_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-    push_route = 'ipc:///tmp/{}'.format(uuid.uuid4())
-
-    # when we have a pusher connected to a device with middleware
+    pull_route = s.sock.new_ipc_route()
+    push_route = s.sock.new_ipc_route()
     def pusher():
-        with s.sock.new('PUSH', 'connect', pull_route, **_kw) as push:
-            push.send_string('job1')
+        s.sock.connect('push', pull_route, **_sync_kw).send_string('job1')
     def streamer():
-        with s.sock.new('PULL', 'bind', pull_route, async=True, **_kw) as pull:
-            with s.sock.new('PUSH', 'bind', push_route, async=True, **_kw) as push:
-                @pull.on_recv
-                def pull_on_recv(msg):
-                    push.send(msg[0] + b' [pull.on_recv]')
-                s.sock.ioloop().start()
+        pull = s.sock.bind('pull', pull_route, **_async_kw)
+        push = s.sock.bind('push', push_route, **_async_kw)
+        @pull.on_recv
+        def pull_on_recv(msg):
+            push.send(msg[0] + b' [pull.on_recv]')
+        s.sock.ioloop().start()
     s.thread.new(pusher)
     s.thread.new(streamer)
-
-    # then we should see the message effected by that middleware
-    with s.sock.new('PULL', 'connect', push_route, **_kw) as pull:
-        assert pull.recv_string() == 'job1 [pull.on_recv]'
-        s.sock.ioloop().stop()
+    assert s.sock.connect('pull', push_route, **_sync_kw).recv_string() == 'job1 [pull.on_recv]'
+    s.sock.ioloop().stop()
