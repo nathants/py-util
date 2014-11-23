@@ -11,6 +11,27 @@ import tornado.ioloop
 import zmq.sugar
 import uuid
 import os
+import datetime
+
+
+def timeout(seconds):
+    route = new_ipc_route()
+    ioloop().add_timeout(
+        datetime.timedelta(seconds=seconds),
+        lambda: s.sock.connect('push', route).send_string('')
+    )
+    return s.sock.bind('pull', route)
+
+
+def select(*socks):
+    future = s.async.Future()
+    def fn(sock, msg):
+        for x in socks:
+            x.stop_on_recv()
+        future.set_result([id(sock), msg])
+    for sock in socks:
+        sock.on_recv(functools.partial(fn, sock))
+    return future
 
 
 def ioloop():
@@ -58,6 +79,13 @@ bind = functools.partial(new, 'bind')
 connect = functools.partial(new, 'connect')
 
 
+# TODO drop all the _string methods from Sock and AsyncSock, they should always decode utf-8
+# need to *attempt* to encode and decode all parts of the message
+# failure will happen, because of the routing binaries inserted by router/dealer and friends
+# send(maybe_encode(msg))
+# recv(maybe_decode(msg))
+
+
 class AsyncSock(object):
     def __init__(self, sock):
         self._stream = zmq.eventloop.zmqstream.ZMQStream(sock)
@@ -79,6 +107,12 @@ class AsyncSock(object):
 
     def on_send(self, fn):
         self._stream.on_send(fn)
+
+    def stop_on_send(self):
+        self._stream.stop_on_send()
+
+    def stop_on_recv(self):
+        self._stream.stop_on_recv()
 
     def _recv(self, transform, *a, **kw):
         future = s.async.Future()

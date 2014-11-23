@@ -8,6 +8,32 @@ _async_kw = {'timeout': 1000}
 _sync_kw = s.dicts.merge(_async_kw, {'async': False})
 
 
+def test_select():
+    route1 = s.sock.new_ipc_route()
+    route2 = s.sock.new_ipc_route()
+    def pusher(route, msg, seconds=0):
+        time.sleep(seconds)
+        s.sock.bind('push', route, **_sync_kw).send_string(msg)
+    s.thread.new(pusher, route1, 'msg1')
+    s.thread.new(pusher, route2, 'msg2', .1)
+    @s.async.coroutine
+    def main():
+        puller1 = s.sock.connect('pull', route1, **_async_kw)
+        puller2 = s.sock.connect('pull', route2, **_async_kw)
+        timeout = s.sock.timeout(.2)
+
+        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        assert msg == b'msg1' and sock == id(puller1)
+
+        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        assert msg == b'msg2' and sock == id(puller2)
+
+        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        assert sock == id(timeout) and msg == b''
+
+    s.async.run_sync(main)
+
+
 def test_push_pull_device_middleware_coroutine():
     upstream_route = s.sock.new_ipc_route()
     downstream_route = s.sock.new_ipc_route()
