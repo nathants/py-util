@@ -30,7 +30,7 @@ def merge(a, b, concat=False):
 
 
 def _merge(k, a, b, concat):
-    a, b, = s.data.immutalize(a), s.data.immutalize(b)
+    a, b, = s.data.freeze(a), s.data.freeze(b)
     assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
     if k in a and k in b:
         if isinstance(a[k], dict) and isinstance(b[k], dict):

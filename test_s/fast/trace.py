@@ -79,7 +79,7 @@ def test_trace_fn_returning_reverseiterator():
     pass
 
 
-def test_immutalizes_logic():
+def test_freezes_logic():
     @s.trace.logic
     def fn(x):
         x[1] = 2

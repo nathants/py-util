@@ -32,8 +32,8 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
     def decorator(fn):
         @functools.wraps(fn)
         def decorated(*a, **kw):
-            if coroutine_kw.get('immutalize', True):
-                a, kw = s.data.immutalize(a), s.data.immutalize(kw)
+            if coroutine_kw.get('freeze', True):
+                a, kw = s.data.freeze(a), s.data.freeze(kw)
                 trace_fn = s.trace.glue(fn)
             else:
                 trace_fn = s.trace.bad_func(fn)

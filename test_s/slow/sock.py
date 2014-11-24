@@ -216,7 +216,6 @@ def test_req_rep_device():
                          'thanks for: asdf, from rep2'}
 
 
-
 def test_req_rep_device_middleware():
     req_route = s.sock.new_ipc_route()
     rep_route = s.sock.new_ipc_route()

@@ -87,27 +87,27 @@ def _stack():
     return _state.get('_stack') or ()
 
 
-def _traceable(kind, rules, immutalize=True):
+def _traceable(kind, rules, freeze=True):
     def decorator(decoratee):
         if inspect.isgeneratorfunction(decoratee):
-            return _gen_type(decoratee, kind, rules, immutalize)
-        return _fn_type(decoratee, kind, rules, immutalize)
+            return _gen_type(decoratee, kind, rules, freeze)
+        return _fn_type(decoratee, kind, rules, freeze)
     return decorator
 
 
-def _fn_type(decoratee, kind, rules, immutalize):
+def _fn_type(decoratee, kind, rules, freeze):
     name = '{}:{}:{}'.format(kind, s.func.module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         _trace_funcs[kind]['in'](name, 'fn', *a, **kw)
         with _state_layer(name):
             try:
-                if immutalize:
-                    a, kw = s.data.immutalize(a), s.data.immutalize(kw)
+                if freeze:
+                    a, kw = s.data.freeze(a), s.data.freeze(kw)
                 rules()
                 val = decoratee(*a, **kw)
-                if immutalize:
-                    val = s.data.immutalize(val)
+                if freeze:
+                    val = s.data.freeze(val)
                 assert val is not None, 'you cannot return None from: {name}'.format(**locals())
             except:
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
@@ -117,13 +117,13 @@ def _fn_type(decoratee, kind, rules, immutalize):
     return decorated
 
 
-def _gen_type(decoratee, kind, rules, immutalize):
+def _gen_type(decoratee, kind, rules, freeze):
     name = '{}:{}:{}'.format(kind, s.func.module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         _trace_funcs[kind]['in'](name, 'gen', *a, **kw)
-        if immutalize:
-            a, kw = s.data.immutalize(a), s.data.immutalize(kw)
+        if freeze:
+            a, kw = s.data.freeze(a), s.data.freeze(kw)
         generator = decoratee(*a, **kw)
         to_send = None
         first_send = True
@@ -131,14 +131,14 @@ def _gen_type(decoratee, kind, rules, immutalize):
                 with _state_layer(name):
                     try:
                         rules()
-                        if immutalize:
-                            to_send = s.data.immutalize(to_send)
+                        if freeze:
+                            to_send = s.data.freeze(to_send)
                         if not first_send:
                             _trace_funcs[kind]['in'](name, 'gen.send', to_send)
                         first_send = False
                         to_yield = generator.send(to_send)
-                        if immutalize and not _is_futury(to_yield):
-                            to_yield = s.data.immutalize(to_yield)
+                        if freeze and not _is_futury(to_yield):
+                            to_yield = s.data.freeze(to_yield)
                     except (s.async.Return, StopIteration) as e:
                         _trace_funcs[kind]['out'](name, 'gen', val=getattr(e, 'value', None))
                         raise e
@@ -190,4 +190,4 @@ def _logic_rules():
 logic = _traceable('logic', _logic_rules)
 
 
-bad_func = _traceable('bad_func', lambda: True, immutalize=False) # use for tests, and other non-system functions
+bad_func = _traceable('bad_func', lambda: True, freeze=False) # use for tests, and other non-system functions

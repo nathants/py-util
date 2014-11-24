@@ -10,7 +10,7 @@ def test_put():
     assert s.dicts.put({}, 3, 1, 2) == {1: {2: 3}}
 
 
-def test_merge_immutalizes():
+def test_merge_freezes():
     assert s.dicts.merge({1: 2}, {1: [3, 4]}) == {1: (3, 4)}
 
 

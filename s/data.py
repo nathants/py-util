@@ -87,13 +87,13 @@ with s.exceptions.ignore():
                      type({}.values()))
 
 
-def immutalize(val):
+def freeze(val):
     if isinstance(val, _immutable_types):
         return val
     elif isinstance(val, dict):
-        return _ImmutableDict({immutalize(k): immutalize(v) for k, v in val.items()})
+        return _ImmutableDict({freeze(k): freeze(v) for k, v in val.items()})
     elif isinstance(val, _listy_types):
-        return _ImmutableSeq(immutalize(x) for x in val)
+        return _ImmutableSeq(freeze(x) for x in val)
     elif isinstance(val, set):
-        return _ImmutableSet(immutalize(x) for x in val)
+        return _ImmutableSet(freeze(x) for x in val)
     raise ValueError('{} ({}) not immutalizable'.format(val, type(val)))

@@ -3,70 +3,70 @@ import pytest
 import mock
 
 
-def test_setitem_immutalize():
+def test_setitem_freeze():
     with pytest.raises(Exception):
-        s.data.immutalize({'a': 1})['a'] = 2
+        s.data.freeze({'a': 1})['a'] = 2
 
 
-def test_pop_immutalize():
+def test_pop_freeze():
     with pytest.raises(Exception):
-        s.data.immutalize({'a': 1}).pop()
+        s.data.freeze({'a': 1}).pop()
 
 
-def test_popitem_immutalize():
+def test_popitem_freeze():
     with pytest.raises(Exception):
-        s.data.immutalize({'a': 1}).popitem()
+        s.data.freeze({'a': 1}).popitem()
 
 
-def test_update_immutalize():
+def test_update_freeze():
     with pytest.raises(Exception):
-        s.data.immutalize({'a': 1}).update()
+        s.data.freeze({'a': 1}).update()
 
 
-def test_clear_immutalize():
+def test_clear_freeze():
     with pytest.raises(Exception):
-        s.data.immutalize({'a': 1}).clear()
+        s.data.freeze({'a': 1}).clear()
 
 
-def test_append_immutalize():
+def test_append_freeze():
     with pytest.raises(AttributeError):
-        s.data.immutalize([]).append(1)
+        s.data.freeze([]).append(1)
 
 
-def test_getitem_immutalize():
-    assert 1 == s.data.immutalize({'a': 1})['a']
+def test_getitem_freeze():
+    assert 1 == s.data.freeze({'a': 1})['a']
 
 
-def test_set_immutalize():
+def test_set_freeze():
     x = {1, 2, 3}
-    y = s.data.immutalize(x)
+    y = s.data.freeze(x)
     x.add(4)
     assert y == {1, 2, 3}
 
 
-def test_nested_immutalize():
+def test_nested_freeze():
     x = {1}
-    y = s.data.immutalize({'val': x})
+    y = s.data.freeze({'val': x})
     x.add(2)
     assert len(y['val']) == 1
 
 
-def test_list_immutalize():
+def test_list_freeze():
     x = [1, 2, 3]
-    y = s.data.immutalize(x)
+    y = s.data.freeze(x)
     x.append(4)
     assert y == (1, 2, 3)
 
 
-def test_dont_reimmutalize():
-    fn = s.data.immutalize
-    with mock.patch.object(s.data, 'immutalize') as m:
+def test_dont_refreeze():
+    fn = s.data.freeze
+    with mock.patch.object(s.data, 'freeze') as m:
         m.side_effect = fn
         x = [1, 2, 3]
         assert m.call_count == 0
-        x = s.data.immutalize(x)
+        x = s.data.freeze(x)
         assert m.call_count == 4 # called once for [] and once for each element
-        s.data.immutalize(x)
+        s.data.freeze(x)
         assert m.call_count == 5 # called once for [] and shortcircuit
-        s.data.immutalize(x)
+        s.data.freeze(x)
         assert m.call_count == 6 # called once for [] and shortcircuit
