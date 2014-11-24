@@ -72,3 +72,13 @@ def _ks(ks):
 def _concatable(*xs):
     return (all(isinstance(x, tuple) for x in xs) or
             all(isinstance(x, list) for x in xs))
+
+
+def map(mapping_fn, obj):
+    def mapper(*x):
+        assert isinstance(x, tuple) and len(x) == 2, 'your mapping_fn must take an (<object>, <object>) {}'.format(x)
+        val = mapping_fn(*x)
+        assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
+        return val
+    fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
+    return s.seqs.walk(obj, fn)

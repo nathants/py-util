@@ -75,3 +75,8 @@ def test__ks():
 def test_new():
     x, y = 1, 2
     assert s.dicts.new(locals(), 'x', 'y') == {'x': 1, 'y': 2}
+
+
+def test_map():
+    fn = lambda k, v: ['{}!!'.format(k), v]
+    assert s.dicts.map(fn, {1: {2: 3}}) == {'1!!': {'2!!': 3}}
