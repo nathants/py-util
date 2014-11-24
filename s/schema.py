@@ -1,9 +1,26 @@
 from __future__ import print_function, absolute_import
+import functools
 import re
 import pprint
 import s
 import types
 import uuid
+
+
+def check(*arg_schemas, **kwarg_schemas):
+    returns_schema = kwarg_schemas.pop('returns', lambda x: x)
+    def decorator(fn):
+        name = s.func.name(fn)
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            assert len(arg_schemas) == len(args), 'you asked to check {} for {} args, but {} we provided: {}'.format(name, len(arg_schemas), len(args), args)
+            for key, value in kwargs.items():
+                assert key in kwarg_schemas, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
+            args = [validate(schema, arg) for schema, arg in zip(arg_schemas, args)]
+            kwargs = s.dicts.map(lambda k, v: [k, kwarg_schemas.get(k, lambda x: x)(v)], kwargs)
+            return s.schema.validate(returns_schema, fn(*args, **kwargs))
+        return decorated
+    return decorator
 
 
 default = str(uuid.uuid4()) # sentinel used to signal default values
@@ -68,6 +85,7 @@ def validate(schema, value):
             _check(schema, value)
         return value
     except AssertionError as e:
+        raise
         try:
             raise AssertionError(_helpful_message(schema, value, e))
         except:
@@ -106,7 +124,9 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
 
 
 def _check(validator, value):
-    if isinstance(validator, (list, tuple)):
+    if validator is object:
+        return value
+    elif isinstance(validator, (list, tuple)):
         assert isinstance(value, (list, tuple)), '{} <{}> is not a {} <{}>'.format(value, type(value), validator, type(validator))
         if isinstance(validator, list):
             assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)

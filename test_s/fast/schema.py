@@ -3,6 +3,36 @@ import s
 import pytest
 
 
+def test_check_args_and_kwargs():
+    @s.schema.check(int, b=float, returns=str)
+    def fn(a, b=0):
+        return str(a + b)
+    assert fn(1) == '1'
+    assert fn(1, b=.5) == '1.5'
+    with pytest.raises(AssertionError):
+        fn(1, 1)
+    with pytest.raises(AssertionError):
+        fn(1.0)
+    with pytest.raises(AssertionError):
+        fn(1, c='2')
+
+
+def test_check_returns():
+    @s.schema.check(returns=str)
+    def badfn():
+        return 0
+    with pytest.raises(AssertionError):
+        badfn()
+
+
+def test_object_type():
+    schema = {str: object}
+    s.schema.validate(schema, {'a': 'apple'}) == {'a': 'apple'}
+    s.schema.validate(schema, {'b': 'banana'}) == {'b': 'banana'}
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, {1: 'apple'})
+
+
 def test_type_to_lambda():
     schema = {str: lambda x: x == 'apple'}
     assert s.schema.validate(schema, {'a': 'apple'})
