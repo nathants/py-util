@@ -1,6 +1,39 @@
 from __future__ import print_function, absolute_import
 import s
 import pytest
+import six
+
+
+def test_test_annotations_return():
+    if six.PY3:
+        def fn():
+            return 123
+        fn.__annotations__ = {'return': str}
+        fn = s.schema.check(fn)
+        with pytest.raises(AssertionError):
+            fn()
+
+
+def test_annotation_args():
+    if six.PY3:
+        def fn(x):
+            return str(x)
+        fn.__annotations__ = {'x': int, 'return': str}
+        fn = s.schema.check(fn)
+        assert fn(1) == '1'
+        with pytest.raises(AssertionError):
+            fn(1.0)
+
+
+def test_annotation_kwargs():
+    if six.PY3:
+        def fn(x=0):
+            return str(x)
+        fn.__annotations__ = {'x': int, 'return': str}
+        fn = s.schema.check(fn)
+        assert fn(x=1) == '1'
+        with pytest.raises(AssertionError):
+            fn(x=1.0)
 
 
 def test_check_args_and_kwargs():
@@ -13,6 +46,8 @@ def test_check_args_and_kwargs():
         fn(1, 1)
     with pytest.raises(AssertionError):
         fn(1.0)
+    with pytest.raises(AssertionError):
+        fn(1, b='2')
     with pytest.raises(AssertionError):
         fn(1, c='2')
 
