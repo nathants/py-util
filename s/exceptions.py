@@ -11,3 +11,12 @@ def ignore(*exceptions):
         pass
     except:
         raise
+
+
+def append(exception, message):
+    try:
+        msg = exception.args[0]
+    except:
+        msg = ''
+    exception.args = (msg + message,) + exception.args[1:]
+    return exception
