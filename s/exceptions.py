@@ -13,10 +13,10 @@ def ignore(*exceptions):
         raise
 
 
-def append(exception, message):
+def update(exception, fn):
     try:
         msg = exception.args[0]
     except:
         msg = ''
-    exception.args = (msg + message,) + exception.args[1:]
+    exception.args = (fn(msg),) + exception.args[1:]
     return exception

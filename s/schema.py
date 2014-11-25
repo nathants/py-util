@@ -9,41 +9,6 @@ import uuid
 import inspect
 
 
-def get_schemas(arg_schemas, kwarg_schemas, fn):
-    if not arg_schemas and not kwarg_schemas and six.PY3:
-        sig = inspect.signature(fn)
-        arg_schemas = [x.annotation for x in sig.parameters.values() if x.default is inspect._empty]
-        kwarg_schemas = {x.name: x.annotation for x in sig.parameters.values() if x.default is not inspect._empty}
-        if sig.return_annotation is not inspect._empty:
-            kwarg_schemas['returns'] = sig.return_annotation
-    assert arg_schemas or kwarg_schemas, 'you asked to check, but provided no schemas for: {}'.format(s.func.name(fn))
-    return arg_schemas, kwarg_schemas
-
-
-@s.hacks.optionally_parameterized_decorator
-def check(*args, **kwargs):
-    def decorator(fn):
-        arg_schemas, kwarg_schemas = get_schemas(args, kwargs, fn)
-        returns_schema = kwarg_schemas.pop('returns', lambda x: x)
-        name = s.func.name(fn)
-        @functools.wraps(fn)
-        def decorated(*args, **kwargs):
-            assert len(arg_schemas) == len(args), 'you asked to check {} for {} args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
-            for key, value in kwargs.items():
-                assert key in kwarg_schemas, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
-            try:
-                args = [validate(schema, arg) for schema, arg in zip(arg_schemas, args)]
-                checker = lambda k, v: validate(kwarg_schemas.get(k, lambda x: x), v)
-                kwargs = dict((k, checker(k, v)) for k, v in kwargs.items())
-                value = fn(*args, **kwargs)
-                assert value is not None, 'you cannot return None from s.schema.check\'d function'
-                return s.schema.validate(returns_schema, value)
-            except AssertionError as e:
-                raise s.exceptions.append(e, '\n\n--function--\n{}'.format(name))
-        return decorated
-    return decorator
-
-
 default = str(uuid.uuid4()) # sentinel used to signal default values
 
 
@@ -107,7 +72,7 @@ def validate(schema, value):
         return value
     except AssertionError as e:
         try:
-            raise s.exceptions.append(e, _helpful_message(schema, value))
+            raise s.exceptions.update(e, lambda x: _prettify(x + _helpful_message(schema, value)))
         except:
             raise
 
@@ -196,13 +161,46 @@ def _helpful_message(schema, value):
     else:
         schema = pprint.pformat(schema, width=1)
 
-    return _prettify(
-        '\n\n--obj--\n{}\n\n--schema--\n{}'.format(
-            pprint.pformat(value, width=1),
-            schema,
-        )
+    return '\n\n--obj--\n{}\n--schema--\n{}\n--end--'.format(
+        pprint.pformat(value, width=1),
+        schema,
     )
 
 
 def _prettify(x):
     return re.sub("\<\w+ \'(\w+)\'\>", r'\1', str(x))
+
+
+def get_schemas(arg_schemas, kwarg_schemas, fn):
+    if not arg_schemas and not kwarg_schemas and six.PY3:
+        sig = inspect.signature(fn)
+        arg_schemas = [x.annotation for x in sig.parameters.values() if x.default is inspect._empty]
+        kwarg_schemas = {x.name: x.annotation for x in sig.parameters.values() if x.default is not inspect._empty}
+        if sig.return_annotation is not inspect._empty:
+            kwarg_schemas['returns'] = sig.return_annotation
+    assert arg_schemas or kwarg_schemas, 'you asked to check, but provided no schemas for: {}'.format(s.func.name(fn))
+    return arg_schemas, kwarg_schemas
+
+
+@s.hacks.optionally_parameterized_decorator
+def check(*args, **kwargs):
+    def decorator(fn):
+        arg_schemas, kwarg_schemas = get_schemas(args, kwargs, fn)
+        returns_schema = kwarg_schemas.pop('returns', lambda x: x)
+        name = s.func.name(fn)
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            assert len(arg_schemas) == len(args), 'you asked to check {} for {} args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
+            for key, value in kwargs.items():
+                assert key in kwarg_schemas, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
+            try:
+                args = [validate(schema, arg) for schema, arg in zip(arg_schemas, args)]
+                checker = lambda k, v: validate(kwarg_schemas.get(k, lambda x: x), v)
+                kwargs = dict((k, checker(k, v)) for k, v in kwargs.items())
+                value = fn(*args, **kwargs)
+                assert value is not None, 'you cannot return None from s.schema.check\'d function'
+                return s.schema.validate(returns_schema, value)
+            except AssertionError as e:
+                raise s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--'.format(name))
+        return decorated
+    return decorator
