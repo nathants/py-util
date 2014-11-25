@@ -15,7 +15,7 @@ def get_caller(offset=0):
 
 def string_type():
     try:
-        return basestring
+        return basestring # noqa
     except:
         return str
 

@@ -11,7 +11,7 @@ _json_types = (list,
                bool,
                type(None))
 try:
-    _json_types += (unicode,)
+    _json_types += (unicode,) # noqa
 except:
     _json_types += (bytes,)
 
@@ -70,10 +70,8 @@ _immutable_types = (
     _ImmutableSeq,
     _ImmutableSet,
 )
-
-
 with s.exceptions.ignore():
-    _immutable_types += (basestring,)
+    _immutable_types += (basestring,) # noqa
 
 
 _listy_types = (list,
