@@ -102,6 +102,12 @@ class Sock(object):
     def __init__(self, sock):
         self._sock = sock
 
+    def __enter__(self, *a, **kw):
+        return self
+
+    def __exit__(self, *a, **kw):
+        self._sock.close()
+
     def _recv(method_name):
         def fn(self, *a, **kw):
             msg = getattr(self._sock, method_name)(*a, **kw)
@@ -133,29 +139,35 @@ class Sock(object):
 
 class AsyncSock(object):
     def __init__(self, sock):
-        self._stream = zmq.eventloop.zmqstream.ZMQStream(sock)
+        self._sock = zmq.eventloop.zmqstream.ZMQStream(sock)
+
+    def __enter__(self, *a, **kw):
+        return self
+
+    def __exit__(self, *a, **kw):
+        self._sock.close()
 
     def on_recv(self, fn):
-        self._stream.on_recv(fn)
+        self._sock.on_recv(fn)
 
     def on_send(self, fn):
-        self._stream.on_send(fn)
+        self._sock.on_send(fn)
 
     def stop_on_send(self):
-        self._stream.stop_on_send()
+        self._sock.stop_on_send()
 
     def stop_on_recv(self):
-        self._stream.stop_on_recv()
+        self._sock.stop_on_recv()
 
     def _recv(transform):
         def fn(self):
             future = s.async.Future()
             def cb(msg):
-                self._stream.stop_on_recv()
+                self._sock.stop_on_recv()
                 msg = [maybe_decode(x) for x in msg]
                 msg = transform(msg)
                 future.set_result(msg)
-            self._stream.on_recv(cb)
+            self._sock.on_recv(cb)
             return future
         return fn
 
@@ -175,7 +187,7 @@ class AsyncSock(object):
                 msg = [maybe_encode(x) for x in msg]
             else:
                 msg = maybe_encode(msg)
-            getattr(self._stream, method_name)(msg, *a, **kw)
+            getattr(self._sock, method_name)(msg, *a, **kw)
             return future
         return fn
 
