@@ -34,3 +34,9 @@ def flatten(data):
         return tuple(data)
     else:
         return (data,)
+
+
+def split_with(pred, coll):
+    a = list(itertools.takewhile(pred, coll))
+    b = list(coll[len(a):])
+    return [a, b]
