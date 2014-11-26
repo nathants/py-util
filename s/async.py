@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import inspect
 import s
 import tornado
 import tornado.gen
@@ -30,10 +31,10 @@ def _log_exceptions(*ignore):
 @s.hacks.optionally_parameterized_decorator
 def coroutine(*ignore_exceptions, **coroutine_kw):
     def decorator(fn):
+        assert inspect.isgeneratorfunction(fn), 'non generator cannot be a s.async.coroutine: {}'.format(s.func.name(fn))
         @functools.wraps(fn)
         def decorated(*a, **kw):
             if coroutine_kw.get('freeze', True):
-                a, kw = s.data.freeze(a), s.data.freeze(kw)
                 trace_fn = s.trace.glue(fn)
             else:
                 trace_fn = s.trace.bad_func(fn)

@@ -7,6 +7,7 @@ import json
 def test_basic():
     @s.async.coroutine
     def handler(request):
+        yield s.async.moment
         assert request['verb'] == 'get'
         raise s.async.Return({'headers': {'foo': 'bar'},
                               'code': 200,
@@ -30,9 +31,10 @@ def test_middleware():
     @middleware
     @s.async.coroutine
     def handler(request):
-        return {'headers': {'foo': 'bar'},
-                'code': 200,
-                'body': 'ok' + request['headers']['asdf']}
+        yield s.async.moment
+        raise s.async.Return({'headers': {'foo': 'bar'},
+                              'code': 200,
+                              'body': 'ok' + request['headers']['asdf']})
     app = s.web.server([('/', {'GET': handler})])
     with s.web.test(app) as url:
         resp = requests.get(url)
@@ -42,6 +44,7 @@ def test_middleware():
 def test_url_params():
     @s.async.coroutine
     def handler(request):
+        yield s.async.moment
         raise s.async.Return({'code': 200,
                               'body': json.dumps(request['query'])})
     app = s.web.server([('/', {'GET': handler})])
@@ -55,6 +58,7 @@ def test_url_params():
 def test_url_args():
     @s.async.coroutine
     def handler(request):
+        yield s.async.moment
         raise s.async.Return({'code': 200,
                               'body': json.dumps({'foo': request['arguments']['foo']})})
     app = s.web.server([('/:foo/stuff', {'GET': handler})])
