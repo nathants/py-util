@@ -10,10 +10,8 @@ _json_types = (list,
                tuple,
                bool,
                type(None))
-try:
+with s.exceptions.ignore():
     _json_types += (unicode,) # noqa
-except:
-    _json_types += (bytes,)
 
 
 def jsonify(val):
@@ -21,6 +19,8 @@ def jsonify(val):
         return {jsonify(k): jsonify(v) for k, v in val.items()}
     elif isinstance(val, (list, tuple, set)):
         return [jsonify(x) for x in val]
+    elif isinstance(val, bytes):
+        return val.decode('utf-8')
     elif isinstance(val, _json_types):
         return val
     else:
