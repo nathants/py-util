@@ -1,6 +1,4 @@
 from __future__ import absolute_import, print_function
-import os
-import sys
 import pprint
 import logging
 import logging.handlers
@@ -19,23 +17,6 @@ for _name in ['debug', 'info', 'warn', 'warning', 'error', 'exception']:
     locals()[_name] = getattr(logging, _name)
 
 
-def _flag_override(var, flag, new_value):
-    def fn(val):
-        if var in os.environ or flag in sys.argv:
-            if flag in sys.argv:
-                sys.argv.remove(flag)
-            os.environ[var] = ''
-            val = new_value
-        return val
-    return fn
-
-
-_get_level = _flag_override('_logging_force_debug', '--debug', 'debug')
-
-
-_get_short = _flag_override('_logging_force_short', '--short', True)
-
-
 def _make_handler(handler, level, format, pprint, filter=None):
     handler.setLevel(level.upper())
     if filter:
@@ -46,7 +27,7 @@ def _make_handler(handler, level, format, pprint, filter=None):
 
 def _get_format(format, short):
     return (format if format
-            else _short_format if _get_short(short)
+            else _short_format if s.shell.override('--short')
             else _standard_format)
 
 
@@ -66,8 +47,8 @@ def _trace_file_handler(name):
 
 
 def _stream_handler(level, format):
-    level = _get_level(level)
-    assert level in ('debug', 'info')
+    level = 'debug' if s.shell.override('--debug') else level
+    # assert level in ('debug', 'info')
     return _make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace)
 
 
@@ -89,7 +70,9 @@ def _get_trace_path(name):
     val = '{modname}:{funcname}:{when}'.format(**locals())
     if name:
         val = '{name}:{val}'.format(**locals())
-    return '/tmp/{val}:trace.log'.format(**locals())
+    val = '/tmp/{val}:trace.log'.format(**locals())
+    globals()['_trace_path'] = val
+    return val
 
 
 def _better_pathname(record):

@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import sys
 import logging
 import six
 import yaml
@@ -319,3 +320,12 @@ def watch_files():
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
     s.proc.new(fn)
     return route
+
+
+def override(flag):
+    var = '_override_{}'.format(flag.strip('-'))
+    if var in os.environ or flag in sys.argv:
+        if flag in sys.argv:
+            sys.argv.remove(flag)
+        os.environ[var] = ''
+        return True
