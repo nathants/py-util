@@ -10,8 +10,12 @@ import pprint
 import blessed
 
 
-def _header(data, highlight):
-    val = '-' * (1 + len(data['stack']))
+def _header(data, highlight=False):
+    try:
+        val = '-' * (1 + len(data['stack']))
+    except:
+        print('data:', data)
+        raise
     if data['direction'] == 'out':
         val = val[1:] + '<'
     else:
@@ -23,7 +27,6 @@ def _header(data, highlight):
     name = data['name']
     if highlight:
         val = s.colors.green(val)
-        name = s.colors.green(name)
     return val + '\n ' + name
 
 
@@ -32,7 +35,7 @@ def _body(data, hide_keys, pretty, max_lines):
     for k, v in s.dicts.drop(data, *hide_keys).items():
         if not v:
             continue
-        elif isinstance(v, (list, dict)) and pretty:
+        elif isinstance(v, (tuple, list, dict)) and pretty:
             v = pprint.pformat(v, width=1).splitlines()
             size = len(k) + 3
             if len(v) > max_lines:
@@ -49,20 +52,37 @@ def _body(data, hide_keys, pretty, max_lines):
     return '\n'.join(val)
 
 
-@s.trace.logic
-def _visualize(index, path, datas, hidden_keys, max_lines, pair=False, pretty=True):
-    if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
-        vals = [(datas[index], True)]
+def _visualize(t, index, path, datas, hidden_keys, max_lines, pair, pretty, flat):
+    if flat:
+        datas = datas[index:index + t.height - 2]
+        datas = [[_header(data).split('\n'), data] for data in datas]
+        size = max(len(data) for (data, _), _ in datas)
+        datas = [[x.ljust(size) + y, data] for (x, y), data in datas]
+        size = max(len(x) for x, _ in datas) + 1
+        print(print)
+        datas = [[x.ljust(size) + ('args=' + str(data['args']) if data.get('args') else
+                                   'value=' + str(data['value']) if data.get('value') else
+                                   ''),
+                  data]
+                 for x, data in datas]
+        datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''), data]
+                 for x, data in datas]
+        datas = [[x[:min(t.width - 1, 200)], data] for x, data in datas]
+        datas[0] = [s.colors.green(datas[0][0]), datas[0][1]]
+        return '\n'.join([x for x, _ in datas])
     else:
-        vals = _pair(index, datas)
+        if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
+            vals = [(datas[index], True)]
+        else:
+            vals = _pair(index, datas)
 
-    output = ['path: {}'.format(path),
-              'index: {}'.format(index)]
-    for data, highlight in vals:
-        output += ['',
-                   _header(data, highlight),
-                   _body(data, hidden_keys, pretty, max_lines)]
-    return '\n'.join(output)
+        output = ['path: {}'.format(path),
+                  'index: {}'.format(index)]
+        for data, highlight in vals:
+            output += ['',
+                       _header(data, highlight),
+                       _body(data, hidden_keys, pretty, max_lines)]
+        return '\n'.join(output)
 
 
 @s.trace.logic
@@ -104,12 +124,14 @@ _help = """
     a - show all data
     c - show cwd
     s - disable stack visualization
+    f - flat mode
 
 """
 
 
 def _print(t, text, wait=False):
-    print(t.clear)
+    if not globals()['just_print']:
+        print(t.clear)
     print(text)
     if wait:
         pager.getch()
@@ -121,6 +143,7 @@ def _app(t, path):
 
     pair = False
     pretty = True
+    flat = True
     index = 0
     max_lines_increment = 10
     max_lines_high = 1e10
@@ -128,17 +151,22 @@ def _app(t, path):
     hidden_keys = _hidden_keys = ['direction', 'name', 'time', 'stack', 'cwd']
 
     while True:
-        _print(t, _visualize(index, path, datas, hidden_keys, max_lines, pair, pretty))
+        _print(t, _visualize(t, index, path, datas, hidden_keys, max_lines, pair, pretty, flat))
         char = pager.getch()
         if char == 'g':
             char += pager.getch()
         with t.location(0, 0):
             if char == 'q':
                 return
+            elif char == 'f':
+                flat = not flat
             elif char == '?':
                 _print(t, _help, True)
             elif char == 'j':
-                index = min(index + 1, len(datas) - 1)
+                if flat and len(datas) - index < 3:
+                    continue
+                else:
+                    index = min(index + 1, len(datas) - 1)
             elif char == 'k':
                 index = max(index - 1, 0)
             elif char == 'G':
@@ -176,7 +204,6 @@ def _main(file_or_regex):
 
     when called with one arg, uses that as a file name, and then falls back to re.search.
     """
-
     vals = s.shell.files('/tmp', True)
     vals = [x for x in vals if x.endswith(':trace.log')]
     vals = sorted(vals, key=lambda x: os.stat(x).st_mtime, reverse=True)
@@ -202,11 +229,15 @@ def _main(file_or_regex):
             sys.exit(1)
 
     t = blessed.Terminal()
-    with t.fullscreen():
-        with t.hidden_cursor():
-            print(t.clear)
-            _app(t, path)
+    if globals()['just_print']:
+        _app(t, path)
+    else:
+        with t.fullscreen():
+            with t.hidden_cursor():
+                print(t.clear)
+                _app(t, path)
 
 
 def main():
+    globals()['just_print'] = s.shell.override('--print')
     argh.dispatch_command(_main)
