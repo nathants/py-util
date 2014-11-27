@@ -307,14 +307,15 @@ def abspand(path):
 
 
 def watch_files():
-    route = s.net.new_ipc_route()
+    # TODO if pass route, connect to it. otherwise create new route, bind, and return the route.
+    route = s.sock.new_ipc_route()
     def fn():
-        pubber = s.zmq.socket('PUB', 'bind', route)
+        pubber = s.sock.bind('pub', route, sync=True)
         try:
             with s.shell.climb_git_root():
                 while True:
                     s.shell.run("find -name '*py' | entr -d echo ''",
-                                callback=lambda _: pubber.send_string(''),
+                                callback=lambda _: pubber.send(''),
                                 warn=True)
         except KeyboardInterrupt:
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
