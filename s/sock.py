@@ -16,7 +16,7 @@ import datetime
 
 def timeout(seconds):
     route = new_ipc_route()
-    ioloop().add_timeout(
+    s.async.ioloop().add_timeout(
         datetime.timedelta(seconds=seconds),
         lambda: s.sock.connect('push', route).send('')
     )
@@ -34,10 +34,6 @@ def select(*socks):
     return future
 
 
-def ioloop():
-    return tornado.ioloop.IOLoop.current()
-
-
 def new_ipc_route():
     while True:
         route = '/tmp/{}'.format(uuid.uuid4())
@@ -45,7 +41,7 @@ def new_ipc_route():
             return 'ipc://' + route
 
 
-def new(action, kind, route, subscriptions=[""], sockopts={}, async=True, timeout=None, hwm=1):
+def new(action, kind, route, subscriptions=[""], sockopts={}, sync=False, timeout=None, hwm=1):
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
@@ -65,10 +61,10 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, async=True, timeou
         sock.setsockopt(zmq.RCVTIMEO, timeout)
     sock.setsockopt(zmq.SNDHWM, hwm)
     sock.setsockopt(zmq.RCVHWM, hwm)
-    if async:
-        return AsyncSock(sock)
-    else:
+    if sync:
         return Sock(sock)
+    else:
+        return AsyncSock(sock)
 
 
 # TODO calls to bind and connection should cache socket objects. only new creates new sockets every time, and should be used with "with"
@@ -161,6 +157,7 @@ class AsyncSock(object):
 
     def _recv(transform):
         def fn(self):
+            assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
             future = s.async.Future()
             def cb(msg):
                 self._sock.stop_on_recv()
@@ -178,6 +175,7 @@ class AsyncSock(object):
 
     def _send(method_name):
         def fn(self, msg, *a, **kw):
+            assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
             future = s.async.Future()
             def fn(*_):
                 self.stop_on_send()

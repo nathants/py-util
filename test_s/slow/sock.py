@@ -1,11 +1,20 @@
 from __future__ import print_function, absolute_import
+import pytest
 import s
 import time
 import s.sock
 
 
 _async_kw = {'timeout': 1000}
-_sync_kw = s.dicts.merge(_async_kw, {'async': False})
+_sync_kw = s.dicts.merge(_async_kw, {'sync': True})
+
+
+def test_async_methods_error_when_no_ioloop():
+    s.async.ioloop().clear()
+    with pytest.raises(AssertionError):
+        s.sock.bind('pull', s.sock.new_ipc_route(), **_async_kw).recv()
+    with pytest.raises(AssertionError):
+        s.sock.bind('pull', s.sock.new_ipc_route(), **_async_kw).send('')
 
 
 def test_select():
@@ -46,10 +55,10 @@ def test_push_pull_device_middleware_coroutine():
         yield s.sock.bind('push', downstream_route, **_async_kw).send(msg + ' [streamer]')
     @s.async.coroutine
     def main():
+        pusher()
+        streamer()
         msg = yield s.sock.connect('pull', downstream_route, **_async_kw).recv()
         assert msg == 'job1 [streamer]'
-    pusher()
-    streamer()
     s.async.run_sync(main)
 
 
@@ -60,9 +69,9 @@ def test_push_pull_coroutine():
         yield s.sock.bind('push', route, **_async_kw).send('asdf')
     @s.async.coroutine
     def puller():
+        pusher()
         msg = yield s.sock.connect('pull', route, **_async_kw).recv()
         assert msg == 'asdf'
-    pusher()
     s.async.run_sync(puller)
 
 
@@ -73,9 +82,9 @@ def test_push_pull_coroutine_multipart():
         yield s.sock.bind('push', route, **_async_kw).send_multipart(('a', 'b'))
     @s.async.coroutine
     def puller():
+        pusher()
         msg = yield s.sock.connect('pull', route, **_async_kw).recv_multipart()
         assert msg == ('a', 'b')
-    pusher()
     s.async.run_sync(puller)
 
 
@@ -86,9 +95,9 @@ def test_push_pull_coroutine_json():
         yield s.sock.bind('push', route, **_async_kw).send_json([1, 2])
     @s.async.coroutine
     def puller():
+        pusher()
         msg = yield s.sock.connect('pull', route, **_async_kw).recv_json()
         assert msg == (1, 2)
-    pusher()
     s.async.run_sync(puller)
 
 
@@ -102,10 +111,10 @@ def test_req_rep_coroutine():
         assert msg == 'asdf!!'
     @s.async.coroutine
     def replier():
+        requestor()
         rep = s.sock.connect('rep', route, **_async_kw)
         msg = yield rep.recv()
         yield rep.send(msg + '!!')
-    requestor()
     s.async.run_sync(replier)
 
 
@@ -234,13 +243,13 @@ def test_req_rep_device_middleware():
         def dealer_on_recv(msg):
             msg[-1] = msg[-1] + b' [dealer.on_recv]'
             router.send_multipart(msg)
-        s.sock.ioloop().start()
+        s.async.ioloop().start()
     s.thread.new(replier)
     s.thread.new(queue)
     req = s.sock.connect('req', req_route, **_sync_kw)
     req.send('asdf')
     assert req.recv() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
-    s.sock.ioloop().stop()
+    s.async.ioloop().stop()
 
 
 def test_pub_sub_device():
@@ -278,13 +287,13 @@ def test_pub_sub_device_middleware():
         def sub_on_recv(msg):
             msg[-1] = msg[-1] + b' [sub.on_recv]'
             pub.send_multipart(msg)
-        s.sock.ioloop().start()
+        s.async.ioloop().start()
     s.thread.new(pubber)
     s.thread.new(forwarder)
     sub = s.sock.connect('sub', pub_route, **_sync_kw)
     assert sub.recv_multipart() == ['topic1', 'asdf [sub.on_recv]']
     state['send'] = False
-    s.sock.ioloop().stop()
+    s.async.ioloop().stop()
 
 
 def test_push_pull_device():
@@ -311,8 +320,8 @@ def test_push_pull_device_middleware():
         @pull.on_recv
         def pull_on_recv(msg):
             push.send(msg[0] + b' [pull.on_recv]')
-        s.sock.ioloop().start()
+        s.async.ioloop().start()
     s.thread.new(pusher)
     s.thread.new(streamer)
     assert s.sock.connect('pull', push_route, **_sync_kw).recv() == 'job1 [pull.on_recv]'
-    s.sock.ioloop().stop()
+    s.async.ioloop().stop()
