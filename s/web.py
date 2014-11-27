@@ -63,19 +63,20 @@ def server(routes, debug=False):
 
 
 @contextlib.contextmanager
-def test(app):
+def test(app, poll=True):
     port = s.net.free_port()
     url = 'http://localhost:{}/'.format(port)
     def run():
         app.listen(port)
         tornado.ioloop.IOLoop.current().start()
     proc = s.proc.new(run)
-    while True:
-        try:
-            str(requests.get(url)) # wait for http requests to succeed
-            break
-        except requests.exceptions.ConnectionError:
-            time.sleep(1e-6)
+    if poll:
+        while True:
+            try:
+                str(requests.get(url)) # wait for http requests to succeed
+                break
+            except requests.exceptions.ConnectionError:
+                time.sleep(1e-6)
     try:
         yield url
     except:
