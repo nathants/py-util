@@ -58,8 +58,34 @@ def sleep(duration_seconds):
     return future
 
 
+class _IOLoop(object):
+    def __init__(self):
+        self.ioloop = tornado.ioloop.IOLoop.current()
+        self.started = False
+
+    def start(self):
+        self.started = True
+        self.ioloop.start()
+
+    def clear(self):
+        self.started = False
+
+    def __getattr__(self, k):
+        return getattr(self.ioloop, k)
+
+
+@s.cached.func
+def ioloop():
+    return _IOLoop()
+
+
+def run_sync(func, timeout=None):
+    ioloop().started = True
+    val = ioloop().run_sync(func, timeout)
+    ioloop().started = False
+    return val
+
+
 Return = tornado.gen.Return
 moment = tornado.gen.moment
-ioloop = tornado.ioloop.IOLoop.current
-run_sync = ioloop().run_sync
 Future = tornado.concurrent.Future
