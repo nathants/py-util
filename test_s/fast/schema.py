@@ -4,6 +4,39 @@ import pytest
 import six
 
 
+def test_partial_comparisons_for_testing():
+    schema = {'blah': str,
+              'data': [{str: str}]}
+    data = {'blah': 'foobar',
+            'data': [{'a': 'b'},
+                     {'c': 'd'},
+                     # ...
+                     # pretend 'data' is something too large to specify as a value literal in a test
+                     ]}
+    assert s.schema.validate(schema, data) == data
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, {'blah': 'foobar',
+                                   'data': [{'a': 1}]})
+
+
+def test_object_dict():
+    schema = {object: object}
+    assert s.schema.validate(schema, {1: 2}) == {1: 2}
+
+
+def test_object_tuple():
+    schema = (object, object)
+    assert s.schema.validate(schema, (1, '2')) == (1, '2')
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, (1, 2, 3))
+
+
+def test_object_list():
+    schema = [object]
+    assert s.schema.validate(schema, [1, 2, 3]) == [1, 2, 3]
+    assert s.schema.validate(schema, [1, '2', 3.0]) == [1, '2', 3.0]
+
+
 def test_test_annotations_return():
     if six.PY3:
         def fn():

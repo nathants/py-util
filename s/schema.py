@@ -71,21 +71,20 @@ def validate(schema, value):
             _check(schema, value)
         return value
     except AssertionError as e:
-        try:
-            raise s.exceptions.update(e, lambda x: _prettify(x + _helpful_message(schema, value)))
-        except:
-            raise
+        s.exceptions.update(e, lambda x: _prettify(x + _helpful_message(schema, value)))
+        raise
 
 
 def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
     validated_schema_items = []
     for k, v in value.items():
         value_mismatch = k not in schema
-        type_mismatch = type(k) not in [x for x in schema if isinstance(x, type)]
+        type_mismatch = type(k) not in [x for x in schema if isinstance(x, type)] and object not in schema
         assert not value_mismatch or not type_mismatch, '{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()]))
         key = type(k) if value_mismatch else k
-        validated_schema_items.append((key, schema[key]))
-        _check(schema[key], v)
+        validator = schema.get(key, schema.get(object))
+        validated_schema_items.append((key, validator))
+        _check(validator, v)
     return validated_schema_items
 
 
@@ -201,6 +200,7 @@ def check(*args, **kwargs):
                 assert value is not None, 'you cannot return None from s.schema.check\'d function'
                 return s.schema.validate(returns_schema, value)
             except AssertionError as e:
-                raise s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--'.format(name))
+                s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--'.format(name))
+                raise
         return decorated
     return decorator
