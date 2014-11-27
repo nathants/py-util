@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import zmq
 import re
 import sys
 import time
@@ -7,7 +8,6 @@ import traceback
 import os
 import s
 import itertools
-import multiprocessing
 import six
 
 
@@ -150,6 +150,8 @@ def _run_test(path, name, test):
             except:
                 tb = traceback.format_exc()
                 try:
+                    # TODO this is why fail is slower than success for red/green light
+                    # TODO this should be async, and not block feedback to the websocket
                     val = _pytest_insight(path, name)
                 except:
                     val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
@@ -254,26 +256,6 @@ def code_files():
     )
 
 
-@s.trace.glue # really? is this glue/logic/flow thing just silly?
-def _run_bg_tests(fn):
-    inq = multiprocessing.Queue()
-    outq = multiprocessing.Queue()
-    state = {}
-    def main(inq, outq):
-        while True:
-            args = [x for x in inq.get() if x]
-            outq.put(fn(*args))
-    s.proc.new(main, inq, outq)
-    def run(*args):
-        with s.exceptions.ignore(six.moves.queue.Full):
-            inq.put(args, block=False)
-    def results():
-        with s.exceptions.ignore(six.moves.queue.Empty):
-            state['output'] = outq.get(block=False)
-        return state.get('output') or []
-    return run, results
-
-
 @s.trace.glue
 def run_slow_tests_once():
     if six.PY2:
@@ -320,9 +302,47 @@ def _modules_to_reload():
                                                        and '_flymake' not in f))]
 
 
+def _run_bg_tests(fn, result_route):
+    trigger_route = s.sock.new_ipc_route()
+    def main():
+        trigger_puller = s.sock.bind('pull', trigger_route)
+        result_pusher = s.sock.connect('push', result_route)
+        @trigger_puller.on_recv
+        def trigger_on_recv(msg):
+            print('trigger on recv')
+            result_pusher.send('fake result')
+        s.async.ioloop().start()
+    s.proc.new(main)
+    trigger_pusher = s.sock.connect('push', trigger_route, sync=True)
+    def trigger(*args):
+        with s.exceptions.ignore(zmq.Again):
+            print('call trigger')
+            trigger_pusher.send('')
+    return trigger
+
+
+def run_tests_auto(output_route):
+    results_route = s.sock.new_ipc_route()
+    trigger_fast = _run_bg_tests(run_lightweight_tests_once, results_route)
+
+    watch_subber = s.sock.connect('sub', s.shell.watch_files())
+    @watch_subber.on_recv
+    def watcher_on_recv(_):
+        print('file system changed')
+        trigger_fast()
+
+    results_puller = s.sock.bind('pull', results_route)
+    @results_puller.on_recv
+    def results_on_recv(msg):
+        print('results received', msg)
+
+    s.async.ioloop().start()
+
+
 @s.trace.glue
-def run_tests_auto(pytest):
+def _run_tests_auto(pytest):
     files_changed = s.shell.watch_files()
+
     trigger_slow, results_slow = _run_bg_tests(run_slow_tests_once)
     trigger_fast, results_fast = _run_bg_tests(run_fast_tests_once if pytest else run_lightweight_tests_once)
 
@@ -332,15 +352,8 @@ def run_tests_auto(pytest):
 
     slow_changed = lambda: results_slow() != slow_tests_output
     fast_changed = lambda: _drop_seconds(results_fast()) != _drop_seconds(fast_tests_output) # seconds causes useless redraws
-
     while True:
-        """
-        main proc uses tornado and watches zmq sockets
-        other procs send on zmq sockets when stuff happens
-        cpu usage < 20% ?
-        """
         if files_changed() or slow_changed() or fast_changed():
-
             trigger_slow()
             trigger_fast(modules)
 
