@@ -34,7 +34,9 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
         assert inspect.isgeneratorfunction(fn), 'non generator cannot be a s.async.coroutine: {}'.format(s.func.name(fn))
         @functools.wraps(fn)
         def decorated(*a, **kw):
-            if coroutine_kw.get('freeze', True):
+            if not coroutine_kw.get('trace', True):
+                trace_fn = fn
+            elif coroutine_kw.get('freeze', True):
                 trace_fn = s.trace.glue(fn)
             else:
                 trace_fn = s.trace.bad_func(fn)

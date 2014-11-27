@@ -10,7 +10,7 @@ import six
 
 def _new_handler_method(fn):
     assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
-    @s.async.coroutine(freeze=False)
+    @s.async.coroutine(trace=False)
     def method(self, **arguments):
         request = _request_to_dict(self.request, arguments)
         response = yield fn(request)

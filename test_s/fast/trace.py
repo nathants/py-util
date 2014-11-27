@@ -1,9 +1,11 @@
+from __future__ import print_function, absolute_import
 import pytest
 import json
 import s
 import logging
 import mock
 import contextlib
+import requests
 
 
 @contextlib.contextmanager
@@ -16,6 +18,44 @@ def _capture_traces():
         yield results
 
 
+def _check_schema(schemas, results):
+    for result in results[len(schemas):]:
+        raise Exception('no schema provided for next item:', s.dicts.take(result, 'name', 'fntype'))
+    for result, schema in zip(results, schemas):
+        s.schema.validate(schema, (result['name'].split(':')[-1],
+                                   result['fntype'],
+                                   result['value'] if 'value' in result else result['args']))
+
+
+def test_trace_web():
+    s.log.setup.clear_cache()
+    s.log.setup()
+    s.shell.run('rm', s.log._trace_path)
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        assert request['verb'] == 'get'
+        raise s.async.Return({'headers': {'foo': 'bar'},
+                              'code': 200,
+                              'body': 'ok'})
+    app = s.web.server([('/', {'GET': handler})])
+    with s.web.test(app, poll=False) as url:
+        import time
+        time.sleep(.1)
+        resp = requests.get(url)
+        assert resp.text == 'ok'
+        assert resp.headers['foo'] == 'bar'
+    with open(s.log._trace_path) as _file:
+        results = [json.loads(x) for x in _file.read().splitlines()]
+    _check_schema([('handler', 'gen', [object]),
+                   ('handler', 'gen.yield', '<Future>'),
+                   ('handler', 'gen.send', [None]),
+                   ('handler', 'gen', {'body': 'ok',
+                                       'code': 200,
+                                       'headers': {object: object}})],
+                  results)
+
+
 def test_trace():
     @s.trace.glue
     def fn(x):
@@ -26,6 +66,7 @@ def test_trace():
 
     assert results[0]['args'] == [1]
     assert results[1]['value'] == 2
+    assert len(results) == 2
 
 
 def test_trace_coroutine():
@@ -37,8 +78,11 @@ def test_trace_coroutine():
         raise s.async.Return(val + '!!')
     with _capture_traces() as results:
         assert s.async.run_sync(main) == 'asdf!!'
-    assert [x['fntype'] for x in results] == ['gen', 'gen.yield', 'gen.send', 'gen']
-    assert [x['value'] if 'value' in x else x['args'] for x in results] == [[], '<Future>', ['asdf'], 'asdf!!']
+    _check_schema([('main', 'gen', [object]),
+                   ('main', 'gen.yield', '<Future>'),
+                   ('main', 'gen.send', ['asdf']),
+                   ('main', 'gen', 'asdf!!')],
+                  results)
 
 
 def test_trace_coroutine_nested():
@@ -52,18 +96,15 @@ def test_trace_coroutine_nested():
         raise s.async.Return(x + 1)
     with _capture_traces() as results:
         assert s.async.run_sync(main) == 2
-    val = [('main', 'gen', []),                  # call main
-           ('add_one', 'gen', [1]),              # call add_one
-           ('add_one', 'gen.yield', '<Future>'), # add_one yields moment
-           ('main', 'gen.yield', '<Future>'),    # main yields add_one
-           ('add_one', 'gen.send', [None]),      # send moments result to add_one
-           ('add_one', 'gen', 2),                # add_one returns
-           ('main', 'gen.send', [2]),            # send add_ones result to main
-           ('main', 'gen', 2)]                   # main returns
-    assert val == [(x['name'].split(':')[-1],
-                    x['fntype'],
-                    x['value'] if 'value' in x else x['args'])
-                   for x in results]
+    _check_schema([('main', 'gen', [object]),            # call main
+                   ('add_one', 'gen', [1]),              # call add_one
+                   ('add_one', 'gen.yield', '<Future>'), # add_one yields moment
+                   ('main', 'gen.yield', '<Future>'),    # main yields add_one
+                   ('add_one', 'gen.send', [None]),      # send moments result to add_one
+                   ('add_one', 'gen', 2),                # add_one returns
+                   ('main', 'gen.send', [2]),            # send add_ones result to main
+                   ('main', 'gen', 2)],                  # main returns
+                  results)
 
 
 def test_trace_fn_returning_fn():
@@ -132,8 +173,8 @@ def test_logic_generator():
             yield x
 
     for i, x in enumerate(logic()):
-        assert i == x
-        assert s.trace._stack() == ()
+        assert i == x, str([i, x])
+        assert s.trace._stack() == (), str(s.trace._stack(), ())
 
 
 def test_logic_raise():
