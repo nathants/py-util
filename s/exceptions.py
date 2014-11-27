@@ -19,4 +19,3 @@ def update(exception, fn):
     except:
         msg = ''
     exception.args = (fn(msg),) + exception.args[1:]
-    return exception
