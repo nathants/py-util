@@ -31,13 +31,13 @@ def test_select():
         puller2 = s.sock.connect('pull', route2, **_async_kw)
         timeout = s.sock.timeout(.2)
 
-        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
         assert msg == b'msg1' and sock == id(puller1)
 
-        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
         assert msg == b'msg2' and sock == id(puller2)
 
-        [sock, [msg]] = yield s.sock.select(puller1, puller2, timeout)
+        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
         assert sock == id(timeout) and msg == b''
 
     s.async.run_sync(main)
