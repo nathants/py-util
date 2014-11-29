@@ -128,6 +128,8 @@ def _check(validator, value):
     elif isinstance(validator, types.FunctionType):
         assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
     else:
+        with s.exceptions.ignore(AttributeError):
+            value = value.decode('utf-8')
         assert value == validator, '{} <{}> != {} <{}>'.format(value, type(value), validator, type(validator))
 
 

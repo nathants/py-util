@@ -4,6 +4,11 @@ import pytest
 import six
 
 
+def test_bytes_matches_str_schemas():
+    schema = 'asdf'
+    assert s.schema.validate(schema, b'asdf') == b'asdf'
+
+
 def test_partial_comparisons_for_testing():
     schema = {'blah': str,
               'data': [{str: str}]}
