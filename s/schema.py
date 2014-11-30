@@ -16,40 +16,65 @@ def validate(schema, value):
     """
     >>> import pytest
 
+    ### basic usage
+
     # simple values represent themselves
-    >>> assert validate(123, 123) == 123
+    >>> schema = int
+    >>> validate(schema, 123)
+    123
     >>> with pytest.raises(AssertionError):
-    ...     validate(123, '123')
+    ...     validate(schema, '123')
 
     # lists represent variable length homogenous lists/tuples
-    >>> assert validate([int], [1, 2]) == [1, 2]
+    >>> schema = [int]
+    >>> validate(schema, [1, 2])
+    [1, 2]
     >>> with pytest.raises(AssertionError):
-    ...     validate([int], [1, '2'])
+    ...     validate(schema, [1, '2'])
 
     # tuples represent fixed length heterogenous lists/tuples
-    >>> assert validate((int, int), [1, 2]) == [1, 2]
+    >>> schema = (int, int)
+    >>> validate(schema, [1, 2])
+    [1, 2]
     >>> with pytest.raises(AssertionError):
-    ...     validate((int, int), [1])
+    ...     validate(schema, [1])
 
-    # dicts can use types and values for k's and v's, and also lambdas for v's.
+    ### dicts can use types and values for k's and v's, and also lambdas for v's.
 
     # dicts with types->types
-    >>> assert validate({int: str}, {1: '2', 3: '4'}) == {1: '2', 3: '4'}
+    >>> schema = {str: int}
+    >>> validate(schema, {'1': 2})
+    {'1': 2}
     >>> with pytest.raises(AssertionError):
-    ...     validate({int: str}, {1: '2', 3: 4.0})
+    ...     validate(schema, {'1': 2.0})
 
-    # dicts with types->values
-    >>> assert validate({int: str, 'name': str}, {1: '2', 'name': 'bob'}) == {1: '2', 'name': 'bob'}
+    # dicts with types->values. fyi, the only type allowed for keys is "str".
+    >>> schema = {str: 'bob'}
+    >>> validate(schema, {'alias': 'bob'})
+    {'alias': 'bob'}
+    >>> with pytest.raises(AssertionError):
+    ...     validate(schema, {'alias': 'joe'})
+
+
+    # dicts with values->types
+    >>> schema = {'name': float}
+    >>> validate(schema, {'name': 3.14})
+    {'name': 3.14}
+    >>> with pytest.raises(AssertionError):
+    ...     validate(schema, {'alias': 3.14})
 
     # dicts with complex validation
-    >>> assert validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'jane'}) == {'name': 'jane'}
+    >>> validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'jane'})
+    {'name': 'jane'}
     >>> with pytest.raises(AssertionError):
     ...     validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'rose'})
 
-    # dicts with optional k's, that provide a value for a missing key and validate provided keys
+    # dicts with optional k's provide a value for a missing key and validate provided keys
     >>> schema = {'name': lambda x: x == default and 'jane' or isinstance(x, str)}
-    >>> assert validate(schema, {}) == {'name': 'jane'}
-    >>> assert validate(schema, {'name': 'rose'}) == {'name': 'rose'}
+    >>> validate(schema, {})
+    {'name': 'jane'}
+    >>> validate(schema, {'name': 'rose'})
+    {'name': 'rose'}
     >>> with pytest.raises(AssertionError):
     ...     validate(schema, {'name': 123})
 
@@ -60,6 +85,20 @@ def validate(schema, value):
     >>> assert validate(schema, obj) == obj
     >>> with pytest.raises(AssertionError):
     ...     validate(schema, {'users': [{'name': ('jane', 'e', 'smith'), 'id': 85}]})
+
+    ### schema based pattern matching
+
+    # # with a combination of values and object, we can express complex assertions on data
+    # while True:
+    #     msg = socket.recv()
+    #     if validate([":order", {'sender': str, 'instructions': [str]], msg):
+    #         key, val = msg
+    #         run_order(val)
+    #     elif validate([":shutdown", object]):
+    #         sys.exit(1)
+    #     else:
+    #         print('unknown message')
+    #
 
     """
     try:
