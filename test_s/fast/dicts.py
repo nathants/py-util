@@ -3,80 +3,80 @@ import pytest
 
 
 def test_get():
-    assert s.dicts.get({1: {2: 3}}, 1, 2) == 3
+    assert s.dicts.get({'a': {'b': 'c'}}, 'a', 'b') == 'c'
 
 
 def test_put():
-    assert s.dicts.put({}, 3, 1, 2) == {1: {2: 3}}
+    assert s.dicts.put({}, 'c', 'a', 'b') == {'a': {'b': 'c'}}
 
 
 def test_merge_freezes():
-    assert s.dicts.merge({1: 2}, {1: [3, 4]}) == {1: (3, 4)}
+    assert s.dicts.merge({'a': 'b'}, {'a': ['c', 'd']}) == {'a': ('c', 'd')}
 
 
 def test_merge():
-    assert s.dicts.merge({1: {2: 3}},
-                         {1: {4: 5}}) == {1: {2: 3,
-                                              4: 5}}
+    assert s.dicts.merge({'a': {'b': 'c'}},
+                         {'a': {'d': 'e'}}) == {'a': {'b': 'c',
+                                                'd': 'e'}}
 
 
 def test_merge_dict_with_nondict():
-    assert s.dicts.merge({1: 2}, {1: {2: 3}}) == {1: {2: 3}}
+    assert s.dicts.merge({'a': 'b'}, {'a': {'b': 'c'}}) == {'a': {'b': 'c'}}
 
 
 def test_mutability_merge_a():
-    a = {1: 2}
-    assert s.dicts.merge(a, {1: 3}) == {1: 3}
-    assert a == {1: 2}
+    a = {'a': 'b'}
+    assert s.dicts.merge(a, {'a': 'c'}) == {'a': 'c'}
+    assert a == {'a': 'b'}
 
 
 def test_mutability_merge_b():
-    b = {1: 3}
-    assert s.dicts.merge({1: 2}, b) == {1: 3}
-    assert b == {1: 3}
+    b = {'a': 'c'}
+    assert s.dicts.merge({'a': 'b'}, b) == {'a': 'c'}
+    assert b == {'a': 'c'}
 
 
 def test_simple_merge():
-    assert s.dicts.merge({1: 2},
-                         {1: 3, 2: 4}) == {1: 3, 2: 4}
+    assert s.dicts.merge({'a': 'b'},
+                         {'a': 'c', 'b': 'd'}) == {'a': 'c', 'b': 'd'}
 
 
 def test_iterables_concatted():
-    assert s.dicts.merge({1: {2: (1, 2)}},
-                         {1: {2: (3, 4)}}, concat=True) == {1: {2: (1, 2, 3, 4)}}
+    assert s.dicts.merge({'a': {'b': ('a', 'b')}},
+                         {'a': {'b': ('c', 'd')}}, concat=True) == {'a': {'b': ('a', 'b', 'c', 'd')}}
 
 
 def test__concatable():
     assert s.dicts._concatable([], [])
     assert s.dicts._concatable((), ())
     assert not s.dicts._concatable((), [])
-    assert not s.dicts._concatable([], 1)
+    assert not s.dicts._concatable([], 'a')
 
 
 def test_only():
-    assert s.dicts.take({1: True, 2: True, 3: True}, 1, 2) == {1: True, 2: True}
+    assert s.dicts.take({'a': True, 'b': True, 'c': True}, 'a', 'b') == {'a': True, 'b': True}
 
 
 def test_padded_only():
-    assert s.dicts.take({1: True}, 1, 2, 3, padded=None) == {1: True, 2: None, 3: None}
+    assert s.dicts.take({'a': True}, 'a', 'b', 'c', padded=None) == {'a': True, 'b': None, 'c': None}
 
 
 def test_drop():
-    assert s.dicts.drop({1: 1, 2: 2}, 1) == {2: 2}
+    assert s.dicts.drop({'a': 'a', 'b': 'b'}, 'a') == {'b': 'b'}
 
 
 def test__ks():
-    assert s.dicts._ks([1, 2]) == (1, 2)
-    assert s.dicts._ks((1, 2)) == (1, 2)
+    assert s.dicts._ks(['a', 'b']) == ('a', 'b')
+    assert s.dicts._ks(('a', 'b')) == ('a', 'b')
     with pytest.raises(TypeError):
         s.dicts._ks(None)
 
 
 def test_new():
-    x, y = 1, 2
-    assert s.dicts.new(locals(), 'x', 'y') == {'x': 1, 'y': 2}
+    x, y = 'a', 'b'
+    assert s.dicts.new(locals(), 'x', 'y') == {'x': 'a', 'y': 'b'}
 
 
 def test_map():
     fn = lambda k, v: ['{}!!'.format(k), v]
-    assert s.dicts.map(fn, {1: {2: 3}}) == {'1!!': {'2!!': 3}}
+    assert s.dicts.map(fn, {'a': {'b': 'c'}}) == {'a!!': {'b!!': 'c'}}

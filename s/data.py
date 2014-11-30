@@ -14,20 +14,20 @@ with s.exceptions.ignore():
     _json_types += (unicode,) # noqa
 
 
-def jsonify(val):
-    if isinstance(val, dict):
-        return {jsonify(k): jsonify(v) for k, v in val.items()}
-    elif isinstance(val, (list, tuple, set)):
-        return [jsonify(x) for x in val]
-    elif isinstance(val, bytes):
-        return val.decode('utf-8')
-    elif isinstance(val, _json_types):
-        return val
+def jsonify(value):
+    if isinstance(value, dict):
+        return {jsonify(k): jsonify(v) for k, v in value.items()}
+    elif isinstance(value, (list, tuple, set)):
+        return [jsonify(x) for x in value]
+    elif isinstance(value, bytes):
+        return value.decode('utf-8')
+    elif isinstance(value, _json_types):
+        return value
     else:
-        val = str(val)
-        if ' at 0x' in val:
-            val = val.split()[0].split('.')[-1]
-        return '<{}>'.format(val.strip('<>'))
+        value = str(value)
+        if ' at 0x' in value:
+            value = value.split()[0].split('.')[-1]
+        return '<{}>'.format(value.strip('<>'))
 
 
 _banned_attrs_dict = [
@@ -57,11 +57,15 @@ class _ImmutableSet(frozenset):
     pass
 
 
-_immutable_types = (
+string_types = (str,
+                bytes,)
+with s.exceptions.ignore():
+    string_types += (unicode,) # noqa
+
+
+immutable_types = (
     int,
     float,
-    str,
-    bytes,
     type(None),
     types.LambdaType,
     types.FunctionType,
@@ -69,29 +73,29 @@ _immutable_types = (
     _ImmutableDict,
     _ImmutableSeq,
     _ImmutableSet,
-)
-with s.exceptions.ignore():
-    _immutable_types += (basestring,) # noqa
+) + string_types
 
 
-_listy_types = (list,
-                tuple,
-                types.GeneratorType)
+listy_types = (list,
+               tuple,
+               types.GeneratorType)
 
 
 with s.exceptions.ignore():
-    _listy_types += (type({}.items()),
-                     type({}.keys()),
-                     type({}.values()))
+    listy_types += (type({}.items()),
+                    type({}.keys()),
+                    type({}.values()))
 
 
-def freeze(val):
-    if isinstance(val, _immutable_types):
-        return val
-    elif isinstance(val, dict):
-        return _ImmutableDict({freeze(k): freeze(v) for k, v in val.items()})
-    elif isinstance(val, _listy_types):
-        return _ImmutableSeq(freeze(x) for x in val)
-    elif isinstance(val, set):
-        return _ImmutableSet(freeze(x) for x in val)
-    raise ValueError('{} ({}) not immutalizable'.format(val, type(val)))
+def freeze(value):
+    if isinstance(value, immutable_types):
+        return value
+    elif isinstance(value, dict):
+        for k in value.keys():
+            assert isinstance(k, s.data.string_types), 'dict keys must be str: {}, {}'.format(k, value)
+        return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
+    elif isinstance(value, listy_types):
+        return _ImmutableSeq(freeze(x) for x in value)
+    elif isinstance(value, set):
+        return _ImmutableSet(freeze(x) for x in value)
+    raise ValueError('{} ({}) not immutalizable'.format(value, type(value)))

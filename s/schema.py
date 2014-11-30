@@ -104,6 +104,8 @@ def validate(schema, value):
     try:
         if isinstance(schema, dict):
             assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
+            for k in value.keys():
+                assert isinstance(k, s.data.string_types), 'dict keys must be str: {}, {}'.format(k, value)
             validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
             value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
         else:
@@ -147,6 +149,7 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
 
 
 def _check(validator, value):
+    assert not isinstance(validator, set), 'a set cannot be a validator: {}'.format(validator)
     if validator is object:
         return value
     elif isinstance(validator, (list, tuple)):
@@ -163,6 +166,8 @@ def _check(validator, value):
         assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
         validate(validator, value)
     elif isinstance(validator, type):
+        if type(value) in s.data.string_types:
+            value = str()
         assert type(value) is validator, '{} <{}> is not a <{}>'.format(value, type(value), validator)
     elif isinstance(validator, types.FunctionType):
         assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
