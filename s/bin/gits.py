@@ -90,12 +90,14 @@ def commit(skip_precommit=False):
                         s.shell.run('git reset HEAD', path)
                         s.shell.run('git add --patch', path, interactive=True)
                         _git_diff_cached_less(path)
-                        print('[c]ommit, [s]kip, [p]atch ? ', end='')
+                        print('[c]ommit, [s]kip, [q]uit-patch? ', end='')
                         action = pager.getch()
                         if action == 'c':
                             _prompt_and_commit(path)
                         elif action == 's':
                             _git_reset_head()
+                        elif action == 'q':
+                            break
                 else:
                     print('invalid choice:', action)
                     sys.exit(1)
