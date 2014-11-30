@@ -42,7 +42,7 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
             elif coroutine_kw.get('freeze', True):
                 trace_fn = s.trace.glue(fn)
             else:
-                trace_fn = s.trace.bad_func(fn)
+                trace_fn = s.trace.mutable(fn)
             future = tornado.gen.coroutine(trace_fn)(*a, **kw)
             callback = _log_exceptions(*ignore_exceptions)
             tornado.ioloop.IOLoop.current().add_future(future, callback)

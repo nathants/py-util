@@ -58,7 +58,7 @@ _trace_funcs = {
 }
 
 
-for name in ['io', 'glue', 'bad_func']:
+for name in ['io', 'glue', 'mutable']:
     _trace_funcs[name] = _trace_funcs['logic']
 
 
@@ -190,4 +190,4 @@ def _logic_rules():
 logic = _traceable('logic', _logic_rules)
 
 
-bad_func = _traceable('bad_func', lambda: True, freeze=False) # use for tests, and other non-system functions
+mutable = _traceable('mutable', lambda: True, freeze=False) # use for tests, and other non-system functions
