@@ -65,9 +65,9 @@ _devices = {
 
 def device(kind, in_route, out_route, **kw):
     in_kind, out_kind = _devices[kind.lower()]
-    in_sock = bind(in_kind, in_route, **kw)
-    out_sock = bind(out_kind, out_route, **kw)
-    return zmq.device(getattr(zmq, kind.upper()), in_sock._sock, out_sock._sock)
+    in_sock = bind(in_kind, in_route, **kw)._sock.socket
+    out_sock = bind(out_kind, out_route, **kw)._sock.socket
+    return zmq.device(getattr(zmq, kind.upper()), in_sock, out_sock)
 
 
 def process_recv(msg):
@@ -120,7 +120,13 @@ class AsyncSock(object):
                 topic, msg = msg
                 msg = process_recv(msg)
                 topic = topic.decode('utf-8')
-                future.set_result([topic, msg])
+                msg = topic, msg
+                future.set_result(msg)
+            elif self.type() in [zmq.ROUTER, zmq.DEALER]:
+                identities, msg = msg[:-1], msg[-1]
+                msg = process_recv(msg)
+                msg = tuple(identities + [msg])
+                future.set_result(msg)
             else:
                 [msg] = msg
                 msg = process_recv(msg)
@@ -140,7 +146,13 @@ class AsyncSock(object):
         if self.type() == zmq.PUB:
             msg = process_send(msg)
             topic = topic.encode('utf-8')
-            self._sock.send_multipart([topic, msg], callback=fn)
+            msg = topic, msg
+            self._sock.send_multipart(msg, callback=fn)
+        elif self.type() in [zmq.ROUTER, zmq.DEALER]:
+            identities, msg = msg[:-1], msg[-1]
+            msg = process_send(msg)
+            msg = identities + (msg,)
+            self._sock.send_multipart(msg, callback=fn)
         else:
             msg = process_send(msg)
             self._sock.send(msg, callback=fn)

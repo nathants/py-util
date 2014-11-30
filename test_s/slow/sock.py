@@ -191,50 +191,66 @@ def test_pub_sub_subscriptions():
     s.async.run_sync(subber)
 
 
-# def test_req_rep_device():
-#     req_route = s.sock.new_ipc_route()
-#     rep_route = s.sock.new_ipc_route()
-#     def replier(x):
-#         rep = s.sock.connect('rep', rep_route, **kw)
-#         msg = rep.recv()
-#         rep.send('thanks for: {msg}, from rep{x}'.format(**locals()))
-#     s.thread.new(replier, 1)
-#     s.thread.new(replier, 2)
-#     s.thread.new(s.sock.device, 'QUEUE', req_route, rep_route, **kw)
-#     req = s.sock.connect('req', req_route, **kw)
-#     responses = set()
-#     for _ in range(2):
-#         req.send('asdf')
-#         responses.add(req.recv())
-#     assert responses == {'thanks for: asdf, from rep1',
-#                          'thanks for: asdf, from rep2'}
+def test_req_rep_device():
+    r1 = s.sock.new_ipc_route()
+    r2 = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def replier(x):
+        with s.sock.connect('rep', r2, **kw) as rep:
+            msg = yield rep.recv()
+            yield rep.send('thanks for: {msg}, from rep{x}'.format(**locals()))
+    @s.async.coroutine
+    def main():
+        replier(1)
+        replier(2)
+        with s.sock.connect('req', r1, **kw) as req:
+            responses = set()
+            for _ in range(2):
+                yield req.send('asdf')
+                msg = yield req.recv()
+                responses.add(msg)
+            assert responses == {'thanks for: asdf, from rep1',
+                                 'thanks for: asdf, from rep2'}
+    proc = s.proc.new(s.sock.device, 'QUEUE', r1, r2, **kw)
+    s.async.run_sync(main)
+    proc.terminate()
 
 
-# def test_req_rep_device_middleware():
-#     req_route = s.sock.new_ipc_route()
-#     rep_route = s.sock.new_ipc_route()
-#     def replier():
-#         rep = s.sock.connect('rep', rep_route, **kw)
-#         msg = rep.recv()
-#         rep.send('thanks for: ' + msg)
-#     def queue():
-#         router = s.sock.bind('router', req_route, **kw)
-#         dealer = s.sock.bind('dealer', rep_route, **kw)
-#         @router.on_recv
-#         def router_on_recv(msg):
-#             msg[-1] = msg[-1] + b' [router.on_recv]'
-#             dealer.send_multipart(msg)
-#         @dealer.on_recv
-#         def dealer_on_recv(msg):
-#             msg[-1] = msg[-1] + b' [dealer.on_recv]'
-#             router.send_multipart(msg)
-#         s.async.ioloop().start()
-#     s.thread.new(replier)
-#     s.thread.new(queue)
-#     req = s.sock.connect('req', req_route, **kw)
-#     req.send('asdf')
-#     assert req.recv() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
-#     s.async.ioloop().stop()
+def test_req_rep_device_middleware():
+    r1 = s.sock.new_ipc_route()
+    r2 = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def replier():
+        with s.sock.connect('rep', r2, **kw) as rep:
+            msg = yield rep.recv()
+            yield rep.send('thanks for: ' + msg)
+    @s.async.coroutine
+    def queue():
+        with s.sock.bind('router', r1, **kw) as router, s.sock.bind('dealer', r2, **kw) as dealer:
+            @s.async.coroutine
+            def route():
+                while True:
+                    msg = yield router.recv()
+                    msg = msg[:-1] + (msg[-1] + ' [routed]',)
+                    dealer.send(msg)
+            @s.async.coroutine
+            def deal():
+                while True:
+                    msg = yield dealer.recv()
+                    msg = msg[:-1] + (msg[-1] + ' [dealt]',)
+                    router.send(msg)
+            route()
+            deal()
+            yield s.async.Future()
+    @s.async.coroutine
+    def main():
+        replier()
+        queue()
+        with s.sock.connect('req', r1, **kw) as req:
+            yield req.send('asdf')
+            msg = yield req.recv()
+            assert msg == 'thanks for: asdf [routed] [dealt]'
+    s.async.run_sync(main)
 
 
 # def test_pub_sub_device():
