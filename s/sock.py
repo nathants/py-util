@@ -7,7 +7,6 @@ import json
 import functools
 import zmq
 import zmq.eventloop.zmqstream
-import tornado.ioloop
 import zmq.sugar
 import uuid
 import os
@@ -18,20 +17,9 @@ def timeout(seconds):
     route = new_ipc_route()
     s.async.ioloop().add_timeout(
         datetime.timedelta(seconds=seconds),
-        lambda: s.sock.connect('push', route).send('')
+        lambda: s.sock.push(route, '')
     )
     return s.sock.bind('pull', route)
-
-
-def select(*socks):
-    future = s.async.Future()
-    def fn(sock, msg):
-        for x in socks:
-            x.stop_on_recv()
-        future.set_result([id(sock), msg])
-    for sock in socks:
-        sock.on_recv(functools.partial(fn, sock))
-    return future
 
 
 def new_ipc_route():
@@ -41,7 +29,7 @@ def new_ipc_route():
             return 'ipc://' + route
 
 
-def new(action, kind, route, subscriptions=[""], sockopts={}, sync=False, timeout=None, hwm=1):
+def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=1):
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
@@ -61,18 +49,10 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, sync=False, timeou
         sock.setsockopt(zmq.RCVTIMEO, timeout)
     sock.setsockopt(zmq.SNDHWM, hwm)
     sock.setsockopt(zmq.RCVHWM, hwm)
-    if sync:
-        return Sock(sock)
-    else:
-        return AsyncSock(sock)
-
-
-# TODO calls to bind and connection should cache socket objects. only new creates new sockets every time, and should be used with "with"
+    return AsyncSock(sock)
 
 
 bind = functools.partial(new, 'bind')
-
-
 connect = functools.partial(new, 'connect')
 
 
@@ -90,54 +70,25 @@ def device(kind, in_route, out_route, **kw):
     return zmq.device(getattr(zmq, kind.upper()), in_sock._sock, out_sock._sock)
 
 
-maybe_encode = s.func.try_fn(lambda x: x.encode('utf-8'))
-maybe_decode = s.func.try_fn(lambda x: x.decode('utf-8'))
+def process_recv(msg):
+    msg = msg.decode('utf-8')
+    msg = json.loads(msg)
+    return msg
 
 
-class Sock(object):
-    def __init__(self, sock):
-        self._sock = sock
-
-    def __enter__(self, *a, **kw):
-        return self
-
-    def __exit__(self, *a, **kw):
-        self._sock.close()
-
-    def _recv(method_name):
-        def fn(self, *a, **kw):
-            msg = getattr(self._sock, method_name)(*a, **kw)
-            if isinstance(msg, (list, tuple)):
-                return [maybe_decode(x) for x in msg]
-            else:
-                return maybe_decode(msg)
-        return fn
-
-    for name in ['recv',
-                 'recv_multipart',
-                 'recv_json']:
-        locals()[name] = _recv(name)
-
-    def _send(method_name):
-        def fn(self, msg, *a, **kw):
-            if isinstance(msg, (list, tuple)):
-                msg = [maybe_encode(x) for x in msg]
-            else:
-                msg = maybe_encode(msg)
-            return getattr(self._sock, method_name)(msg, *a, **kw)
-        return fn
-
-    for name in ['send',
-                 'send_multipart',
-                 'send_json']:
-        locals()[name] = _send(name)
+def process_send(msg):
+    msg = json.dumps(msg)
+    msg = msg.encode('utf-8')
+    return msg
 
 
 class AsyncSock(object):
     def __init__(self, sock):
         self._sock = zmq.eventloop.zmqstream.ZMQStream(sock)
+        self.entered = False
 
     def __enter__(self, *a, **kw):
+        self.entered = True
         return self
 
     def __exit__(self, *a, **kw):
@@ -155,41 +106,80 @@ class AsyncSock(object):
     def stop_on_recv(self):
         self._sock.stop_on_recv()
 
-    def _recv(transform):
-        def fn(self):
-            assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
-            future = s.async.Future()
-            def cb(msg):
-                self._sock.stop_on_recv()
-                msg = [maybe_decode(x) for x in msg]
-                msg = transform(msg)
-                future.set_result(msg)
-            self._sock.on_recv(cb)
-            return future
-        return fn
+    def type(self):
+        return self._sock.socket.type
 
-    for name, fn in [('recv', lambda x: x[0]),
-                     ('recv_json', lambda x: json.loads(x[0])),
-                     ('recv_multipart', lambda x: x)]:
-        locals()[name] = _recv(fn)
-
-    def _send(method_name):
-        def fn(self, msg, *a, **kw):
-            assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
-            future = s.async.Future()
-            def fn(*_):
-                self.stop_on_send()
-                future.set_result(None)
-            kw['callback'] = fn
-            if isinstance(msg, (list, tuple)):
-                msg = [maybe_encode(x) for x in msg]
+    def recv(self):
+        assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
+        assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
+        assert not self._sock._recv_callback, 'there is already a recv callback registered'
+        future = s.async.Future()
+        def cb(msg):
+            self._sock.stop_on_recv()
+            if self.type() == zmq.SUB:
+                topic, msg = msg
+                msg = process_recv(msg)
+                topic = topic.decode('utf-8')
+                future.set_result([topic, msg])
             else:
-                msg = maybe_encode(msg)
-            getattr(self._sock, method_name)(msg, *a, **kw)
-            return future
-        return fn
+                [msg] = msg
+                msg = process_recv(msg)
+                future.set_result(msg)
+        self._sock.on_recv(cb)
+        return future
 
-    for name in ['send',
-                 'send_multipart',
-                 'send_json']:
-        locals()[name] = _send(name)
+    def send(self, msg, topic=''):
+        assert not topic or self.type() == zmq.PUB, 'you can only use kwarg topic with pub sockets'
+        assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
+        assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
+        assert msg is not None, 'you cannot use None as a message'
+        future = s.async.Future()
+        def fn(*_):
+            self.stop_on_send()
+            future.set_result(None)
+        if self.type() == zmq.PUB:
+            msg = process_send(msg)
+            topic = topic.encode('utf-8')
+            self._sock.send_multipart([topic, msg], callback=fn)
+        else:
+            msg = process_send(msg)
+            self._sock.send(msg, callback=fn)
+        return future
+
+
+def select(*socks):
+    future = s.async.Future()
+    def fn(sock, msg):
+        for x in socks:
+            x.stop_on_recv()
+        if sock.type() == zmq.SUB:
+            topic, msg = msg
+            topic = topic.decode('utf-8')
+            msg = process_recv(msg)
+            future.set_result([id(sock), [topic, msg]])
+        else:
+            [msg] = msg
+            msg = process_recv(msg)
+            future.set_result([id(sock), msg])
+    for sock in socks:
+        sock.on_recv(functools.partial(fn, sock))
+    return future
+
+
+# TODO who takes args and kwargs. socket? push? timeout?
+# TODO None is not a valid value
+
+@s.async.coroutine(AssertionError)
+def open_use_close(kind, method, route, msg=None, **kw):
+    with connect(kind, route, **kw) as sock:
+        if method == 'send':
+            val = yield sock.send(msg)
+        elif method == 'recv':
+            val = yield sock.recv()
+        else:
+            raise AssertionError('bad method: {method}'.format(**locals()))
+    raise s.async.Return(val)
+
+
+push = functools.partial(open_use_close, 'push', 'send')
+pull = functools.partial(open_use_close, 'pull', 'recv')

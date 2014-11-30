@@ -4,20 +4,15 @@ import s
 def test_coroutine():
     state = []
     @s.async.coroutine
-    def a():
-        for i in range(3):
+    def zero():
+        for i in range(2):
             state.append(i)
-            yield s.async.sleep(1e-6)
-        raise s.async.Return('a')
+            yield s.async.moment
     @s.async.coroutine
-    def b():
-        for i in range(10, 13):
+    def ten():
+        zero()
+        for i in range(10, 12):
             state.append(i)
-            yield s.async.sleep(1e-6)
-        raise s.async.Return('b')
-    @s.async.coroutine
-    def main():
-        result = yield [a(), b()]
-        raise s.async.Return(result)
-    assert s.async.run_sync(main) == ('a', 'b')
-    assert state == [0, 10, 1, 11, 2, 12]
+            yield s.async.moment
+    s.async.run_sync(ten)
+    assert state == [0, 10, 1, 11]

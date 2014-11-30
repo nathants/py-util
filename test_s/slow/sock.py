@@ -5,323 +5,308 @@ import time
 import s.sock
 
 
-_async_kw = {'timeout': 1000}
-_sync_kw = s.dicts.merge(_async_kw, {'sync': True})
+kw = {'timeout': 1000}
+
+
+def test_cannot_use_none_as_message():
+    @s.async.coroutine
+    def main():
+        yield s.sock.push(s.sock.new_ipc_route(), None)
+    with pytest.raises(AssertionError):
+        s.async.run_sync(main)
+
+
+def test_pub_sub():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pubber():
+        with s.sock.bind('pub', route, **kw) as pub:
+            while True:
+                yield pub.send('asdf')
+                yield s.async.sleep(.001)
+    @s.async.coroutine
+    def subber():
+        pubber()
+        with s.sock.connect('sub', route, **kw) as sock:
+            topic, msg = yield sock.recv()
+        assert msg == 'asdf'
+    s.async.run_sync(subber)
+
+
+def test_push_pull_reversed_connect_bind():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        with s.sock.bind('push', route, **kw) as sock:
+            yield sock.send('asdf')
+    @s.async.coroutine
+    def puller():
+        pusher()
+        msg = yield s.sock.pull(route, **kw)
+        assert msg == 'asdf'
+    s.async.run_sync(puller)
+
+
+def test_push_pull_tcp():
+    route = 'tcp://0.0.0.0:{}'.format(s.net.free_port())
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.push(route, 'asdf', **kw)
+    @s.async.coroutine
+    def puller():
+        pusher()
+        with s.sock.bind('pull', route, **kw) as sock:
+            val = yield sock.recv()
+            assert val == 'asdf'
+    s.async.run_sync(puller)
+
+
+def test_push_pull():
+    route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher():
+        yield s.sock.push(route, 'asdf', **kw)
+    @s.async.coroutine
+    def puller():
+        pusher()
+        with s.sock.bind('pull', route, **kw) as sock:
+            val = yield sock.recv()
+            assert val == 'asdf'
+    s.async.run_sync(puller)
 
 
 def test_async_methods_error_when_no_ioloop():
     s.async.ioloop().clear()
     with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.new_ipc_route(), **_async_kw).recv()
+        s.sock.bind('pull', s.sock.new_ipc_route(), **kw).recv()
     with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.new_ipc_route(), **_async_kw).send('')
+        s.sock.bind('pull', s.sock.new_ipc_route(), **kw).send('')
 
 
-def test_select():
-    route1 = s.sock.new_ipc_route()
-    route2 = s.sock.new_ipc_route()
-    def pusher(route, msg, seconds=0):
-        time.sleep(seconds)
-        s.sock.bind('push', route, **_sync_kw).send(msg)
-    s.thread.new(pusher, route1, 'msg1')
-    s.thread.new(pusher, route2, 'msg2', .1)
+def test_timeout():
     @s.async.coroutine
     def main():
-        puller1 = s.sock.connect('pull', route1, **_async_kw)
-        puller2 = s.sock.connect('pull', route2, **_async_kw)
-        timeout = s.sock.timeout(.2)
-
-        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
-        assert msg == b'msg1' and sock == id(puller1)
-
-        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
-        assert msg == b'msg2' and sock == id(puller2)
-
-        sock, [msg] = yield s.sock.select(puller1, puller2, timeout)
-        assert sock == id(timeout) and msg == b''
-
+        with s.time.timer() as t:
+            with s.sock.timeout(.1) as sock:
+                val = yield sock.recv()
+                assert val == ''
+        assert t['seconds'] >= .1
     s.async.run_sync(main)
 
 
-def test_push_pull_device_middleware_coroutine():
-    upstream_route = s.sock.new_ipc_route()
-    downstream_route = s.sock.new_ipc_route()
+def test_select():
+    r1 = s.sock.new_ipc_route()
+    r2 = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def pusher(route, msg, seconds=0):
+        yield s.async.sleep(seconds)
+        yield s.sock.push(route, msg, **kw)
+    @s.async.coroutine
+    def main():
+        pusher(r1, 'msg1')
+        pusher(r2, 'msg2', .1)
+        with s.sock.bind('pull', r1, **kw) as p1, s.sock.bind('pull', r2, **kw) as p2, s.sock.timeout(.1) as t:
+            sock, msg = yield s.sock.select(p1, p2, t)
+            assert msg == 'msg1' and sock == id(p1)
+            sock, msg = yield s.sock.select(p1, p2, t)
+            assert msg == 'msg2' and sock == id(p2)
+            sock, msg = yield s.sock.select(p1, p2, t)
+            assert sock == id(t) and msg == ''
+    s.async.run_sync(main)
+
+
+def test_push_pull_device_middleware():
+    r1 = s.sock.new_ipc_route()
+    r2 = s.sock.new_ipc_route()
     @s.async.coroutine
     def pusher():
-        yield s.sock.connect('push', upstream_route, **_async_kw).send('job1')
+        yield s.sock.push(r1, 'job1', **kw)
     @s.async.coroutine
     def streamer():
-        msg = yield s.sock.bind('pull', upstream_route, **_async_kw).recv()
-        yield s.sock.bind('push', downstream_route, **_async_kw).send(msg + ' [streamer]')
+        with s.sock.bind('pull', r1, **kw) as puller, s.sock.bind('push', r2, **kw) as pusher:
+            msg = yield puller.recv()
+            yield pusher.send(msg + ' [streamer]')
     @s.async.coroutine
     def main():
         pusher()
         streamer()
-        msg = yield s.sock.connect('pull', downstream_route, **_async_kw).recv()
+        msg = yield s.sock.pull(r2, **kw)
         assert msg == 'job1 [streamer]'
     s.async.run_sync(main)
 
 
-def test_push_pull_coroutine():
+def test_push_pull_data():
     route = s.sock.new_ipc_route()
     @s.async.coroutine
     def pusher():
-        yield s.sock.bind('push', route, **_async_kw).send('asdf')
+        with s.sock.bind('push', route, **kw) as sock:
+            yield sock.send({'a': '123'})
     @s.async.coroutine
     def puller():
         pusher()
-        msg = yield s.sock.connect('pull', route, **_async_kw).recv()
-        assert msg == 'asdf'
+        msg = yield s.sock.pull(route, **kw)
+        assert msg == {'a': '123'}
     s.async.run_sync(puller)
-
-
-def test_push_pull_coroutine_multipart():
-    route = s.sock.new_ipc_route()
-    @s.async.coroutine
-    def pusher():
-        yield s.sock.bind('push', route, **_async_kw).send_multipart(('a', 'b'))
-    @s.async.coroutine
-    def puller():
-        pusher()
-        msg = yield s.sock.connect('pull', route, **_async_kw).recv_multipart()
-        assert msg == ('a', 'b')
-    s.async.run_sync(puller)
-
-
-def test_push_pull_coroutine_json():
-    route = s.sock.new_ipc_route()
-    @s.async.coroutine
-    def pusher():
-        yield s.sock.bind('push', route, **_async_kw).send_json([1, 2])
-    @s.async.coroutine
-    def puller():
-        pusher()
-        msg = yield s.sock.connect('pull', route, **_async_kw).recv_json()
-        assert msg == (1, 2)
-    s.async.run_sync(puller)
-
-
-def test_req_rep_coroutine():
-    route = s.sock.new_ipc_route()
-    @s.async.coroutine
-    def requestor():
-        req = s.sock.bind('req', route, **_async_kw)
-        yield req.send('asdf')
-        msg = yield req.recv()
-        assert msg == 'asdf!!'
-    @s.async.coroutine
-    def replier():
-        requestor()
-        rep = s.sock.connect('rep', route, **_async_kw)
-        msg = yield rep.recv()
-        yield rep.send(msg + '!!')
-    s.async.run_sync(replier)
-
-
-def test_push_pull_tcp():
-    route = 'tcp://localhost:{}'.format(s.net.free_port())
-    s.thread.new(lambda: s.sock.bind('push', route.replace('localhost', '*'), **_sync_kw).send('asdf'))
-    assert s.sock.connect('pull', route, **_sync_kw).recv() == 'asdf'
-
-
-def test_push_pull_reverse_connect_bind_order():
-    route = s.sock.new_ipc_route()
-    s.thread.new(lambda: s.sock.connect('push', route, **_sync_kw).send('asdf'))
-    assert s.sock.bind('pull', route, **_sync_kw).recv() == 'asdf'
-
-
-def test_push_pull():
-    route = s.sock.new_ipc_route()
-    s.thread.new(lambda: s.sock.bind('push', route, **_sync_kw).send('asdf'))
-    assert s.sock.connect('pull', route, **_sync_kw).recv() == 'asdf'
 
 
 def test_req_rep():
     route = s.sock.new_ipc_route()
+    @s.async.coroutine
+    def requestor():
+        with s.sock.bind('req', route, **kw) as req:
+            yield req.send('asdf')
+            msg = yield req.recv()
+            assert msg == 'asdf!!'
+    @s.async.coroutine
     def replier():
-        rep = s.sock.bind('rep', route, **_sync_kw)
-        msg = rep.recv()
-        rep.send('thanks for: ' + msg)
-    s.thread.new(replier)
-    req = s.sock.connect('req', route, **_sync_kw)
-    req.send('asdf')
-    assert 'thanks for: asdf' == req.recv()
-
-
-def test_pub_sub():
-    route = s.sock.new_ipc_route()
-    state = {'send': True}
-    def pubber():
-        pub = s.sock.bind('pub', route, **_sync_kw)
-        while state['send']:
-            pub.send('asdf')
-            time.sleep(.001)
-    s.thread.new(pubber)
-    assert s.sock.connect('sub', route, **_sync_kw).recv() == 'asdf'
-    state['send'] = False
-
-
-def test_pub_sub_multipart():
-    route = s.sock.new_ipc_route()
-    state = {'send': True}
-    def pubber():
-        pub = s.sock.bind('pub', route, **_sync_kw)
-        while state['send']:
-            pub.send_multipart(['', 'asdf'])
-            time.sleep(.001)
-    s.thread.new(pubber)
-    assert s.sock.connect('sub', route, **_sync_kw).recv_multipart() == ['', 'asdf']
-    state['send'] = False
+        requestor()
+        with s.sock.connect('rep', route, **kw) as rep:
+            msg = yield rep.recv()
+            yield rep.send(msg + '!!')
+    s.async.run_sync(replier)
 
 
 def test_pub_sub_subscriptions():
     route = s.sock.new_ipc_route()
-    state = {'send': True}
+    @s.async.coroutine
     def pubber():
-        pub = s.sock.bind('pub', route, **_sync_kw)
-        while state['send']:
-            pub.send('topic1 asdf')
-            pub.send('topic2 123')
-            time.sleep(.001)
-    s.thread.new(pubber)
-    sub = s.sock.connect('sub', route, subscriptions=['topic1'], **_sync_kw)
-    assert sub.recv() == 'topic1 asdf'
-    assert sub.recv() == 'topic1 asdf'
-    state['send'] = False
+        with s.sock.bind('pub', route, **kw) as pub:
+            while True:
+                yield pub.send('asdf', topic='a')
+                yield pub.send('123', topic='b')
+                yield s.async.sleep(.001)
+    @s.async.coroutine
+    def subber():
+        pubber()
+        with s.sock.connect('sub', route, **kw) as sock:
+            msg = yield sock.recv()
+            assert msg == ('a', 'asdf')
+            msg = yield sock.recv()
+            assert msg == ('b', '123')
+        with s.sock.connect('sub', route, subscriptions=['a']) as sock:
+            msg = yield sock.recv()
+            assert msg == ('a', 'asdf')
+            msg = yield sock.recv()
+            assert msg == ('a', 'asdf')
+    s.async.run_sync(subber)
 
 
-def test_pub_sub_subscriptions_multipart():
-    route = s.sock.new_ipc_route()
-    state = {'send': True}
-    def pubber():
-        pub = s.sock.bind('pub', route, **_sync_kw)
-        while state['send']:
-            pub.send_multipart(['topic1', 'asdf'])
-            pub.send_multipart(['topic2', '123'])
-            time.sleep(.001)
-    s.thread.new(pubber)
-    sub = s.sock.connect('sub', route, subscriptions=['topic1'], **_sync_kw)
-    assert sub.recv_multipart() == ['topic1', 'asdf']
-    assert sub.recv_multipart() == ['topic1', 'asdf']
-    state['send'] = False
+# def test_req_rep_device():
+#     req_route = s.sock.new_ipc_route()
+#     rep_route = s.sock.new_ipc_route()
+#     def replier(x):
+#         rep = s.sock.connect('rep', rep_route, **kw)
+#         msg = rep.recv()
+#         rep.send('thanks for: {msg}, from rep{x}'.format(**locals()))
+#     s.thread.new(replier, 1)
+#     s.thread.new(replier, 2)
+#     s.thread.new(s.sock.device, 'QUEUE', req_route, rep_route, **kw)
+#     req = s.sock.connect('req', req_route, **kw)
+#     responses = set()
+#     for _ in range(2):
+#         req.send('asdf')
+#         responses.add(req.recv())
+#     assert responses == {'thanks for: asdf, from rep1',
+#                          'thanks for: asdf, from rep2'}
 
 
-def test_req_rep_device():
-    req_route = s.sock.new_ipc_route()
-    rep_route = s.sock.new_ipc_route()
-    def replier(x):
-        rep = s.sock.connect('rep', rep_route, **_sync_kw)
-        msg = rep.recv()
-        rep.send('thanks for: {msg}, from rep{x}'.format(**locals()))
-    s.thread.new(replier, 1)
-    s.thread.new(replier, 2)
-    s.thread.new(s.sock.device, 'QUEUE', req_route, rep_route, **_sync_kw)
-    req = s.sock.connect('req', req_route, **_sync_kw)
-    responses = set()
-    for _ in range(2):
-        req.send('asdf')
-        responses.add(req.recv())
-    assert responses == {'thanks for: asdf, from rep1',
-                         'thanks for: asdf, from rep2'}
+# def test_req_rep_device_middleware():
+#     req_route = s.sock.new_ipc_route()
+#     rep_route = s.sock.new_ipc_route()
+#     def replier():
+#         rep = s.sock.connect('rep', rep_route, **kw)
+#         msg = rep.recv()
+#         rep.send('thanks for: ' + msg)
+#     def queue():
+#         router = s.sock.bind('router', req_route, **kw)
+#         dealer = s.sock.bind('dealer', rep_route, **kw)
+#         @router.on_recv
+#         def router_on_recv(msg):
+#             msg[-1] = msg[-1] + b' [router.on_recv]'
+#             dealer.send_multipart(msg)
+#         @dealer.on_recv
+#         def dealer_on_recv(msg):
+#             msg[-1] = msg[-1] + b' [dealer.on_recv]'
+#             router.send_multipart(msg)
+#         s.async.ioloop().start()
+#     s.thread.new(replier)
+#     s.thread.new(queue)
+#     req = s.sock.connect('req', req_route, **kw)
+#     req.send('asdf')
+#     assert req.recv() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
+#     s.async.ioloop().stop()
 
 
-def test_req_rep_device_middleware():
-    req_route = s.sock.new_ipc_route()
-    rep_route = s.sock.new_ipc_route()
-    def replier():
-        rep = s.sock.connect('rep', rep_route, **_sync_kw)
-        msg = rep.recv()
-        rep.send('thanks for: ' + msg)
-    def queue():
-        router = s.sock.bind('router', req_route, **_async_kw)
-        dealer = s.sock.bind('dealer', rep_route, **_async_kw)
-        @router.on_recv
-        def router_on_recv(msg):
-            msg[-1] = msg[-1] + b' [router.on_recv]'
-            dealer.send_multipart(msg)
-        @dealer.on_recv
-        def dealer_on_recv(msg):
-            msg[-1] = msg[-1] + b' [dealer.on_recv]'
-            router.send_multipart(msg)
-        s.async.ioloop().start()
-    s.thread.new(replier)
-    s.thread.new(queue)
-    req = s.sock.connect('req', req_route, **_sync_kw)
-    req.send('asdf')
-    assert req.recv() == 'thanks for: asdf [router.on_recv] [dealer.on_recv]'
-    s.async.ioloop().stop()
+# def test_pub_sub_device():
+#     sub_route = s.sock.new_ipc_route()
+#     pub_route = s.sock.new_ipc_route()
+#     state = {'send': True}
+#     def pubber(x):
+#         pub = s.sock.connect('pub', sub_route, **kw)
+#         while state['send']:
+#             pub.send_multipart(['topic{}'.format(x), 'asdf'])
+#             time.sleep(.01)
+#     s.thread.new(pubber, 1)
+#     s.thread.new(pubber, 2)
+#     s.thread.new(s.sock.device, 'forwarder', sub_route, pub_route, **kw)
+#     sub = s.sock.connect('sub', pub_route, **kw)
+#     responses = {tuple(sub.recv_multipart()) for _ in range(100)}
+#     assert responses == {('topic1', 'asdf'),
+#                          ('topic2', 'asdf')}
+#     state['send'] = False
 
 
-def test_pub_sub_device():
-    sub_route = s.sock.new_ipc_route()
-    pub_route = s.sock.new_ipc_route()
-    state = {'send': True}
-    def pubber(x):
-        pub = s.sock.connect('pub', sub_route, **_sync_kw)
-        while state['send']:
-            pub.send_multipart(['topic{}'.format(x), 'asdf'])
-            time.sleep(.01)
-    s.thread.new(pubber, 1)
-    s.thread.new(pubber, 2)
-    s.thread.new(s.sock.device, 'forwarder', sub_route, pub_route, **_sync_kw)
-    sub = s.sock.connect('sub', pub_route, **_sync_kw)
-    responses = {tuple(sub.recv_multipart()) for _ in range(100)}
-    assert responses == {('topic1', 'asdf'),
-                         ('topic2', 'asdf')}
-    state['send'] = False
+# def test_pub_sub_device_middleware():
+#     sub_route = s.sock.new_ipc_route()
+#     pub_route = s.sock.new_ipc_route()
+#     state = {'send': True}
+#     def pubber():
+#         pub = s.sock.connect('pub', sub_route, **kw)
+#         while state['send']:
+#             pub.send_multipart(['topic1', 'asdf'])
+#             time.sleep(.01)
+#     def forwarder():
+#         sub = s.sock.bind('sub', sub_route, **kw)
+#         pub = s.sock.bind('pub', pub_route, **kw)
+#         @sub.on_recv
+#         def sub_on_recv(msg):
+#             msg[-1] = msg[-1] + b' [sub.on_recv]'
+#             pub.send_multipart(msg)
+#         s.async.ioloop().start()
+#     s.thread.new(pubber)
+#     s.thread.new(forwarder)
+#     sub = s.sock.connect('sub', pub_route, **kw)
+#     assert sub.recv_multipart() == ['topic1', 'asdf [sub.on_recv]']
+#     state['send'] = False
+#     s.async.ioloop().stop()
 
 
-def test_pub_sub_device_middleware():
-    sub_route = s.sock.new_ipc_route()
-    pub_route = s.sock.new_ipc_route()
-    state = {'send': True}
-    def pubber():
-        pub = s.sock.connect('pub', sub_route, **_sync_kw)
-        while state['send']:
-            pub.send_multipart(['topic1', 'asdf'])
-            time.sleep(.01)
-    def forwarder():
-        sub = s.sock.bind('sub', sub_route, **_async_kw)
-        pub = s.sock.bind('pub', pub_route, **_async_kw)
-        @sub.on_recv
-        def sub_on_recv(msg):
-            msg[-1] = msg[-1] + b' [sub.on_recv]'
-            pub.send_multipart(msg)
-        s.async.ioloop().start()
-    s.thread.new(pubber)
-    s.thread.new(forwarder)
-    sub = s.sock.connect('sub', pub_route, **_sync_kw)
-    assert sub.recv_multipart() == ['topic1', 'asdf [sub.on_recv]']
-    state['send'] = False
-    s.async.ioloop().stop()
+# def test_push_pull_device():
+#     pull_route = s.sock.new_ipc_route()
+#     push_route = s.sock.new_ipc_route()
+#     def pusher(x):
+#         s.sock.connect('push', pull_route, **kw).send('job{}'.format(x))
+#     s.thread.new(pusher, 1)
+#     s.thread.new(pusher, 2)
+#     s.thread.new(s.sock.device, 'streamer', pull_route, push_route, **kw)
+#     pull = s.sock.connect('pull', push_route, **kw)
+#     responses = {pull.recv() for _ in range(2)}
+#     assert responses == {'job1', 'job2'}
 
 
-def test_push_pull_device():
-    pull_route = s.sock.new_ipc_route()
-    push_route = s.sock.new_ipc_route()
-    def pusher(x):
-        s.sock.connect('push', pull_route, **_sync_kw).send('job{}'.format(x))
-    s.thread.new(pusher, 1)
-    s.thread.new(pusher, 2)
-    s.thread.new(s.sock.device, 'streamer', pull_route, push_route, **_sync_kw)
-    pull = s.sock.connect('pull', push_route, **_sync_kw)
-    responses = {pull.recv() for _ in range(2)}
-    assert responses == {'job1', 'job2'}
-
-
-def test_push_pull_device_middleware():
-    pull_route = s.sock.new_ipc_route()
-    push_route = s.sock.new_ipc_route()
-    def pusher():
-        s.sock.connect('push', pull_route, **_sync_kw).send('job1')
-    def streamer():
-        pull = s.sock.bind('pull', pull_route, **_async_kw)
-        push = s.sock.bind('push', push_route, **_async_kw)
-        @pull.on_recv
-        def pull_on_recv(msg):
-            push.send(msg[0] + b' [pull.on_recv]')
-        s.async.ioloop().start()
-    s.thread.new(pusher)
-    s.thread.new(streamer)
-    assert s.sock.connect('pull', push_route, **_sync_kw).recv() == 'job1 [pull.on_recv]'
-    s.async.ioloop().stop()
+# def test_push_pull_device_middleware():
+#     pull_route = s.sock.new_ipc_route()
+#     push_route = s.sock.new_ipc_route()
+#     def pusher():
+#         s.sock.connect('push', pull_route, **kw).send('job1')
+#     def streamer():
+#         pull = s.sock.bind('pull', pull_route, **kw)
+#         push = s.sock.bind('push', push_route, **kw)
+#         @pull.on_recv
+#         def pull_on_recv(msg):
+#             push.send(msg[0] + b' [pull.on_recv]')
+#         s.async.ioloop().start()
+#     s.thread.new(pusher)
+#     s.thread.new(streamer)
+#     assert s.sock.connect('pull', push_route, **kw).recv() == 'job1 [pull.on_recv]'
+#     s.async.ioloop().stop()

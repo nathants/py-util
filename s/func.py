@@ -46,12 +46,3 @@ def module_name(fn):
                 if _module in sys.modules:
                     return _module
     return module
-
-
-def try_fn(fn):
-    def tryer(x):
-        try:
-            return fn(x)
-        except:
-            return x
-    return tryer

@@ -1,4 +1,7 @@
 from __future__ import print_function, absolute_import
+import zmq.eventloop
+zmq.eventloop.ioloop.install()
+
 import inspect
 import s
 import tornado
@@ -81,7 +84,7 @@ def ioloop():
 
 def run_sync(func, timeout=None):
     ioloop().started = True
-    val = ioloop().run_sync(func, timeout)
+    val = ioloop().run_sync(func, timeout=timeout)
     ioloop().started = False
     return val
 
