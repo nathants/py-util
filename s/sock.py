@@ -33,7 +33,7 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
-    sock = zmq.Context().socket(getattr(zmq, kind.upper())) # we should not recreate contexts in the same thread, only in diff procs
+    sock = zmq.Context().socket(getattr(zmq, kind.upper())) # TODO we should not recreate contexts in the same thread, only in diff procs
     for k, v in sockopts.items():
         setattr(sock, k, v)
     try:
