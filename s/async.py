@@ -81,12 +81,61 @@ def ioloop():
 
 
 def run_sync(func, timeout=None):
-    ioloop().started = True
-    val = ioloop().run_sync(func, timeout=timeout)
-    ioloop().started = False
+    io = ioloop()
+    io.started = True
+    val = io.run_sync(func, timeout=timeout)
+    while io._callbacks:
+        io._callbacks.pop()
+    io.started = False
     return val
 
 
 Return = tornado.gen.Return
 moment = tornado.gen.moment
 Future = tornado.concurrent.Future
+
+
+class _Self(object):
+    def __init__(self, name):
+        self._name = name
+        self._route = s.sock.route()
+        self._sock = s.sock.bind('pull', self._route)
+        self._sock.__enter__()
+        self._inbox = []
+        self._parked_recv = None
+        self._main()
+
+    @s.async.coroutine(freeze=False)
+    def _main(self):
+        while True:
+            msg = yield self._sock.recv()
+            if self._parked_recv:
+                self._parked_recv.set_result(msg)
+                self._parked_recv = None
+            else:
+                self._inbox.append(msg)
+
+    def __call__(self):
+        return self._route
+
+    def send(self, route, msg, **kw):
+        return s.sock.push(route, msg, **kw)
+
+    def recv(self):
+        future = Future()
+        if self._inbox:
+            msg = self._inbox.pop()
+            future.set_result(msg)
+        else:
+            self._parked_recv = future
+        return future
+
+
+def actor(fn):
+    assert not getattr(fn, '_is_coroutine', False), 'actors should be normals funs, will be converted to coroutines: {}'.format(s.func.name(fn))
+    @functools.wraps(fn)
+    def _actor(*a, **kw):
+        self = _Self(s.func.name(fn))
+        coroutine(freeze=False)(fn)(self, *a, **kw)
+        return self._route
+    return _actor
