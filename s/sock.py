@@ -15,15 +15,15 @@ import datetime
 
 
 def timeout(seconds):
-    route = new_ipc_route()
+    r = route()
     s.async.ioloop().add_timeout(
         datetime.timedelta(seconds=seconds),
-        lambda: s.sock.push(route, '')
+        lambda: s.sock.push(r, '')
     )
-    return s.sock.bind('pull', route)
+    return s.sock.bind('pull', r)
 
 
-def new_ipc_route():
+def route():
     while True:
         route = '/tmp/{}'.format(uuid.uuid4())
         if not os.path.isfile(route):

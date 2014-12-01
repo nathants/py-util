@@ -303,7 +303,7 @@ def _modules_to_reload():
 
 
 def _run_bg_tests(fn, result_route):
-    trigger_route = s.sock.new_ipc_route()
+    trigger_route = s.sock.route()
     def main():
         trigger_puller = s.sock.bind('pull', trigger_route)
         result_pusher = s.sock.connect('push', result_route)
@@ -322,7 +322,7 @@ def _run_bg_tests(fn, result_route):
 
 
 def run_tests_auto(output_route):
-    results_route = s.sock.new_ipc_route()
+    results_route = s.sock.route()
     trigger_fast = _run_bg_tests(run_lightweight_tests_once, results_route)
 
     watch_subber = s.sock.connect('sub', s.shell.watch_files())

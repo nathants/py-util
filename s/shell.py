@@ -308,7 +308,7 @@ def abspand(path):
 
 def watch_files():
     # TODO if pass route, connect to it. otherwise create new route, bind, and return the route.
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     def fn():
         pubber = s.sock.bind('pub', route, sync=True)
         try:

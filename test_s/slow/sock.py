@@ -15,13 +15,13 @@ def teardown_function(_):
 def test_cannot_use_none_as_message():
     @s.async.coroutine
     def main():
-        yield s.sock.push(s.sock.new_ipc_route(), None)
+        yield s.sock.push(s.sock.route(), None)
     with pytest.raises(AssertionError):
         s.async.run_sync(main)
 
 
 def test_pub_sub():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def pubber():
         with s.sock.bind('pub', route) as pub:
@@ -38,7 +38,7 @@ def test_pub_sub():
 
 
 def test_push_pull_reversed_connect_bind():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def pusher():
         with s.sock.bind('push', route) as sock:
@@ -66,7 +66,7 @@ def test_push_pull_tcp():
 
 
 def test_push_pull():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def pusher():
         yield s.sock.push(route, 'asdf')
@@ -82,9 +82,9 @@ def test_push_pull():
 def test_async_methods_error_when_no_ioloop():
     s.async.ioloop().clear()
     with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.new_ipc_route()).recv()
+        s.sock.bind('pull', s.sock.route()).recv()
     with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.new_ipc_route()).send('')
+        s.sock.bind('pull', s.sock.route()).send('')
 
 
 def test_timeout():
@@ -99,8 +99,8 @@ def test_timeout():
 
 
 def test_select():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def pusher(route, msg, seconds=0):
         yield s.async.sleep(seconds)
@@ -120,8 +120,8 @@ def test_select():
 
 
 def test_push_pull_device_middleware():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def pusher():
         yield s.sock.push(r1, 'job1')
@@ -140,7 +140,7 @@ def test_push_pull_device_middleware():
 
 
 def test_push_pull_data():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def pusher():
         with s.sock.bind('push', route) as sock:
@@ -154,7 +154,7 @@ def test_push_pull_data():
 
 
 def test_req_rep():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def requestor():
         with s.sock.bind('req', route) as req:
@@ -171,7 +171,7 @@ def test_req_rep():
 
 
 def test_pub_sub_subscriptions():
-    route = s.sock.new_ipc_route()
+    route = s.sock.route()
     @s.async.coroutine
     def pubber():
         with s.sock.bind('pub', route) as pub:
@@ -198,8 +198,8 @@ def test_pub_sub_subscriptions():
 
 
 def test_req_rep_device():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def replier(x):
         with s.sock.connect('rep', r2) as rep:
@@ -223,8 +223,8 @@ def test_req_rep_device():
 
 
 def test_req_rep_device_middleware():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def replier():
         with s.sock.connect('rep', r2) as rep:
@@ -260,8 +260,8 @@ def test_req_rep_device_middleware():
 
 
 def test_pub_sub_device():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def pubber(x):
         with s.sock.connect('pub', r1) as pub:
@@ -285,8 +285,8 @@ def test_pub_sub_device():
 
 
 def test_pub_sub_device_middleware():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def pubber():
         with s.sock.connect('pub', r1) as pub:
@@ -311,8 +311,8 @@ def test_pub_sub_device_middleware():
 
 
 def test_push_pull_device():
-    r1 = s.sock.new_ipc_route()
-    r2 = s.sock.new_ipc_route()
+    r1 = s.sock.route()
+    r2 = s.sock.route()
     @s.async.coroutine
     def pusher(x):
         yield s.sock.push(r1, 'job{}'.format(x))
