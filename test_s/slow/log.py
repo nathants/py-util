@@ -14,7 +14,8 @@ def test__get_trace_path():
 
 def test_name__get_trace_path():
     s.log.setup.clear_cache()
-    with mock.patch.object(logging.handlers, 'WatchedFileHandler') as m:
-        s.log.setup(name='foo')
+    with mock.patch.object(s.shell, 'cron_rm_path_later'):
+        with mock.patch.object(logging.handlers, 'WatchedFileHandler') as m:
+            s.log.setup(name='foo')
     [[path], _] = m.call_args
     assert path.split('/')[-1].split(':')[:-2] == ['foo', 'test_s.slow.log', 'test_name__get_trace_path']
