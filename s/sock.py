@@ -2,6 +2,7 @@ from __future__ import print_function, absolute_import
 import zmq.eventloop
 zmq.eventloop.ioloop.install()
 
+import contextlib
 import s
 import json
 import functools
@@ -29,11 +30,21 @@ def new_ipc_route():
             return 'ipc://' + route
 
 
+_sockets = []
+
+
+@contextlib.contextmanager
+def close_all():
+    while _sockets:
+        _sockets.pop().close()
+
+
 def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=1):
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
     sock = zmq.Context().socket(getattr(zmq, kind.upper())) # TODO we should not recreate contexts in the same thread, only in diff procs
+    _sockets.append(sock)
     for k, v in sockopts.items():
         setattr(sock, k, v)
     try:
@@ -94,18 +105,6 @@ class AsyncSock(object):
     def __exit__(self, *a, **kw):
         self._sock.close()
 
-    def on_recv(self, fn):
-        self._sock.on_recv(fn)
-
-    def on_send(self, fn):
-        self._sock.on_send(fn)
-
-    def stop_on_send(self):
-        self._sock.stop_on_send()
-
-    def stop_on_recv(self):
-        self._sock.stop_on_recv()
-
     def type(self):
         return self._sock.socket.type
 
@@ -141,7 +140,7 @@ class AsyncSock(object):
         assert msg is not None, 'you cannot use None as a message'
         future = s.async.Future()
         def fn(*_):
-            self.stop_on_send()
+            self._sock.stop_on_send()
             future.set_result(None)
         if self.type() == zmq.PUB:
             msg = process_send(msg)
@@ -163,7 +162,7 @@ def select(*socks):
     future = s.async.Future()
     def fn(sock, msg):
         for x in socks:
-            x.stop_on_recv()
+            x._sock.stop_on_recv()
         if sock.type() == zmq.SUB:
             topic, msg = msg
             topic = topic.decode('utf-8')
@@ -174,7 +173,7 @@ def select(*socks):
             msg = process_recv(msg)
             future.set_result([id(sock), msg])
     for sock in socks:
-        sock.on_recv(functools.partial(fn, sock))
+        sock._sock.on_recv(functools.partial(fn, sock))
     return future
 
 
