@@ -74,7 +74,7 @@ def _app(terminal, pytest):
 def auto(pytest=False):
     s.log.setup()
     assert s.net.port_free(_port), 'something already running on port: {}'.format(_port)
-    s.thread.new(_server)
+    s.proc.new(_server)
     terminal = blessed.Terminal()
     with terminal.fullscreen():
         with terminal.hidden_cursor():

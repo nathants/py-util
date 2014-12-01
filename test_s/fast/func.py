@@ -30,6 +30,6 @@ def test_pipe():
     assert s.func.pipe(1, _plus_one, _times_two, _three_minus) == -1
 
 
-def test_thread_noncallable():
+def test_pipe_noncallable():
     with pytest.raises(AssertionError):
         s.func.pipe(1, _plus_one, _times_two, 2)
