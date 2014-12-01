@@ -24,10 +24,8 @@ def _log_exceptions(*ignore):
         except Exception as e:
             if e not in _recent:
                 _recent.append(e)
-                if isinstance(e, (tornado.gen.Return,) + ignore):
-                    logging.debug('not logging exception "%s" in: %s', e, s.func.name(fn))
-                else:
-                    logging.exception('exception in: %s', s.func.name(fn))
+                if not isinstance(e, (tornado.gen.Return,) + ignore):
+                    logging.exception('exception in future: %s', future)
     return fn
 
 
