@@ -8,10 +8,6 @@ import logging
 logging.getLogger('tornado.application').setLevel(logging.CRITICAL) # s.sock.close_all() causes some noise
 
 
-def teardown_function(_):
-    s.sock.close_all()
-
-
 def test_cannot_use_none_as_message():
     @s.async.coroutine
     def main():
@@ -22,10 +18,11 @@ def test_cannot_use_none_as_message():
 
 def test_pub_sub():
     route = s.sock.route()
+    state = {'send': True}
     @s.async.coroutine
     def pubber():
         with s.sock.bind('pub', route) as pub:
-            while True:
+            while state['send']:
                 yield pub.send('asdf')
                 yield s.async.sleep(.001)
     @s.async.coroutine
@@ -35,6 +32,7 @@ def test_pub_sub():
             topic, msg = yield sock.recv()
         assert msg == 'asdf'
     s.async.run_sync(subber)
+    state['send'] = False
 
 
 def test_push_pull_reversed_connect_bind():
@@ -172,29 +170,31 @@ def test_req_rep():
 
 def test_pub_sub_subscriptions():
     route = s.sock.route()
+    state = {'send': True}
     @s.async.coroutine
     def pubber():
         with s.sock.bind('pub', route) as pub:
-            while True:
+            while state['send']:
                 yield pub.send('asdf', topic='a')
                 yield pub.send('123', topic='b')
-                yield s.async.sleep(.001)
+                yield s.async.sleep(.01)
     @s.async.coroutine
     def subber():
         pubber()
         responses = set()
         with s.sock.connect('sub', route) as sock:
-            for _ in range(100):
+            for _ in range(10):
                 msg = yield sock.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf'), ('b', '123')}
         responses = set()
         with s.sock.connect('sub', route, subscriptions=['a']) as sock:
-            for _ in range(100):
+            for _ in range(10):
                 msg = yield sock.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf')}
     s.async.run_sync(subber)
+    state['send'] = False
 
 
 def test_req_rep_device():
@@ -262,10 +262,11 @@ def test_req_rep_device_middleware():
 def test_pub_sub_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
+    state = {'send': True}
     @s.async.coroutine
     def pubber(x):
         with s.sock.connect('pub', r1) as pub:
-            while True:
+            while state['send']:
                 yield pub.send('asdf', topic='topic{}'.format(x))
                 yield s.async.sleep(.01)
     @s.async.coroutine
@@ -281,18 +282,20 @@ def test_pub_sub_device():
                              ('topic2', 'asdf')}
     proc = s.proc.new(s.sock.device, 'forwarder', r1, r2)
     s.async.run_sync(main)
+    state['send'] = False
     proc.terminate()
 
 
 def test_pub_sub_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
+    state = {'send': True}
     @s.async.coroutine
     def pubber():
         with s.sock.connect('pub', r1) as pub:
-            while True:
+            while state['send']:
                 yield pub.send('asdf', topic='topic1')
-                yield s.async.sleep(.1)
+                yield s.async.sleep(.01)
     @s.async.coroutine
     def forwarder():
         with s.sock.bind('sub', r1) as sub, s.sock.bind('pub', r2) as pub:
@@ -308,6 +311,7 @@ def test_pub_sub_device_middleware():
             msg = yield sub.recv()
             assert msg == ('topic1', 'asdf [sub.on_recv]')
     s.async.run_sync(main)
+    state['send'] = False
 
 
 def test_push_pull_device():
