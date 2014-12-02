@@ -2,7 +2,6 @@ from __future__ import print_function, absolute_import
 import zmq.eventloop
 zmq.eventloop.ioloop.install()
 
-import contextlib
 import s
 import json
 import functools
@@ -30,21 +29,16 @@ def route():
             return 'ipc://' + route
 
 
-_sockets = []
-
-
-@contextlib.contextmanager
-def close_all():
-    while _sockets:
-        _sockets.pop().close()
+@s.cached.memoize
+def context(pid):
+    return zmq.Context()
 
 
 def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=1):
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
-    sock = zmq.Context().socket(getattr(zmq, kind.upper())) # TODO we should not recreate contexts in the same thread, only in diff procs
-    _sockets.append(sock)
+    sock = context(os.getpid()).socket(getattr(zmq, kind.upper()))
     for k, v in sockopts.items():
         setattr(sock, k, v)
     try:
