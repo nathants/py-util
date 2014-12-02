@@ -8,3 +8,4 @@ requests
 pyaml
 pyzmq
 six
+stopit

@@ -2,10 +2,16 @@ from __future__ import print_function, absolute_import
 import pytest
 import s
 import s.sock
-import logging
+import stopit
 
 
-logging.getLogger('tornado.application').setLevel(logging.CRITICAL) # s.sock.close_all() causes some noise
+def setup_function(fn):
+    fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
+    fn.stopit.__enter__()
+
+
+def teardown_function(fn):
+    fn.stopit.__exit__(None, None, None)
 
 
 def test_cannot_use_none_as_message():
