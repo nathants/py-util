@@ -2,6 +2,8 @@ from __future__ import absolute_import
 import six
 import s
 import types
+import binascii
+
 
 _json_types = (list,
                str,
@@ -21,14 +23,29 @@ def jsonify(value):
     elif isinstance(value, (list, tuple, set)):
         return [jsonify(x) for x in value]
     elif isinstance(value, bytes):
-        return value.decode('utf-8')
+        try:
+            return value.decode('utf-8')
+        except UnicodeDecodeError:
+            return b2a(value)
     elif isinstance(value, _json_types):
         return value
     else:
+        if hasattr(value, '_action'):
+            action = '={}'.format(value._action)
+        else:
+            action = ''
         value = str(value)
         if ' at 0x' in value:
             value = value.split()[0].split('.')[-1]
-        return '<{}>'.format(value.strip('<>'))
+        return '<{}{}>'.format(value.strip('<>'), action)
+
+
+def a2b(x):
+    return binascii.a2b_base64(x.split('<b2a_base64=')[-1][:-1])
+
+
+def b2a(x):
+    return '<b2a_base64={}>'.format(binascii.b2a_base64(x).decode('utf-8').strip())
 
 
 _banned_attrs_dict = [
@@ -52,7 +69,7 @@ class _ImmutableDict(dict):
 
 class _ImmutableSeq(tuple):
     def __eq__(self, other):
-        if isinstance(other, types.GeneratorType):
+        if isinstance(other, types.GeneratorType) or not hasattr(other, '__iter__'):
             return False
         return all(x == y for x, y in six.moves.zip_longest(self, other, fillvalue=None))
 
