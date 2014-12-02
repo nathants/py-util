@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import six
 import s
 import types
 
@@ -50,7 +51,13 @@ class _ImmutableDict(dict):
 
 
 class _ImmutableSeq(tuple):
-    pass
+    def __eq__(self, other):
+        if isinstance(other, types.GeneratorType):
+            return False
+        return all(x == y for x, y in six.moves.zip_longest(self, other, fillvalue=None))
+
+    def __hash__(self):
+        return hash(tuple(self))
 
 
 class _ImmutableSet(frozenset):

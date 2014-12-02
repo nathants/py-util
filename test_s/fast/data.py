@@ -3,6 +3,8 @@ import pytest
 import mock
 
 
+
+
 def test_unicode_synonymous_with_str():
     assert s.data.freeze({u'a': 'b'}) == {'a': 'b'}
     assert s.data.freeze(u'asdf') == 'asdf'
@@ -65,7 +67,7 @@ def test_list_freeze():
     x = [1, 2, 3]
     y = s.data.freeze(x)
     x.append(4)
-    assert y == (1, 2, 3)
+    assert y == [1, 2, 3]
 
 
 def test_dont_refreeze():
@@ -80,3 +82,9 @@ def test_dont_refreeze():
         assert m.call_count == 5 # called once for [] and shortcircuit
         s.data.freeze(x)
         assert m.call_count == 6 # called once for [] and shortcircuit
+
+
+def test_equality():
+    assert s.data.freeze([1, 2]) == (1, 2)
+    assert s.data.freeze([1, 2]) == [1, 2]
+    assert not s.data.freeze([1, 2]) == (x for x in range(1, 3))
