@@ -103,12 +103,14 @@ class _Self(object):
         self._sock.__enter__()
         self._inbox = []
         self._parked_recv = None
+        self._last_received = None
         self._main()
 
     @s.async.coroutine(freeze=False)
     def _main(self):
         while True:
             msg = yield self._sock.recv()
+            self._last_received = msg
             if self._parked_recv:
                 self._parked_recv.set_result(msg)
                 self._parked_recv = None
@@ -129,6 +131,12 @@ class _Self(object):
         else:
             self._parked_recv = future
         return future
+
+    def requeue(self):
+        if self._last_received:
+            msg = self._last_received
+            self._last_received = None
+            self._inbox.append(msg)
 
 
 def actor(fn):
