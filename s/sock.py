@@ -108,6 +108,7 @@ class AsyncSock(object):
         assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
         assert not self._sock._recv_callback, 'there is already a recv callback registered'
         future = s.async.Future()
+        future._action = 'recv()'
         def cb(msg):
             self._sock.stop_on_recv()
             if self.type() == zmq.SUB:
@@ -134,6 +135,7 @@ class AsyncSock(object):
         assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
         assert msg is not None, 'you cannot use None as a message'
         future = s.async.Future()
+        future._action = 'send({}{})'.format(msg, ', topic={}'.format(topic) if topic else '')
         def fn(*_):
             self._sock.stop_on_send()
             future.set_result(None)
