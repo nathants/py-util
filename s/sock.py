@@ -78,6 +78,7 @@ def device(kind, in_route, out_route, **kw):
 def process_recv(msg):
     msg = msg.decode('utf-8')
     msg = json.loads(msg)
+    msg = s.data.freeze(msg)
     return msg
 
 
