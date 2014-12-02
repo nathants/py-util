@@ -60,8 +60,8 @@ def sleep(duration_seconds):
 
 
 class _IOLoop(object):
-    def __init__(self):
-        self.ioloop = tornado.ioloop.IOLoop.current()
+    def __init__(self, ioloop):
+        self.ioloop = ioloop
         self.started = False
 
     def start(self):
@@ -77,10 +77,11 @@ class _IOLoop(object):
 
 @s.cached.func
 def ioloop():
-    return _IOLoop()
+    return _IOLoop(tornado.ioloop.IOLoop.current())
 
 
 def run_sync(func, timeout=None):
+    ioloop.clear_cache()
     io = ioloop()
     io.started = True
     val = io.run_sync(func, timeout=timeout)
