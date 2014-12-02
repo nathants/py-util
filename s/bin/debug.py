@@ -52,37 +52,44 @@ def _body(data, hide_keys, pretty, max_lines):
     return '\n'.join(val)
 
 
-def _visualize(t, index, path, datas, hidden_keys, max_lines, pair, pretty, flat):
-    if flat:
-        datas = datas[index:index + t.height - 2]
-        datas = [[_header(data).split('\n'), data] for data in datas]
-        size = max(len(data) for (data, _), _ in datas)
-        datas = [[x.ljust(size) + y, data] for (x, y), data in datas]
-        size = max(len(x) for x, _ in datas) + 1
-        print(print)
-        datas = [[x.ljust(size) + ('args=' + str(data['args']) if data.get('args') else
-                                   'value=' + str(data['value']) if data.get('value') else
-                                   ''),
-                  data]
-                 for x, data in datas]
-        datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''), data]
-                 for x, data in datas]
-        datas = [[x[:min(t.width - 1, 200)], data] for x, data in datas]
-        datas[0] = [s.colors.green(datas[0][0]), datas[0][1]]
-        return '\n'.join([x for x, _ in datas])
-    else:
-        if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
-            vals = [(datas[index], True)]
-        else:
-            vals = _pair(index, datas)
+@s.schema.check(int, int, int, [dict])
+def _visualize_flat(width, height, index, datas):
+    datas = datas[index:index + height - 2]
+    datas = [[_header(data).split('\n'), data] for data in datas]
+    size = max(len(data) for (data, _), _ in datas)
+    datas = [[x.ljust(size) + y, data] for (x, y), data in datas]
+    size = max(len(x) for x, _ in datas) + 1
+    datas = [[x.ljust(size) + ('args=' + str(data['args']) if data.get('args') else
+                               'value=' + str(data['value']) if data.get('value') else
+                               ''),
+              data]
+             for x, data in datas]
+    datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''), data]
+             for x, data in datas]
+    datas = [[x[:min(width - 1, 200)], data] for x, data in datas]
+    datas[0] = [s.colors.green(datas[0][0]), datas[0][1]]
+    return '\n'.join([x for x, _ in datas])
 
-        output = ['path: {}'.format(path),
-                  'index: {}'.format(index)]
-        for data, highlight in vals:
-            output += ['',
-                       _header(data, highlight),
-                       _body(data, hidden_keys, pretty, max_lines)]
-        return '\n'.join(output)
+
+def _visualize_single(index, path, datas, hidden_keys, max_lines, pair, pretty):
+    if not pair or datas[index]['fntype'] in ['gen.send', 'gen.yield']:
+        vals = [(datas[index], True)]
+    else:
+        vals = _pair(index, datas)
+    output = ['path: {}'.format(path),
+              'index: {}'.format(index)]
+    for data, highlight in vals:
+        output += ['',
+                   _header(data, highlight),
+                   _body(data, hidden_keys, pretty, max_lines)]
+    return '\n'.join(output)
+
+
+def _visualize(width, height, index, path, datas, hidden_keys, max_lines, pair, pretty, flat):
+    if flat:
+        return _visualize_flat(width, height, index, datas)
+    else:
+        return _visualize_single(index, path, datas, hidden_keys, max_lines, pair, pretty)
 
 
 @s.trace.logic
@@ -143,7 +150,7 @@ def _app(t, path):
 
     pair = False
     pretty = True
-    flat = True
+    flat = False
     index = 0
     max_lines_increment = 10
     max_lines_high = 1e10
@@ -151,7 +158,7 @@ def _app(t, path):
     hidden_keys = _hidden_keys = ['direction', 'name', 'time', 'stack', 'cwd']
 
     while True:
-        _print(t, _visualize(t, index, path, datas, hidden_keys, max_lines, pair, pretty, flat))
+        _print(t, _visualize(t.width, t.height, index, path, datas, hidden_keys, max_lines, pair, pretty, flat))
         char = pager.getch()
         if char == 'g':
             char += pager.getch()

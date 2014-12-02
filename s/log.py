@@ -3,8 +3,10 @@ import pprint
 import logging
 import logging.handlers
 import s
+import s.bin.debug
 import time
 import contextlib
+import json
 
 
 _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
@@ -31,11 +33,16 @@ def _get_format(format, short):
             else _standard_format)
 
 
-def _add_trace_level():
+def _add_trace_level(debug=False):
     logging.root.manager.emittedNoHandlerWarning = 1
     logging.TRACE = 9
     logging.addLevelName(logging.TRACE, "TRACE")
-    logging.trace = lambda msg, *a, **kw: logging.root._log(logging.TRACE, msg, a, **kw)
+    def fn(msg):
+        if debug:
+            val = s.bin.debug._visualize_flat(200, 10, 0, [json.loads(msg)])
+            logging.info(s.strings.rm_color(val))
+        logging.root._log(logging.TRACE, msg, [])
+    logging.trace = fn
     logging.root.setLevel('TRACE')
 
 
@@ -53,9 +60,11 @@ def _stream_handler(level, format):
 
 
 @s.cached.func
-def setup(name=None, level='info', short=False, pprint=False, format=None):
+def setup(name=None, level='info', short=False, pprint=False, format=None, debug=False):
     # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
-    _add_trace_level()
+    if debug:
+        format = '%(message)s'
+    _add_trace_level(debug)
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
     logging.root.addHandler(_trace_file_handler(name))
