@@ -105,18 +105,53 @@ class _Self(object):
     def __call__(self):
         return self._route
 
-    def send(self, route, msg, **kw):
+    def push(self, route, msg, **kw):
         return s.sock.push(route, msg, **kw)
 
-    def recv(self):
+    def pull(self):
         return self._sock.recv()
 
 
-def actor(fn):
-    assert not getattr(fn, '_is_coroutine', False), 'actors should be normals funs, will be converted to coroutines: {}'.format(s.func.name(fn))
-    @functools.wraps(fn)
-    def _actor(*a, **kw):
-        self = _Self()
-        coroutine(freeze=False)(fn)(self, *a, **kw)
-        return self._route
-    return _actor
+class _SelectiveSelf(_Self):
+    def __init__(self):
+        _Self.__init__(self)
+        self._to_redeliver = []
+        self._redelivered = []
+        self._try_redeliver = False
+        self._last_msg = None
+
+    def pull(self):
+        if self._redelivered and not self._to_redeliver:
+            self._to_redeliver = self._redelivered[:]
+            self._redelivered = []
+            self._try_redeliver = False
+        if self._to_redeliver and self._try_redeliver:
+            future = Future()
+            future.set_result(self._to_redeliver.pop(0))
+            return future
+        else:
+            future = self._sock.recv()
+            def fn(f):
+                self._last_msg = f.result()
+                self._try_redeliver = True
+            future.add_done_callback(fn)
+        return future
+
+    def requeue(self):
+        if self._try_redeliver:
+            self._redelivered.append(self._last_msg)
+        else:
+            self._to_redeliver.append(self._last_msg)
+
+
+@s.hacks.optionally_parameterized_decorator
+def actor(selective_receive=False):
+    def decorator(fn):
+        assert not getattr(fn, '_is_coroutine', False), 'actors should be normals funs, will be converted to coroutines: {}'.format(s.func.name(fn))
+        @functools.wraps(fn)
+        def _actor(*a, **kw):
+            self = _SelectiveSelf() if selective_receive else _Self()
+            coroutine(freeze=False)(fn)(self, *a, **kw)
+            return self._route
+        return _actor
+    return decorator
