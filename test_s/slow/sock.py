@@ -5,6 +5,9 @@ import s.sock
 import stopit
 
 
+s.log.setup(debug=True)
+
+
 def setup_function(fn):
     fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
     fn.stopit.__enter__()
