@@ -52,8 +52,7 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=
     if timeout:
         sock.setsockopt(zmq.SNDTIMEO, timeout)
         sock.setsockopt(zmq.RCVTIMEO, timeout)
-    sock.setsockopt(zmq.SNDHWM, hwm)
-    sock.setsockopt(zmq.RCVHWM, hwm)
+    sock.hwm = hwm
     return AsyncSock(sock)
 
 
@@ -173,9 +172,6 @@ def select(*socks):
         sock._sock.on_recv(functools.partial(fn, sock))
     return future
 
-
-# TODO who takes args and kwargs. socket? push? timeout?
-# TODO None is not a valid value
 
 @s.async.coroutine(AssertionError)
 def open_use_close(kind, method, route, msg=None, **kw):
