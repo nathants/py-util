@@ -12,6 +12,14 @@ import inspect
 default = str(uuid.uuid4()) # sentinel used to signal default values
 
 
+def is_valid(schema, value):
+    try:
+        validate(schema, value)
+        return True
+    except AssertionError:
+        return False
+
+
 def validate(schema, value):
     """
     >>> import pytest

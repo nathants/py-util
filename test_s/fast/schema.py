@@ -10,6 +10,8 @@ def test_validate_returns_value():
 
 def test_unicde_synonymous_with_str():
     assert s.schema.validate(str, u'asdf') == 'asdf'
+    assert s.schema.validate(u'asdf', 'asdf') == 'asdf'
+    assert s.schema.validate('asdf', u'asdf') == 'asdf'
     assert s.schema.validate(dict, {u'a': 'b'}) == {'a': 'b'}
 
 

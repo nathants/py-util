@@ -97,26 +97,10 @@ Future = tornado.concurrent.Future
 
 
 class _Self(object):
-    def __init__(self, name):
-        self._name = name
+    def __init__(self):
         self._route = s.sock.route()
         self._sock = s.sock.bind('pull', self._route)
         self._sock.__enter__()
-        self._inbox = []
-        self._parked_recv = None
-        self._last_received = None
-        self._main()
-
-    @s.async.coroutine(freeze=False)
-    def _main(self):
-        while True:
-            msg = yield self._sock.recv()
-            self._last_received = msg
-            if self._parked_recv:
-                self._parked_recv.set_result(msg)
-                self._parked_recv = None
-            else:
-                self._inbox.append(msg)
 
     def __call__(self):
         return self._route
@@ -125,26 +109,14 @@ class _Self(object):
         return s.sock.push(route, msg, **kw)
 
     def recv(self):
-        future = Future()
-        if self._inbox:
-            msg = self._inbox.pop()
-            future.set_result(msg)
-        else:
-            self._parked_recv = future
-        return future
-
-    def requeue(self):
-        if self._last_received:
-            msg = self._last_received
-            self._last_received = None
-            self._inbox.append(msg)
+        return self._sock.recv()
 
 
 def actor(fn):
     assert not getattr(fn, '_is_coroutine', False), 'actors should be normals funs, will be converted to coroutines: {}'.format(s.func.name(fn))
     @functools.wraps(fn)
     def _actor(*a, **kw):
-        self = _Self(s.func.name(fn))
+        self = _Self()
         coroutine(freeze=False)(fn)(self, *a, **kw)
         return self._route
     return _actor
