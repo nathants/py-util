@@ -77,7 +77,8 @@ class _IOLoop(object):
 
 @s.cached.func
 def ioloop():
-    return _IOLoop(tornado.ioloop.IOLoop.current())
+    tornado.ioloop.IOLoop.clear_instance()
+    return _IOLoop(tornado.ioloop.IOLoop.instance())
 
 
 def run_sync(func, timeout=None):
