@@ -11,7 +11,7 @@ _size = multiprocessing.cpu_count() + 2
 def _pool_factory():
     @s.cached.func
     def _pool(cls, size):
-        logging.info('new:', cls, 'size:', size)
+        logging.debug('new: %s, size: %s', cls, size)
         return cls(size)
     return _pool
 
