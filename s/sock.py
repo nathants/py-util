@@ -174,8 +174,8 @@ def select(*socks):
 
 
 @s.async.coroutine(AssertionError)
-def open_use_close(kind, method, route, msg=None, **kw):
-    with connect(kind, route, **kw) as sock:
+def open_use_close(kind, method, route, msg=None):
+    with connect(kind, route) as sock:
         if method == 'send':
             val = yield sock.send(msg)
         elif method == 'recv':
@@ -185,5 +185,20 @@ def open_use_close(kind, method, route, msg=None, **kw):
     raise s.async.Return(val)
 
 
+def _make_sync(action):
+    def fn_sync(route, msg=None):
+        @s.async.coroutine
+        def fn():
+            if msg is not None:
+                yield action(route, msg)
+            else:
+                val = yield action(route)
+                raise s.async.Return(val)
+        return s.async.run_sync(fn)
+    return fn_sync
+
+
 push = functools.partial(open_use_close, 'push', 'send')
 pull = functools.partial(open_use_close, 'pull', 'recv')
+pull_sync = _make_sync(pull)
+push_sync = _make_sync(push)
