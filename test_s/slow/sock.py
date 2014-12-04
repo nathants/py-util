@@ -341,3 +341,28 @@ def test_push_pull_device():
         assert responses == {'job1', 'job2'}
     s.proc.new(s.sock.device, 'streamer', r1, r2)
     s.async.run_sync(main)
+
+
+def test_push_sync():
+    route = s.sock.route()
+    s.proc.new(s.sock.push_sync, route, 'asdf')
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('pull', route) as sock:
+            msg = yield sock.recv()
+        assert msg == 'asdf'
+    s.async.run_sync(main)
+
+
+def test_pull_sync():
+    route = s.sock.route()
+    def fn():
+        assert s.sock.pull_sync(route) == 'asdf'
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('push', route) as sock:
+            yield sock.send('asdf')
+    proc = s.proc.new(fn)
+    s.async.run_sync(main)
+    proc.join()
+    assert proc.exitcode == 0, proc.exitcode
