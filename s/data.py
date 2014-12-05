@@ -5,16 +5,16 @@ import types
 import binascii
 
 
-_json_types = (list,
-               str,
-               dict,
-               int,
-               float,
-               tuple,
-               bool,
-               type(None))
+json_types = (list,
+              str,
+              dict,
+              int,
+              float,
+              tuple,
+              bool,
+              type(None))
 with s.exceptions.ignore():
-    _json_types += (unicode,) # noqa
+    json_types += (unicode,) # noqa
 
 
 def jsonify(value):
@@ -27,7 +27,7 @@ def jsonify(value):
             return value.decode('utf-8')
         except UnicodeDecodeError:
             return b2a(value)
-    elif isinstance(value, _json_types):
+    elif isinstance(value, json_types):
         return value
     else:
         if hasattr(value, '_action'):
