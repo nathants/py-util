@@ -13,9 +13,14 @@ def ignore(*exceptions):
         raise
 
 
-def update(exception, fn):
+@contextlib.contextmanager
+def update(fn, *exceptions):
     try:
-        msg = exception.args[0]
-    except:
-        msg = ''
-    exception.args = (fn(msg),) + exception.args[1:]
+        yield
+    except (exceptions or Exception) as e:
+        try:
+            msg = e.args[0]
+        except:
+            msg = ''
+        e.args = (fn(msg),) + e.args[1:]
+        raise
