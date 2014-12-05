@@ -47,6 +47,15 @@ def validate(schema, value):
     >>> with pytest.raises(AssertionError):
     ...     validate(schema, [1])
 
+    ### union types with :or
+    >>> schema = (':or', int, float)
+    >>> validate(schema, 1)
+    1
+    >>> validate(schema, 1.0)
+    1.0
+    >>> with pytest.raises(AssertionError):
+    ...     validate(schema, '1')
+
     ### dicts can use types and values for k's and v's, and also lambdas for v's.
 
     # dicts with types->types
@@ -86,6 +95,11 @@ def validate(schema, value):
     >>> with pytest.raises(AssertionError):
     ...     validate(schema, {'name': 123})
 
+    # dicts with only type keys can be empty
+    >>> schema = {str: str}
+    >>> validate(schema, {})
+    {}
+
     # validate is recursive, so nest schemas freely
     >>> schema = {'users': [{'name': (str, str), 'id': int}]}
     >>> obj = {'users': [{'name': ('jane', 'smith'), 'id': 85},
@@ -109,19 +123,16 @@ def validate(schema, value):
     #
 
     """
-    try:
+    with s.exceptions.update(lambda x: _prettify(x + _helpful_message(schema, value)), AssertionError):
         if isinstance(schema, dict):
             assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
             for k in value.keys():
-                assert isinstance(k, s.data.string_types), 'dict keys must be str: {}, {}'.format(k, value)
+                assert isinstance(k, s.data.string_types), 'thanks to json, dict keys must be str: {}, {}'.format(k, value)
             validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
             value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
         else:
             _check(schema, value)
         return value
-    except AssertionError as e:
-        s.exceptions.update(e, lambda x: _prettify(x + _helpful_message(schema, value)))
-        raise
 
 
 def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
@@ -133,27 +144,36 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
         key = type(k) if value_mismatch else k
         validator = schema.get(key, schema.get(object))
         validated_schema_items.append((key, validator))
-        _check(validator, v)
+        with s.exceptions.update(lambda x: x + "\n--key--\n'{}'".format(k), AssertionError):
+            _check(validator, v)
     return validated_schema_items
 
 
 def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items):
-    for k, v in schema.items():
-        if k not in value and (k, v) not in validated_schema_items: # only check schema items if they haven't already been satisfied
-            if type(k) is type: # if a type key is missing, look for an item that satisfies it
-                for vk, vv in value.items():
-                    with s.exceptions.ignore(AssertionError):
-                        validate(k, vk)
-                        validate(v, vv)
-                        break
-                else:
-                    raise AssertionError('{} <{}> is missing (key, value) pair: {} <{}>, {} <{}>'.format(value, type(value), k, type(k), v, type(v)))
-            else: # if a value key is missing, it must be optional or its a required key violation
-                assert isinstance(v, types.FunctionType), '{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k))
-                val = v(default)
-                assert val != default, 'you accidentally return s.schema.default instead of your actual default value for: {}, {}'.format(k, v)
-                value = s.dicts.merge(value, {k: val})
+    if value or not {type(x) for x in schema.keys()} == {type}: # if schema keys are all types, and value is empty, return
+        for k, v in schema.items():
+            if k not in value and (k, v) not in validated_schema_items: # only check schema items if they haven't already been satisfied
+                if type(k) is type: # if a type key is missing, look for an item that satisfies it
+                    for vk, vv in value.items():
+                        with s.exceptions.ignore(AssertionError):
+                            validate(k, vk)
+                            validate(v, vv)
+                            break
+                    else:
+                        raise AssertionError('{} <{}> is missing (key, value) pair: {} <{}>, {} <{}>'.format(value, type(value), k, type(k), v, type(v)))
+                else: # if a value key is missing, it must be optional or its a required key violation
+                    assert isinstance(v, types.FunctionType), '{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k))
+                    val = v(default)
+                    assert val != default, 'you accidentally return s.schema.default instead of your actual default value for: {}, {}'.format(k, v)
+                    value = s.dicts.merge(value, {k: val})
     return value
+
+
+def _starts_with_keyword(x):
+    if x and isinstance(x[0], s.data.string_types) and x[0].startswith(':'):
+        return True
+    else:
+        return False
 
 
 def _check(validator, value):
@@ -161,15 +181,26 @@ def _check(validator, value):
     if validator is object:
         return value
     elif isinstance(validator, (list, tuple)):
-        assert isinstance(value, (list, tuple)), '{} <{}> is not a {} <{}>'.format(value, type(value), validator, type(validator))
+        assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a a seq: {} <{}>'.format(value, type(value), validator, type(validator))
         if isinstance(validator, list):
-            assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
-            for v in value:
-                _check(validator[0], v)
+            if not validator:
+                assert not value, 'you schema is an empty sequence, but this is not empty: {}'.format(value)
+            elif value:
+                assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
+                for v in value:
+                    _check(validator[0], v)
         elif isinstance(validator, tuple):
-            assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
-            for _validator, _val in zip(validator, value):
-                _check(_validator, _val)
+            if validator and validator[0] == ':or':
+                passed = 0
+                for v in validator[1:]:
+                    with s.exceptions.ignore(AssertionError):
+                        _check(v, value)
+                        passed = True
+                assert passed, '{} <{}> did not match any of [{}]'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]]))
+            else:
+                assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
+                for _validator, _val in zip(validator, value):
+                    _check(_validator, _val)
     elif isinstance(validator, dict):
         assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
         validate(validator, value)
@@ -179,10 +210,12 @@ def _check(validator, value):
         assert type(value) is validator, '{} <{}> is not a <{}>'.format(value, type(value), validator)
     elif isinstance(validator, types.FunctionType):
         assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
-    else:
+    elif isinstance(validator, s.data.json_types):
         with s.exceptions.ignore(AttributeError):
             value = value.decode('utf-8')
         assert value == validator, '{} <{}> != {} <{}>'.format(value, type(value), validator, type(validator))
+    else:
+        raise AssertionError('bad validator {} <{}>'.format(validator, type(validator)))
 
 
 def _helpful_message(schema, value):
@@ -214,7 +247,7 @@ def _helpful_message(schema, value):
     else:
         schema = pprint.pformat(schema, width=1)
 
-    return '\n\n--obj--\n{}\n--schema--\n{}\n--end--'.format(
+    return '\n\n--obj--\n{}\n--schema--\n{}\n--end--\n'.format(
         pprint.pformat(value, width=1),
         schema,
     )

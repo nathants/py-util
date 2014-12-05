@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 import contextlib
 import tornado.web
+import tornado.httputil
 import tornado.ioloop
 import s
 import requests
@@ -39,13 +40,24 @@ def _query_parse(query):
             for k, v in parsed.items()}
 
 
+class schemas:
+    request = {'verb': str,
+               'uri': str,
+               'path': str,
+               'query': {str: (':or', str, [str])},
+               'body': str,
+               'headers': {str: str},
+               'arguments': {str: str}}
+
+
+@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
 def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
             'path': obj.path,
             'query': _query_parse(obj.query),
-            'headers': dict(obj.headers),
             'body': obj.body,
+            'headers': dict(obj.headers),
             'arguments': arguments}
 
 

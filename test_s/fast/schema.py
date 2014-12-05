@@ -4,6 +4,47 @@ import pytest
 import six
 
 
+def test_union_types():
+    schema = (':or', int, float)
+    assert s.schema.validate(schema, 1) == 1
+    assert s.schema.validate(schema, 1.0) == 1.0
+    with pytest.raises(AssertionError):
+        s.schema.validate((':or', int, float), '1')
+
+    schema = (':or', [int], {str: int})
+    assert s.schema.validate(schema, [1]) == [1]
+    assert s.schema.validate(schema, {'1': 2}) == {'1': 2}
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, [1.0])
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, {'1': 2.0})
+
+
+def test_sets_are_illegal():
+    with pytest.raises(AssertionError):
+        s.schema.validate({1, 2}, set())
+
+
+def test_empty_dicts():
+    assert s.schema.validate({}, {}) == {}
+    assert s.schema.validate({str: str}, {}) == {}
+    with pytest.raises(AssertionError):
+        assert s.schema.validate({}, {'1': 2})
+
+
+def test_empty_seqs():
+    assert s.schema.validate([], []) == []
+    assert s.schema.validate([], ()) == ()
+    assert s.schema.validate((), ()) == ()
+    assert s.schema.validate((), []) == []
+    assert s.schema.validate([str], []) == []
+    assert s.schema.validate([str], ()) == ()
+    with pytest.raises(AssertionError):
+        s.schema.validate([], [123])
+    with pytest.raises(AssertionError):
+        s.schema.validate([], (123,))
+
+
 def test_validate_returns_value():
     assert s.schema.validate(int, 123) == 123
 
