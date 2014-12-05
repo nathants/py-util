@@ -306,21 +306,20 @@ def abspand(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
-def watch_files():
-    # TODO if pass route, connect to it. otherwise create new route, bind, and return the route.
-    route = s.sock.route()
-    def fn():
-        pubber = s.sock.bind('pub', route, sync=True)
+def watch_files(route):
+    @s.trace.glue
+    def watcher():
+        s.async.ioloop.clear_cache()
         try:
             with s.shell.climb_git_root():
                 while True:
                     s.shell.run("find -name '*py' | entr -d echo ''",
-                                callback=lambda _: pubber.send(''),
+                                callback=lambda _: s.sock.push_sync(route, ''),
                                 warn=True)
         except KeyboardInterrupt:
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
-    s.proc.new(fn)
-    return route
+    s.proc.new(watcher)
+    return True
 
 
 def override(flag):

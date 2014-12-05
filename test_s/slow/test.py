@@ -103,7 +103,7 @@ def test_one_pass_one_fail_run_lightweight_tests_once():
             _file.write('def test2():\n'
                         '    1/0')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
-    val = s.test.run_lightweight_tests_once()
+    val = s.test.light()
     assert len(val) == 3
     assert len([x for x in val if x[0]['result']]) == 1
 
@@ -118,7 +118,7 @@ def test_two_pass_run_lightweight_tests_once():
             _file.write('def test2():\n'
                         '    pass')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
-    assert [x[0]['result'] for x in s.test.run_lightweight_tests_once()] == [None, False, False]
+    assert [x[0]['result'] for x in s.test.light()] == [None, False, False]
 
 
 def test_climb_git_root():

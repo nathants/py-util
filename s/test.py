@@ -1,8 +1,8 @@
 from __future__ import absolute_import, print_function
-import zmq
+import subprocess
+import concurrent.futures
 import re
 import sys
-import time
 import types
 import traceback
 import os
@@ -212,11 +212,6 @@ def _linenum(text):
 
 
 @s.trace.glue
-def _test_all(paths):
-    return [_test(x) for x in paths]
-
-
-@s.trace.glue
 def all_test_files():
     return s.func.pipe(
         s.shell.climb(),
@@ -256,31 +251,33 @@ def code_files():
     )
 
 
-@s.trace.glue
-def run_slow_tests_once():
+def slow():
     if six.PY2:
         pytest = 'py.test'
     else:
         pytest = 'py.test3'
-    result = s.shell.run(pytest, '-x --tb native', *slow_test_files(), warn=True)
-    if result['exitcode'] != 0:
-        text = _format_pytest_output(result['output'])
-        return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
+    futures = [s.proc.submit(s.shell.run, pytest, '-x --tb native', path, warn=True)
+               for path in slow_test_files()]
+    for f in concurrent.futures.as_completed(futures):
+        result = f.result()
+        if result['exitcode'] != 0:
+            text = _format_pytest_output(result['output'])
+            return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
 
 
-@s.trace.glue
-def run_fast_tests_once(modules=None):
+def fast():
     result = s.shell.run('py.test -x --tb native', *fast_test_files(), warn=True)
     if result['exitcode'] != 0:
         text = _format_pytest_output(result['output'])
         return [[{'result': text, 'path': 'test_*/fast/*.py', 'seconds': 0}]]
 
 
-@s.trace.glue
-def run_lightweight_tests_once(modules=None):
-    for x in modules or []:
-        sys.modules.pop(x, None)
-    return _test_all(fast_test_files())
+def light():
+    return [_test(x) for x in fast_test_files()]
+
+
+def one(test_path):
+    return _test(test_path)
 
 
 @s.trace.logic
@@ -300,69 +297,6 @@ def _modules_to_reload():
                                             lambda f: (f.endswith('.py')
                                                        and not f.startswith('.')
                                                        and '_flymake' not in f))]
-
-
-def _run_bg_tests(fn, result_route):
-    trigger_route = s.sock.route()
-    def main():
-        trigger_puller = s.sock.bind('pull', trigger_route)
-        result_pusher = s.sock.connect('push', result_route)
-        @trigger_puller.on_recv
-        def trigger_on_recv(msg):
-            print('trigger on recv')
-            result_pusher.send('fake result')
-        s.async.ioloop().start()
-    s.proc.new(main)
-    trigger_pusher = s.sock.connect('push', trigger_route, sync=True)
-    def trigger(*args):
-        with s.exceptions.ignore(zmq.Again):
-            print('call trigger')
-            trigger_pusher.send('')
-    return trigger
-
-
-def run_tests_auto(output_route):
-    results_route = s.sock.route()
-    trigger_fast = _run_bg_tests(run_lightweight_tests_once, results_route)
-
-    watch_subber = s.sock.connect('sub', s.shell.watch_files())
-    @watch_subber.on_recv
-    def watcher_on_recv(_):
-        print('file system changed')
-        trigger_fast()
-
-    results_puller = s.sock.bind('pull', results_route)
-    @results_puller.on_recv
-    def results_on_recv(msg):
-        print('results received', msg)
-
-    s.async.ioloop().start()
-
-
-@s.trace.glue
-def _run_tests_auto(pytest):
-    files_changed = s.shell.watch_files()
-
-    trigger_slow, results_slow = _run_bg_tests(run_slow_tests_once)
-    trigger_fast, results_fast = _run_bg_tests(run_fast_tests_once if pytest else run_lightweight_tests_once)
-
-    modules = _modules_to_reload()
-    slow_tests_output = []
-    fast_tests_output = []
-
-    slow_changed = lambda: results_slow() != slow_tests_output
-    fast_changed = lambda: _drop_seconds(results_fast()) != _drop_seconds(fast_tests_output) # seconds causes useless redraws
-    while True:
-        if files_changed() or slow_changed() or fast_changed():
-            trigger_slow()
-            trigger_fast(modules)
-
-            slow_tests_output = results_slow()
-            fast_tests_output = results_fast()
-
-            yield fast_tests_output + slow_tests_output
-
-        time.sleep(.01)
 
 
 @s.trace.logic
@@ -396,3 +330,96 @@ def _cover(test_file):
     else:
         text = s.shell.run('py.test --cov-report term-missing', test_file, '--cov', module_name)
         return _parse_coverage(module_name, text)
+
+
+def light_auto(trigger_route, results_route):
+    modules = _modules_to_reload()
+    while True:
+        s.sock.sub_sync(trigger_route)
+        for mod in modules:
+            sys.modules.pop(mod, None)
+        data = light()
+        if data:
+            s.sock.push_sync(results_route, ['fast', data])
+
+
+def slow_auto(trigger_route, results_route):
+    while True:
+        s.sock.sub_sync(trigger_route)
+        data = slow()
+        if data:
+            s.sock.push_sync(results_route, ['slow', data])
+
+
+@s.async.coroutine
+def run_tests_auto(output_route):
+    results_route = s.sock.route()
+    trigger_route = s.sock.route()
+    watch_route = s.sock.route()
+
+    kw = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    subprocess.Popen(['tests', 'light-auto', trigger_route, results_route], **kw)
+    subprocess.Popen(['tests', 'slow-auto', trigger_route, results_route], **kw)
+
+    s.shell.watch_files(watch_route)
+
+    """
+    TODO
+    tests one <test_path>
+    py3k for all of these
+    try again with actors. more elegant?
+    """
+    with s.sock.bind('pub', trigger_route) as trigger, \
+         s.sock.bind('pull', results_route) as results, \
+         s.sock.bind('pull', watch_route) as watch: # noqa
+
+        while True:
+            sock_id, msg = yield s.sock.select(watch, results)
+            if sock_id == id(watch):
+                yield trigger.send('')
+
+            # TODO does it make sense to do this, or have worker send results directly to output_route?
+            elif sock_id == id(results):
+                yield s.sock.push(output_route, msg)
+
+
+# def actor(fn):
+#     self = None
+#     receive = None
+#     send = None
+#     def decorated(*a, **kw):
+#         fn(*a, **kw)
+#         return self
+#     return decorated
+
+
+# @actor
+# def fast_tests(self, pid):
+#     while True:
+#         yield self.recv()
+#         result = yield s.thread.submit(s.shell.run, 'mytest')
+#         self.send(pid, result)
+
+
+# @actor
+# def tests_auto(self, pid):
+#     s.shell.fs_watch(self())
+#     fast_pid = fast_tests(pid)
+#     while True:
+#         key, msg = yield self.recv()
+#         if key == 'fs-changed':
+#             yield self.send(fast_pid, None)
+
+
+# @actor
+# def main(self):
+#     tests_auto(self())
+#     while True:
+#         key, msg = yield self.receive()
+#         if key == 'result':
+#             print(msg)
+
+
+# def _app(terminal, pytest):
+#     s.async.run_actor(main)
