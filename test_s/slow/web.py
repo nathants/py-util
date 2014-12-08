@@ -4,6 +4,29 @@ import requests
 import json
 
 
+s.log.setup(debug=True)
+
+
+def test_basic123():
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        raise s.async.Return({'body': 'ok',
+                              'code': 200,
+                              'headers': {'foo': 'bar'}})
+
+    @s.async.coroutine
+    def main(url):
+        resp = yield s.web.get(url)
+        assert resp['body'] == 'ok'
+        assert resp['code'] == 200
+        assert resp['headers']['foo'] == 'bar'
+
+    app = s.web.server([('/', {'GET': handler})])
+    with s.web.test(app) as url:
+        s.async.run_sync(lambda: main(url))
+
+
 def test_basic():
     @s.async.coroutine
     def handler(request):

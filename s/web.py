@@ -9,6 +9,25 @@ import time
 import six
 
 
+class schemas:
+    request = {'verb': str,
+               'uri': str,
+               'path': str,
+               'query': {str: (':or', str, [str])},
+               'body': str,
+               'headers': {str: str},
+               'arguments': {str: str}}
+
+    response = {'code': str,
+                'reason': str,
+                'headers': {str: str},
+                'effective_url': str,
+                'body': str,
+                'error': str,
+                'request_time': str,
+                'time_info': dict}
+
+
 def _new_handler_method(fn):
     assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
     @s.async.coroutine(trace=False)
@@ -38,16 +57,6 @@ def _query_parse(query):
     parsed = six.moves.urllib.parse.parse_qs(query, True)
     return {k: v if len(v) > 1 else v.pop()
             for k, v in parsed.items()}
-
-
-class schemas:
-    request = {'verb': str,
-               'uri': str,
-               'path': str,
-               'query': {str: (':or', str, [str])},
-               'body': str,
-               'headers': {str: str},
-               'arguments': {str: str}}
 
 
 @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
@@ -95,3 +104,29 @@ def test(app, poll=True):
         raise
     finally:
         proc.terminate()
+
+
+import tornado.httpclient
+
+tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+
+
+@s.cached.func
+def _client():
+    return tornado.httpclient.AsyncHTTPClient()
+
+
+@s.async.coroutine(freeze=False)
+def get(url, **kw):
+    request = tornado.httpclient.HTTPRequest(url, **kw)
+    response = yield _client().fetch(request)
+    raise s.async.Return({
+        'code': response.code,
+        'reason': response.reason,
+        'headers': {k.lower(): v for k, v in response.headers.items()},
+        'effective_url': response.effective_url,
+        'body': response.body.decode('utf-8'),
+        'error': str(response.error),
+        'request_time': response.request_time,
+        'time_info': response.time_info,
+    })
