@@ -4,6 +4,10 @@ import pytest
 import six
 
 
+if six.PY3:
+    s.schema.check = s.schema._orig_check
+
+
 def test_union_types():
     schema = (':or', int, float)
     assert s.schema.validate(schema, 1) == 1
@@ -106,7 +110,7 @@ def test_test_annotations_return():
         def fn():
             return 123
         fn.__annotations__ = {'return': str}
-        fn = s.schema.check(fn)
+        fn = s.schema.check()(fn)
         with pytest.raises(AssertionError):
             fn()
 
@@ -116,7 +120,7 @@ def test_annotation_args():
         def fn(x):
             return str(x)
         fn.__annotations__ = {'x': int, 'return': str}
-        fn = s.schema.check(fn)
+        fn = s.schema.check()(fn)
         assert fn(1) == '1'
         with pytest.raises(AssertionError):
             fn(1.0)
@@ -127,7 +131,7 @@ def test_annotation_kwargs():
         def fn(x=0):
             return str(x)
         fn.__annotations__ = {'x': int, 'return': str}
-        fn = s.schema.check(fn)
+        fn = s.schema.check()(fn)
         assert fn(x=1) == '1'
         with pytest.raises(AssertionError):
             fn(x=1.0)
