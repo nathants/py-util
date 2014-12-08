@@ -9,7 +9,7 @@ import time
 import six
 
 
-class schemas:
+class _schemas:
     request = {'verb': str,
                'uri': str,
                'path': str,
@@ -18,14 +18,10 @@ class schemas:
                'headers': {str: str},
                'arguments': {str: str}}
 
-    response = {'code': str,
+    response = {'code': int,
                 'reason': str,
                 'headers': {str: str},
-                'effective_url': str,
-                'body': str,
-                'error': str,
-                'request_time': str,
-                'time_info': dict}
+                'body': str}
 
 
 def _new_handler_method(fn):
@@ -59,7 +55,7 @@ def _query_parse(query):
             for k, v in parsed.items()}
 
 
-@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
+@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=_schemas.request)
 def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
@@ -116,17 +112,20 @@ def _client():
     return tornado.httpclient.AsyncHTTPClient()
 
 
+@s.schema.check(str, str, returns=_schemas.response)
 @s.async.coroutine(freeze=False)
-def get(url, **kw):
-    request = tornado.httpclient.HTTPRequest(url, **kw)
+def _fetch(method, url, **kw):
+    request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
     response = yield _client().fetch(request)
-    raise s.async.Return({
-        'code': response.code,
-        'reason': response.reason,
-        'headers': {k.lower(): v for k, v in response.headers.items()},
-        'effective_url': response.effective_url,
-        'body': response.body.decode('utf-8'),
-        'error': str(response.error),
-        'request_time': response.request_time,
-        'time_info': response.time_info,
-    })
+    raise s.async.Return({'code': response.code,
+                          'reason': response.reason,
+                          'headers': {k.lower(): v for k, v in response.headers.items()},
+                          'body': response.body.decode('utf-8')})
+
+
+def get(url, **kw):
+    return _fetch('GET', url, **kw)
+
+
+def post(url, body, **kw):
+    return _fetch('POST', url, body=body, **kw)

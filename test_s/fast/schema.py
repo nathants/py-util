@@ -4,10 +4,6 @@ import pytest
 import six
 
 
-if six.PY3:
-    s.schema.check = s.schema._orig_check
-
-
 def test_union_types():
     schema = (':or', int, float)
     assert s.schema.validate(schema, 1) == 1

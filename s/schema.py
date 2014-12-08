@@ -303,9 +303,3 @@ def check(*args, **kwargs):
                     raise
         return decorated
     return decorator
-
-
-if six.PY3:
-    _orig_check = check
-    def check(fn):
-        return _orig_check()(fn)
