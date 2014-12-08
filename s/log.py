@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import os
 import pprint
 import logging
 import logging.handlers
@@ -79,7 +80,7 @@ def _get_trace_path(name):
     val = '{modname}:{funcname}:{when}'.format(**locals())
     if name:
         val = '{name}:{val}'.format(**locals())
-    val = '/tmp/{val}:trace.log'.format(**locals())
+    val = os.path.join('/tmp', '{val}:trace.log'.format(**locals())).replace('//tmp/', '/tmp/') # TODO wat?
     globals()['_trace_path'] = val
     return val
 
