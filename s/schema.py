@@ -264,7 +264,6 @@ def get_schemas(arg_schemas, kwarg_schemas, fn):
     return arg_schemas, kwarg_schemas
 
 
-@s.hacks.optionally_parameterized_decorator
 def check(*args, **kwargs):
     def decorator(fn):
         arg_schemas, kwarg_schemas = get_schemas(args, kwargs, fn)
@@ -272,18 +271,34 @@ def check(*args, **kwargs):
         name = s.func.name(fn)
         @functools.wraps(fn)
         def decorated(*args, **kwargs):
-            assert len(arg_schemas) == len(args), 'you asked to check {} for {} args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
-            for key, value in kwargs.items():
-                assert key in kwarg_schemas, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
-            try:
-                args = [validate(schema, arg) for schema, arg in zip(arg_schemas, args)]
-                checker = lambda k, v: validate(kwarg_schemas.get(k, lambda x: x), v)
-                kwargs = dict((k, checker(k, v)) for k, v in kwargs.items())
-                value = fn(*args, **kwargs)
-                assert value is not None, 'you cannot return None from s.schema.check\'d function'
-                return s.schema.validate(returns_schema, value)
-            except AssertionError as e:
-                s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--'.format(name))
-                raise
+            with s.exceptions.update(lambda x: x + '\n--info--\nschema.check failed for {}\n--end--'.format(name)):
+                assert len(arg_schemas) == len(args), 'you asked to check {} for {} args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
+                for key, value in kwargs.items():
+                    assert key in kwarg_schemas, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
+                try:
+                    _args = []
+                    for i, (schema, arg) in enumerate(zip(arg_schemas, args)):
+                        with s.exceptions.update(lambda x: x + '--arg num--\n{}\n--end--'.format(i)):
+                            _args.append(validate(schema, arg))
+                    checker = lambda k, v: validate(kwarg_schemas.get(k, lambda x: x), v)
+                    _kwargs = {}
+                    for k, v in kwargs.items():
+                        with s.exceptions.update(lambda x: x + '--arg keyword--\n{}\n--end--'.format(k)):
+                            _kwargs[k] = checker(k, v)
+                    value = fn(*_args, **_kwargs)
+                    if s.trace._is_futury(value):
+                        @s.async.coroutine
+                        def validator():
+                            val = yield value
+                            assert val is not None, 'you cannot return None from s.schema.check\'d function'
+                            s.schema.validate(returns_schema, val)
+                            raise s.async.Return(val)
+                        return validator()
+                    else:
+                        assert value is not None, 'you cannot return None from s.schema.check\'d function'
+                        return s.schema.validate(returns_schema, value)
+                except AssertionError as e:
+                    s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--'.format(name))
+                    raise
         return decorated
     return decorator
