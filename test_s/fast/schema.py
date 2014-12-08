@@ -223,6 +223,13 @@ def test_type_to_value():
         s.schema.validate(schema, {'a': 'notapple'})
 
 
+def test_nested_optional():
+    schema = {'a': {'b': lambda x: x == ':optional' and 'default-val' or True}}
+    assert s.schema.validate(schema, {'a': {}}) == {'a': {'b': 'default-val'}}
+    schema = [{'name': lambda x: x == ':optional' and 'bob' or True}]
+    assert s.schema.validate(schema, [{}]) == [{'name': 'bob'}]
+
+
 def test_optional_value_key_with_validation():
     schema = {'a': 'apple',
               'b': lambda x: x == ':optional' and 'banana' or x == 'banana'}
@@ -364,13 +371,13 @@ def test_value_matches_are_higher_precedence_than_type_matches():
 
 
 def test_complex_types():
-    schema = {'name': str,
+    schema = {'name': (str, str),
               'age': lambda x: isinstance(x, int) and x > 0,
               'friends': [lambda x: isinstance(x, str) and len(x.split()) == 2],
               'events': [{'what': str,
                           'when': float,
                           'where': (int, int)}]}
-    data = {'name': 'henry',
+    data = {'name': ('jane', 'doe'),
             'age': 99,
             'friends': ['dave g', 'tom p'],
             'events': [{'what': 'party',
