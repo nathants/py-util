@@ -172,8 +172,8 @@ def test_type_to_lambda():
         s.schema.validate(schema, {'a': 'notapple'})
 
 
-def test_optional_cannot_return_default():
-    schema = {'a': lambda x: s.schema.default}
+def test_optional_cannot_return_or():
+    schema = {'a': lambda x: ':optional'}
     with pytest.raises(AssertionError):
         s.schema.validate(schema, {})
 
@@ -225,7 +225,7 @@ def test_type_to_value():
 
 def test_optional_value_key_with_validation():
     schema = {'a': 'apple',
-              'b': lambda x: x == s.schema.default and 'banana' or x == 'banana'}
+              'b': lambda x: x == ':optional' and 'banana' or x == 'banana'}
     s.schema.validate(schema, {'a': 'apple'}) == {'a': 'apple', 'b': 'banana'}
     s.schema.validate(schema, {'a': 'apple', 'b': 'banana'}) == {'a': 'apple', 'b': 'banana'}
     with pytest.raises(AssertionError):

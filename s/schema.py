@@ -5,11 +5,7 @@ import re
 import pprint
 import s
 import types
-import uuid
 import inspect
-
-
-default = str(uuid.uuid4()) # sentinel used to signal default values
 
 
 def is_valid(schema, value):
@@ -87,7 +83,7 @@ def validate(schema, value):
     ...     validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'rose'})
 
     # dicts with optional k's provide a value for a missing key and validate provided keys
-    >>> schema = {'name': lambda x: x == default and 'jane' or isinstance(x, str)}
+    >>> schema = {'name': lambda x: x == ':optional' and 'jane' or isinstance(x, str)}
     >>> validate(schema, {})
     {'name': 'jane'}
     >>> validate(schema, {'name': 'rose'})
@@ -163,8 +159,8 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                         raise AssertionError('{} <{}> is missing (key, value) pair: {} <{}>, {} <{}>'.format(value, type(value), k, type(k), v, type(v)))
                 else: # if a value key is missing, it must be optional or its a required key violation
                     assert isinstance(v, types.FunctionType), '{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k))
-                    val = v(default)
-                    assert val != default, 'you accidentally return s.schema.default instead of your actual default value for: {}, {}'.format(k, v)
+                    val = v(':optional')
+                    assert val != ':optional', 'you accidentally returned :optional instead of your actual default value for: {}, {}'.format(k, v)
                     value = s.dicts.merge(value, {k: val})
     return value
 
