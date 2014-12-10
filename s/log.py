@@ -80,7 +80,7 @@ def _get_trace_path(name):
     val = '{modname}:{funcname}:{when}'.format(**locals())
     if name:
         val = '{name}:{val}'.format(**locals())
-    val = os.path.join('/tmp', '{val}:trace.log'.format(**locals())).replace('//tmp/', '/tmp/') # TODO wat?
+    val = os.path.join('/tmp', '{val}:trace.log'.format(**locals()))
     globals()['_trace_path'] = val
     return val
 

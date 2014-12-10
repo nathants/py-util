@@ -165,12 +165,11 @@ def tempdir(cleanup=True, intemp=True):
         except AttributeError:
             letters = string.ascii_letters
         path = ''.join(random.choice(letters) for _ in range(20))
-        path = '/tmp/{}'.format(path) if intemp else path
+        path = os.path.join('/tmp', path) if intemp else path
         if not os.path.exists(path):
             break
     run('mkdir -p', path)
     if not cleanup and intemp:
-        path = os.path.basename(path)
         cron_rm_path_later(path, hours=24)
     try:
         with cd(path):
@@ -183,7 +182,7 @@ def tempdir(cleanup=True, intemp=True):
 
 
 def cron_rm_path_later(path, hours):
-    cmd = "python -c 'import time; assert {} + 60 * 60 * {} < time.time()' && sudo rm -rf /tmp/{}".format(time.time(), hours, path)
+    cmd = "python -c 'import time; assert {} + 60 * 60 * {} < time.time()' && sudo rm -rf {}".format(time.time(), hours, path)
     when = '{} * * * *'.format(random.randint(0, 59))
     cron(path.replace('/', '_'), when, cmd, selfdestruct=True)
 
@@ -198,8 +197,6 @@ def cron(name, when, cmd, user='root', selfdestruct=False):
     run('sudo rm -f /tmp/tmp.sh')
     with open('/tmp/tmp.sh', 'w') as file:
         file.write(cmd)
-    if run('sh -n /tmp/tmp.sh', warn=True)['exitcode'] != 0:
-        raise Exception('cmd is invalid: {}'.format(cmd))
     run('sudo touch', name)
     run('sudo chmod ugo+rw', name)
     with open(name, 'w') as file:
