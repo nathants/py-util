@@ -5,7 +5,7 @@ import re
 
 
 def port_free(port):
-    return ':{} '.format(port) not in s.shell.run('netstat -lpn')
+    return ':{} '.format(port) not in s.shell.run('netstat -pna')
 
 
 def free_port():
