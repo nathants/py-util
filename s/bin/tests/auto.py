@@ -48,7 +48,11 @@ def _app(terminal, pytest):
         with s.sock.bind('pull', route) as sock:
             while True:
                 name, data = yield sock.recv()
-                # TODO always print all the datas, not just this one. ie save them by name and then print all.
+                # TODO always print all the datas, not just this one.
+                # ie save them by name and then print all.
+                #
+                # when a name goes red, only that name can make it go green.
+                # ie a slow failure requires a slow success before green.
                 s.bin.tests.server.send(data)
                 text = ('\n'.join(map(_view, data))
                         or s.colors.green('tests passed'))
