@@ -139,7 +139,7 @@ def _result(result, path, seconds):
 
 
 @s.trace.io
-def _run_test(path, name, test):
+def _run_test(path, name, test, insight=True):
     _bak = s.trace._state.get('_stack')
     s.trace._state['_stack'] = None # stub out _stack, since its used *here* as well
     try:
@@ -148,20 +148,21 @@ def _run_test(path, name, test):
                 test()
                 val = False
             except:
-                tb = traceback.format_exc()
-                try:
-                    # TODO this is why fail is slower than success for red/green light
-                    # TODO this should be async, and not block feedback to the websocket
-                    val = _pytest_insight(path, name)
-                except:
-                    val = tb + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
+                val = traceback.format_exc()
+                if insight:
+                    try:
+                        # TODO this is why fail is slower than success for red/green light
+                        # TODO this should be async, and not block feedback to the websocket
+                        val = _pytest_insight(path, name)
+                    except:
+                        val = val + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
         return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
     finally:
         s.trace._state['_stack'] = _bak
 
 
 @s.trace.glue
-def _test(test_path):
+def _test(test_path, insight=True):
     assert test_path.endswith('.py'), 'test_path does not end with .py: {}'.format(test_path)
     assert os.path.isfile(test_path), 'no such file: {}'.format(test_path)
     name = s.shell.module_name(test_path)
@@ -175,7 +176,7 @@ def _test(test_path):
              and k.startswith('test')
              and isinstance(v, types.FunctionType)]
     test_path = module_name.__file__.replace('.pyc', '.py')
-    return [_run_test(test_path, k, v) for k, v in items] or [_result(None, test_path, 0)]
+    return [_run_test(test_path, k, v, insight=insight) for k, v in items] or [_result(None, test_path, 0)]
 
 
 def _format_pytest_output(text):
@@ -335,20 +336,36 @@ def _cover(test_file):
 def light_auto(trigger_route, results_route):
     modules = _modules_to_reload()
     while True:
-        s.sock.sub_sync(trigger_route)
         for mod in modules:
             sys.modules.pop(mod, None)
         data = light()
         if data:
             s.sock.push_sync(results_route, ['fast', data])
+        s.sock.sub_sync(trigger_route)
 
 
 def slow_auto(trigger_route, results_route):
     while True:
-        s.sock.sub_sync(trigger_route)
         data = slow()
         if data:
             s.sock.push_sync(results_route, ['slow', data])
+        s.sock.sub_sync(trigger_route)
+
+
+def one_auto(trigger_route, results_route):
+    with s.shell.climb_git_root():
+        while True:
+            _, path = s.sock.sub_sync(trigger_route)
+            path = path.split('./', 1)[1]
+            mod = path.split('.py')[0].replace('/', '.')
+            sys.modules.pop(mod, None)
+            if 'test_' not in path.split('/')[0]:
+                test_path = _test_file(path)
+            else:
+                test_path = path
+            data = _test(test_path, insight=False)
+            if data:
+                s.sock.push_sync(results_route, ['one', [data]])
 
 
 @s.async.coroutine
@@ -358,28 +375,25 @@ def run_tests_auto(output_route):
     watch_route = s.sock.route()
 
     kw = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
     subprocess.Popen(['tests', 'light-auto', trigger_route, results_route], **kw)
     subprocess.Popen(['tests', 'slow-auto', trigger_route, results_route], **kw)
+    subprocess.Popen(['tests', 'one-auto', trigger_route, results_route], **kw)
 
     s.shell.watch_files(watch_route)
 
     """
     TODO
-    tests one <test_path>
     py3k for all of these
     try again with actors. more elegant?
+    have the workers send results directly back to orig caller, no req/rep architecture?
     """
     with s.sock.bind('pub', trigger_route) as trigger, \
          s.sock.bind('pull', results_route) as results, \
          s.sock.bind('pull', watch_route) as watch: # noqa
-
         while True:
             sock_id, msg = yield s.sock.select(watch, results)
             if sock_id == id(watch):
-                yield trigger.send('')
-
-            # TODO does it make sense to do this, or have worker send results directly to output_route?
+                trigger.send(msg)
             elif sock_id == id(results):
                 yield s.sock.push(output_route, msg)
 

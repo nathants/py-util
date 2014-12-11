@@ -11,6 +11,7 @@ def main():
                             s.test.one,
                             s.test.light_auto,
                             s.test.slow_auto,
+                            s.test.one_auto,
                             s.test.slow,
                             s.test.fast,
                             s.test.light])

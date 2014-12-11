@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import uuid
 import sys
 import logging
 import six
@@ -310,9 +311,12 @@ def watch_files(route):
         try:
             with s.shell.climb_git_root():
                 while True:
-                    s.shell.run("find -name '*py' | entr -d echo ''",
-                                callback=lambda _: s.sock.push_sync(route, ''),
-                                warn=True)
+                    # TODO use tornado subprocess
+                    fifo = '/tmp/{}'.format(uuid.uuid4())
+                    cmd = ("(find -name '*.py' | entr -d +{fifo} &) &&"
+                           "sleep 1 &&" # TODO this should probably be smarter
+                           "while read F; do echo $F; done < {fifo}".format(**locals()))
+                    s.shell.run(cmd, callback=lambda x: s.sock.push_sync(route, x))
         except KeyboardInterrupt:
             s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
     s.proc.new(watcher)
