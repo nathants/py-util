@@ -5,9 +5,6 @@ import s.sock
 import stopit
 
 
-s.log.setup(debug=True)
-
-
 def setup_function(fn):
     fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
     fn.stopit.__enter__()
@@ -190,14 +187,14 @@ def test_pub_sub_subscriptions():
     @s.async.coroutine
     def subber():
         pubber()
-        responses = set()
         with s.sock.connect('sub', route) as sock:
+            responses = set()
             for _ in range(10):
                 msg = yield sock.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf'), ('b', '123')}
-        responses = set()
         with s.sock.connect('sub', route, subscriptions=['a']) as sock:
+            responses = set()
             for _ in range(10):
                 msg = yield sock.recv()
                 responses.add(msg)
@@ -341,6 +338,46 @@ def test_push_pull_device():
         assert responses == {'job1', 'job2'}
     s.proc.new(s.sock.device, 'streamer', r1, r2)
     s.async.run_sync(main)
+
+
+def test_sub_sync():
+    route = s.sock.route()
+    def fn():
+        assert s.sock.sub_sync(route) == ('', 'asdf')
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('pub', route) as sock:
+            for _ in range(100):
+                yield s.async.sleep(.001)
+                yield sock.send('asdf')
+    proc = s.proc.new(fn)
+    s.async.run_sync(main)
+    proc.join()
+    assert proc.exitcode == 0, proc.exitcode
+
+
+def test_sub_sync_subscriptions():
+    route = s.sock.route()
+    def fn():
+        data = set()
+        for _ in range(10):
+            data.add(s.sock.sub_sync(route))
+        assert data == {('a', 'asdf1'), ('b', 'asdf2')}
+        data = set()
+        for _ in range(10):
+            data.add(s.sock.sub_sync(route, subscriptions=['b']))
+        assert data == {('b', 'asdf2')}
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('pub', route) as sock:
+            yield s.async.sleep(.1)
+            for _ in range(1000):
+                yield sock.send('asdf2', topic='b')
+                yield sock.send('asdf1', topic='a')
+    proc = s.proc.new(fn)
+    s.async.run_sync(main)
+    proc.join()
+    assert proc.exitcode == 0
 
 
 def test_push_sync():
