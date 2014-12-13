@@ -34,26 +34,24 @@ def context(pid):
     return zmq.Context()
 
 
-def new(action, kind, route, subscriptions=[""], sockopts={}, timeout=None, hwm=1):
+def new(action, kind, route, subscriptions=[""], sockopts={}, hwm=1):
     assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
     sock = context(os.getpid()).socket(getattr(zmq, kind.upper()))
+    sock.hwm = hwm
     for k, v in sockopts.items():
         setattr(sock, k, v)
-    try:
-        getattr(sock, action)(route)
-    except:
-        raise
+    getattr(sock, action)(route) # sock.bind(route)
+    _setup_subscriptions(sock, kind, subscriptions)
+    return AsyncSock(sock)
+
+
+def _setup_subscriptions(sock, kind, subscriptions):
     if kind.lower() == 'sub':
         assert isinstance(subscriptions, (list, tuple)), 'subscriptions not a list: {}'.format(subscriptions)
         for subscr in subscriptions:
             sock.setsockopt(zmq.SUBSCRIBE, subscr.encode('utf-8'))
-    if timeout:
-        sock.setsockopt(zmq.SNDTIMEO, timeout)
-        sock.setsockopt(zmq.RCVTIMEO, timeout)
-    sock.hwm = hwm
-    return AsyncSock(sock)
 
 
 bind = functools.partial(new, 'bind')
@@ -102,7 +100,7 @@ class AsyncSock(object):
     def type(self):
         return self._sock.socket.type
 
-    def recv(self):
+    def recv(self, timeout=None):
         assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
         assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
         assert not self._sock._recv_callback, 'there is already a recv callback registered'
@@ -125,10 +123,16 @@ class AsyncSock(object):
                 [msg] = msg
                 msg = process_recv(msg)
                 future.set_result(msg)
+        if timeout:
+            def timeout_cb():
+                self._sock.stop_on_recv()
+                future.set_exception(Timeout)
+            t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), timeout_cb)
+            future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
         self._sock.on_recv(cb)
         return future
 
-    def send(self, msg, topic=''):
+    def send(self, msg, topic='', timeout=None):
         assert not topic or self.type() == zmq.PUB, 'you can only use kwarg topic with pub sockets'
         assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
         assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
@@ -151,7 +155,23 @@ class AsyncSock(object):
         else:
             msg = process_send(msg)
             self._sock.send(msg, callback=fn)
+        if timeout:
+            def cb():
+                q = self._sock._send_queue
+                vals = []
+                while not q.empty():
+                    vals.append(q.get())
+                for val in vals:
+                    if val[0] != (msg if isinstance(msg, type) else [msg]):
+                        q.put(val)
+                future.set_exception(Timeout)
+            t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), cb)
+            future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
         return future
+
+
+class Timeout(Exception):
+    pass
 
 
 def select(*socks):
@@ -174,13 +194,13 @@ def select(*socks):
 
 
 @s.async.coroutine(AssertionError)
-def open_use_close(kind, method, route, msg=None, subscriptions=None):
+def open_use_close(kind, method, route, msg=None, subscriptions=None, timeout=None):
     kw = {'subscriptions': subscriptions} if subscriptions else {}
     with connect(kind, route, **kw) as sock:
         if method == 'send':
-            val = yield sock.send(msg)
+            val = yield sock.send(msg, timeout=timeout)
         elif method == 'recv':
-            val = yield sock.recv()
+            val = yield sock.recv(timeout=timeout)
         else:
             raise AssertionError('bad method: {method}'.format(**locals()))
     raise s.async.Return(val)

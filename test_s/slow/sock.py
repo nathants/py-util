@@ -403,3 +403,21 @@ def test_pull_sync():
     s.async.run_sync(main)
     proc.join()
     assert proc.exitcode == 0, proc.exitcode
+
+
+def test_push_timeout():
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('push', s.sock.route()) as sock:
+            yield sock.send('', timeout=.001)
+    with pytest.raises(s.sock.Timeout):
+        s.async.run_sync(main)
+
+
+def test_pull_timeout():
+    @s.async.coroutine
+    def main():
+        with s.sock.bind('pull', s.sock.route()) as sock:
+            yield sock.send('', timeout=.001)
+    with pytest.raises(s.sock.Timeout):
+        s.async.run_sync(main)
