@@ -338,17 +338,15 @@ def light_auto(trigger_route, results_route):
     while True:
         for mod in modules:
             sys.modules.pop(mod, None)
-        data = light()
-        if data:
-            s.sock.push_sync(results_route, ['fast', data])
+        data = light() or []
+        s.sock.push_sync(results_route, ['fast', data])
         s.sock.sub_sync(trigger_route)
 
 
 def slow_auto(trigger_route, results_route):
     while True:
-        data = slow()
-        if data:
-            s.sock.push_sync(results_route, ['slow', data])
+        data = slow() or []
+        s.sock.push_sync(results_route, ['slow', data])
         s.sock.sub_sync(trigger_route)
 
 
@@ -358,82 +356,31 @@ def one_auto(trigger_route, results_route):
             _, path = s.sock.sub_sync(trigger_route)
             path = path.split('./', 1)[1]
             mod = path.split('.py')[0].replace('/', '.')
-            sys.modules.pop(mod, None)
-            if 'test_' not in path.split('/')[0]:
-                test_path = _test_file(path)
-            else:
-                test_path = path
-            data = _test(test_path, insight=False)
-            if data:
+            if 'slow' not in mod and 'integration' not in mod:
+                sys.modules.pop(mod, None)
+                if 'test_' not in path.split('/')[0]:
+                    test_path = _test_file(path)
+                else:
+                    test_path = path
+                data = _test(test_path, insight=False)
                 s.sock.push_sync(results_route, ['one', [data]])
 
 
 @s.async.coroutine
 def run_tests_auto(output_route):
-    results_route = s.sock.route()
     trigger_route = s.sock.route()
     watch_route = s.sock.route()
 
     kw = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    subprocess.Popen(['tests', 'light-auto', trigger_route, results_route], **kw)
-    subprocess.Popen(['tests', 'slow-auto', trigger_route, results_route], **kw)
-    subprocess.Popen(['tests', 'one-auto', trigger_route, results_route], **kw)
+    subprocess.Popen(['tests', 'light-auto', trigger_route, output_route], **kw)
+    subprocess.Popen(['tests', 'slow-auto', trigger_route, output_route], **kw)
+    subprocess.Popen(['tests', 'one-auto', trigger_route, output_route], **kw)
+    # TODO py3k for all of these tests as well
 
     s.shell.watch_files(watch_route)
 
-    """
-    TODO
-    py3k for all of these
-    try again with actors. more elegant?
-    have the workers send results directly back to orig caller, no req/rep architecture?
-    """
     with s.sock.bind('pub', trigger_route) as trigger, \
-         s.sock.bind('pull', results_route) as results, \
          s.sock.bind('pull', watch_route) as watch: # noqa
         while True:
-            sock_id, msg = yield s.sock.select(watch, results)
-            if sock_id == id(watch):
-                trigger.send(msg)
-            elif sock_id == id(results):
-                yield s.sock.push(output_route, msg)
-
-
-# def actor(fn):
-#     self = None
-#     receive = None
-#     send = None
-#     def decorated(*a, **kw):
-#         fn(*a, **kw)
-#         return self
-#     return decorated
-
-
-# @actor
-# def fast_tests(self, pid):
-#     while True:
-#         yield self.recv()
-#         result = yield s.thread.submit(s.shell.run, 'mytest')
-#         self.send(pid, result)
-
-
-# @actor
-# def tests_auto(self, pid):
-#     s.shell.fs_watch(self())
-#     fast_pid = fast_tests(pid)
-#     while True:
-#         key, msg = yield self.recv()
-#         if key == 'fs-changed':
-#             yield self.send(fast_pid, None)
-
-
-# @actor
-# def main(self):
-#     tests_auto(self())
-#     while True:
-#         key, msg = yield self.receive()
-#         if key == 'result':
-#             print(msg)
-
-
-# def _app(terminal, pytest):
-#     s.async.run_actor(main)
+            changed_file = yield watch.recv()
+            yield trigger.send(changed_file)

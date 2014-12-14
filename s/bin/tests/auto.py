@@ -43,18 +43,15 @@ def _app(terminal, pytest):
     route = s.sock.route()
     @s.async.coroutine
     def main():
+        state = {}
         s.bin.tests.server.start()
         s.test.run_tests_auto(route)
         with s.sock.bind('pull', route) as sock:
             while True:
                 name, data = yield sock.recv()
-                # TODO always print all the datas, not just this one.
-                # ie save them by name and then print all.
-                #
-                # when a name goes red, only that name can make it go green.
-                # ie a slow failure requires a slow success before green.
-                s.bin.tests.server.send(data)
-                text = ('\n'.join(map(_view, data))
-                        or s.colors.green('tests passed'))
+                state[name] = data
+                all_data = sum(state.values(), ())
+                s.bin.tests.server.send(all_data)
+                text = '\n'.join(map(_view, all_data)) or s.colors.green('tests passed')
                 _print(terminal, text)
     s.async.run_sync(main)
