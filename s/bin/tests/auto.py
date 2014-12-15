@@ -39,6 +39,14 @@ def auto(pytest=False):
             _app(terminal, pytest)
 
 
+def _file_name(x):
+    return x['path'].split(':')[0]
+
+
+def _match(a, b):
+    return _file_name(a) == _file_name(b[0][0])
+
+
 def _app(terminal, pytest):
     route = s.sock.route()
     @s.async.coroutine
@@ -50,6 +58,9 @@ def _app(terminal, pytest):
             while True:
                 name, data = yield sock.recv()
                 state[name] = data
+                if name == 'one' and data and data[0] and not any(y['result'] for x in data for y in x):
+                    fn = lambda x: isinstance(x, dict) and x['result'] and _match(x, data) and s.dicts.put(x, False, 'result') or x
+                    state['fast'] = s.seqs.walk(state['fast'], fn)
                 all_data = sum(state.values(), ())
                 s.bin.tests.server.send(all_data)
                 text = '\n'.join(map(_view, all_data)) or s.colors.green('tests passed')

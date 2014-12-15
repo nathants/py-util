@@ -278,7 +278,9 @@ def light():
 
 
 def one(test_path):
-    return _test(test_path)
+    if os.path.isfile(test_path):
+        return _test(test_path)
+    return []
 
 
 @s.trace.logic
