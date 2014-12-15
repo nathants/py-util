@@ -336,8 +336,8 @@ def _cover(test_file):
 
 
 def light_auto(trigger_route, results_route):
-    modules = _modules_to_reload()
     while True:
+        modules = _modules_to_reload()
         for mod in modules:
             sys.modules.pop(mod, None)
         data = light() or []
@@ -357,15 +357,17 @@ def one_auto(trigger_route, results_route):
         while True:
             _, path = s.sock.sub_sync(trigger_route)
             path = path.split('./', 1)[1]
-            mod = path.split('.py')[0].replace('/', '.')
-            if 'slow' not in mod and 'integration' not in mod:
-                sys.modules.pop(mod, None)
+            if 'slow' not in path and 'integration' not in path:
                 if 'test_' not in path.split('/')[0]:
                     test_path = _test_file(path)
                 else:
                     test_path = path
-                data = _test(test_path, insight=False)
-                s.sock.push_sync(results_route, ['one', [data]])
+                if os.path.isfile(test_path):
+                    modules = _modules_to_reload()
+                    for mod in modules:
+                        sys.modules.pop(mod, None)
+                    data = _test(test_path, insight=False)
+                    s.sock.push_sync(results_route, ['one', [data]])
 
 
 @s.async.coroutine
