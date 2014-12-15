@@ -180,6 +180,19 @@ def _check(validator, value):
                     with s.exceptions.ignore(AssertionError):
                         return _check(v, value)
                 raise AssertionError('{} <{}> did not match any of [{}]'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]])))
+            elif validator and validator[0] == ':fn':
+                assert isinstance(value, types.FunctionType), '{} <{}> is not a function'.format(value, type(value))
+                try:
+                    args, kwargs = validator[1:]
+                except ValueError:
+                    [args], kwargs = validator[1:], {}
+                try:
+                    _args, _kwargs = value._schema
+                except ValueError:
+                    [_args], _kwargs = value._schema, {}
+                assert _args == args, 'pos args {_args} did not match {args}'.format(**locals())
+                assert _kwargs == kwargs, 'kwargs {_kwargs} did not match {kwargs}'.format(**locals())
+                return value
             else:
                 assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
                 return s.data.freeze([_check(_validator, _val) for _validator, _val in zip(validator, value)])
@@ -291,5 +304,6 @@ def check(*args, **kwargs):
                 except AssertionError as e:
                     s.exceptions.update(e, lambda x: x + '\n\n--function--\n{}\n--end--\n'.format(name))
                     raise
+        decorated._schema = arg_schemas, {k: v for k, v in list(kwarg_schemas.items()) + [['returns', returns_schema]]}
         return decorated
     return decorator

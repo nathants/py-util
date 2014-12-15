@@ -4,6 +4,39 @@ import pytest
 import six
 
 
+def test_fn_types():
+    schema = (':fn', (int, int), {'returns': str})
+
+    @s.schema.check(int, int, returns=str)
+    def fn(x, y):
+        return str(x + y)
+    assert s.schema.validate(schema, fn) is fn
+
+    @s.schema.check(int, float, returns=str)
+    def fn(x, y):
+        return str(x + y)
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, fn) is fn
+
+    @s.schema.check(int, int, returns=float)
+    def fn(x, y):
+        return str(x + y)
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, fn) is fn
+
+    @s.schema.check(int, int, returns=float)
+    def fn(x, y):
+        return str(x + y)
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, fn) is fn
+
+    @s.schema.check(int, int)
+    def fn(x, y):
+        return str(x + y)
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, fn) is fn
+
+
 def test_union_types():
     schema = (':or', int, float)
     assert s.schema.validate(schema, 1) == 1
