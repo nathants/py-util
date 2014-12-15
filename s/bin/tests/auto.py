@@ -47,6 +47,25 @@ def _match(a, b):
     return _file_name(a) == _file_name(b[0][0])
 
 
+def _one_and_all_passed(name, data):
+    return (name == 'one'
+            and data
+            and data[0]
+            and not any(y['result']
+                        for x in data
+                        for y in x))
+
+
+def _when_dict_set_result_to_false(data):
+    def fn(x):
+        return (isinstance(x, dict)
+                and x['result']
+                and _match(x, data)
+                and s.dicts.put(x, False, 'result')
+                or x)
+    return fn
+
+
 def _app(terminal, pytest):
     route = s.sock.route()
     @s.async.coroutine
@@ -58,11 +77,10 @@ def _app(terminal, pytest):
             while True:
                 name, data = yield sock.recv()
                 state[name] = data
-                if name == 'one' and data and data[0] and not any(y['result'] for x in data for y in x):
-                    fn = lambda x: isinstance(x, dict) and x['result'] and _match(x, data) and s.dicts.put(x, False, 'result') or x
-                    state['fast'] = s.seqs.walk(state['fast'], fn)
+                if 'fast' in state and _one_and_all_passed(name, data):
+                    state['fast'] = s.seqs.walk(state['fast'], _when_dict_set_result_to_false(data))
                 all_data = sum(state.values(), ())
-                s.bin.tests.server.send(all_data)
                 text = '\n'.join(map(_view, all_data)) or s.colors.green('tests passed')
                 _print(terminal, text)
+                s.bin.tests.server.send(all_data)
     s.async.run_sync(main)
