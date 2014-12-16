@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 import pytest
 import s
-import requests
 import json
 
 
@@ -58,12 +57,10 @@ def test_basic():
                               'code': 200,
                               'body': 'ok'})
     app = s.web.server([('/', {'GET': handler})])
-    # TODO use s.web.get and a coroutine and drop requests
-    # make a s.web.get_sync func
     with s.web.test(app) as url:
-        resp = requests.get(url)
-        assert resp.text == 'ok'
-        assert resp.headers['foo'] == 'bar'
+        resp = s.web.get_sync(url)
+        assert resp['body'] == 'ok'
+        assert resp['headers']['foo'] == 'bar'
 
 
 def test_middleware():
@@ -84,8 +81,8 @@ def test_middleware():
                               'body': 'ok' + request['headers']['asdf']})
     app = s.web.server([('/', {'GET': handler})])
     with s.web.test(app) as url:
-        resp = requests.get(url)
-        assert resp.text == 'ok [mod req] [mod resp]'
+        resp = s.web.get_sync(url)
+        assert resp['body'] == 'ok [mod req] [mod resp]'
 
 
 def test_url_params():
@@ -96,10 +93,11 @@ def test_url_params():
                               'body': json.dumps(request['query'])})
     app = s.web.server([('/', {'GET': handler})])
     with s.web.test(app) as url:
-        resp = requests.get(url + '?asdf=123&foo=bar&foo=notbar&stuff')
-        assert resp.json() == {'asdf': '123',
-                               'foo': ['bar', 'notbar'],
-                               'stuff': ''}
+        resp = s.web.get_sync(url + '?asdf=123&foo=bar&foo=notbar&stuff')
+        data = json.loads(resp['body'])
+        assert data == {'asdf': '123',
+                        'foo': ['bar', 'notbar'],
+                        'stuff': ''}
 
 
 def test_url_args():
@@ -110,5 +108,5 @@ def test_url_args():
                               'body': json.dumps({'foo': request['arguments']['foo']})})
     app = s.web.server([('/:foo/stuff', {'GET': handler})])
     with s.web.test(app) as url:
-        resp = requests.get(url + 'something/stuff')
-        assert resp.json() == {'foo': 'something'}
+        resp = s.web.get_sync(url + 'something/stuff')
+        assert json.loads(resp['body']) == {'foo': 'something'}
