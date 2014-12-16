@@ -157,3 +157,13 @@ def actor(selective_receive=False):
             return self._route
         return _actor
     return decorator
+
+
+def make_sync(fn):
+    def fn_sync(*a, **kw):
+        @s.async.coroutine
+        def main():
+            val = yield fn(*a, **kw)
+            raise s.async.Return(val)
+        return s.async.run_sync(main)
+    return fn_sync

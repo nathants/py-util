@@ -4,6 +4,7 @@ import datetime
 import tornado.web
 import tornado.httputil
 import tornado.ioloop
+import tornado.httpclient
 import s
 import requests
 import time
@@ -103,8 +104,6 @@ def test(app, poll=True):
         proc.terminate()
 
 
-import tornado.httpclient
-
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
@@ -134,6 +133,10 @@ def get(url, **kw):
 
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
+
+
+get_sync = s.async.make_sync(get)
+post_sync = s.async.make_sync(post)
 
 
 class Timeout(Exception):

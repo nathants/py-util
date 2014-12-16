@@ -206,25 +206,9 @@ def open_use_close(kind, method, route, msg=None, subscriptions=None, timeout=No
     raise s.async.Return(val)
 
 
-def _make_sync(fn):
-    def fn_sync(route, msg=None, subscriptions=None):
-        @s.async.coroutine
-        def main():
-            if msg is not None:
-                yield fn(route, msg)
-            else:
-                if subscriptions:
-                    val = yield fn(route, subscriptions=subscriptions)
-                else:
-                    val = yield fn(route)
-                raise s.async.Return(val)
-        return s.async.run_sync(main)
-    return fn_sync
-
-
 push = functools.partial(open_use_close, 'push', 'send')
 pull = functools.partial(open_use_close, 'pull', 'recv')
 sub = functools.partial(open_use_close, 'sub', 'recv')
-pull_sync = _make_sync(pull)
-push_sync = _make_sync(push)
-sub_sync = _make_sync(sub)
+pull_sync = s.async.make_sync(pull)
+push_sync = s.async.make_sync(push)
+sub_sync = s.async.make_sync(sub)
