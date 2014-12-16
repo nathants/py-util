@@ -1,13 +1,27 @@
 from __future__ import print_function, absolute_import
+import pytest
 import s
 import requests
 import json
 
 
-s.log.setup(debug=True)
+def test_get_timeout():
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.sleep(1)
+        raise s.async.Return({})
+
+    @s.async.coroutine
+    def main(url):
+        yield s.web.get(url, timeout=.001)
+
+    app = s.web.server([('/', {'GET': handler})])
+    with s.web.test(app) as url:
+        with pytest.raises(s.web.Timeout):
+            s.async.run_sync(lambda: main(url))
 
 
-def test_basic123():
+def test_get():
     @s.async.coroutine
     def handler(request):
         yield s.async.moment
@@ -27,6 +41,14 @@ def test_basic123():
         s.async.run_sync(lambda: main(url))
 
 
+def test_post():
+    pass
+
+
+def test_post_timeout():
+    pass
+
+
 def test_basic():
     @s.async.coroutine
     def handler(request):
@@ -36,6 +58,8 @@ def test_basic():
                               'code': 200,
                               'body': 'ok'})
     app = s.web.server([('/', {'GET': handler})])
+    # TODO use s.web.get and a coroutine and drop requests
+    # make a s.web.get_sync func
     with s.web.test(app) as url:
         resp = requests.get(url)
         assert resp.text == 'ok'

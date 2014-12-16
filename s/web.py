@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 import contextlib
+import datetime
 import tornado.web
 import tornado.httputil
 import tornado.ioloop
@@ -107,16 +108,20 @@ import tornado.httpclient
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-@s.cached.func
-def _client():
-    return tornado.httpclient.AsyncHTTPClient()
-
-
-@s.schema.check(str, str, returns=_schemas.response)
+@s.schema.check(str, str, returns=_schemas.response, timeout=float)
 @s.async.coroutine(freeze=False)
 def _fetch(method, url, **kw):
+    timeout = kw.pop('timeout', None)
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
-    response = yield _client().fetch(request)
+    future = s.async.Future()
+    response = tornado.httpclient.AsyncHTTPClient().fetch(request)
+    s.async.chain(response, future)
+    if timeout:
+        s.async.ioloop().add_timeout(
+            datetime.timedelta(seconds=timeout),
+            lambda: not future.done() and future.set_exception(Timeout)
+        )
+    response = yield future
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
@@ -129,3 +134,7 @@ def get(url, **kw):
 
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
+
+
+class Timeout(Exception):
+    pass
