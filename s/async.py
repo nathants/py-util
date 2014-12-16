@@ -95,6 +95,7 @@ def run_sync(func, timeout=None):
 Return = tornado.gen.Return
 moment = tornado.gen.moment
 Future = tornado.concurrent.Future
+chain = tornado.concurrent.chain_future
 
 
 class _Self(object):
