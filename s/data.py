@@ -98,7 +98,9 @@ immutable_types = (
     _ImmutableSeq,
     _ImmutableSet,
 ) + string_types
-
+with s.exceptions.ignore():
+    import bson.objectid
+    immutable_types += (bson.objectid.ObjectId,)
 
 listy_types = (list,
                tuple,
