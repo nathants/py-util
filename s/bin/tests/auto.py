@@ -16,7 +16,7 @@ def _view(test_data):
              for x in test_data
              if x['seconds'] > _max_seconds
              and not x['result']]
-    color = s.colors.red if failures or slows else s.colors.green
+    color = s.colors.red if failures else s.colors.yellow if slows else s.colors.green
     name = test_data[0]['path'].split(':')[0]
     val = color(name)
     for fail in failures + slows:
