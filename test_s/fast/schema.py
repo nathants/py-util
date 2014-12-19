@@ -4,6 +4,24 @@ import pytest
 import six
 
 
+def test_kwargs():
+    @s.schema.check(kwargs={str: int})
+    def fn(**kw):
+        return True
+    fn(a=1, b=2)
+    with pytest.raises(AssertionError):
+        fn(a=1, b=2.0)
+
+
+def test_args():
+    @s.schema.check(args=[int])
+    def fn(*a):
+        return True
+    fn(1, 2)
+    with pytest.raises(AssertionError):
+        fn(1, 2.0)
+
+
 def test_fn_types():
     schema = (':fn', (int, int), {'returns': str})
 
