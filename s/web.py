@@ -11,7 +11,7 @@ import time
 import six
 
 
-class _schemas:
+class schemas:
     request = {'verb': str,
                'uri': str,
                'path': str,
@@ -57,7 +57,7 @@ def _query_parse(query):
             for k, v in parsed.items()}
 
 
-@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=_schemas.request)
+@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
 def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
@@ -107,7 +107,7 @@ def test(app, poll=True):
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-@s.schema.check(str, str, returns=_schemas.response, timeout=float)
+@s.schema.check(str, str, returns=schemas.response, timeout=float)
 @s.async.coroutine(freeze=False)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
