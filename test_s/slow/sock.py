@@ -238,26 +238,27 @@ def test_req_rep_device_middleware():
             yield rep.send('thanks for: ' + msg)
     @s.async.coroutine
     def queue():
-        with s.sock.bind('router', r1) as router, s.sock.bind('dealer', r2) as dealer:
-            @s.async.coroutine
-            def route():
-                while True:
-                    msg = yield router.recv()
-                    msg = msg[:-1] + (msg[-1] + ' [routed]',)
-                    dealer.send(msg)
-            @s.async.coroutine
-            def deal():
-                while True:
-                    msg = yield dealer.recv()
-                    msg = msg[:-1] + (msg[-1] + ' [dealt]',)
-                    router.send(msg)
-            route()
-            deal()
-            yield s.async.Future()
+        yield s.async.moment
+        router = s.sock.bind('router', r1).__enter__()
+        dealer = s.sock.bind('dealer', r2).__enter__()
+        @s.async.coroutine
+        def route():
+            while True:
+                msg = yield router.recv()
+                msg = msg[:-1] + (msg[-1] + ' [routed]',)
+                dealer.send(msg)
+        @s.async.coroutine
+        def deal():
+            while True:
+                msg = yield dealer.recv()
+                msg = msg[:-1] + (msg[-1] + ' [dealt]',)
+                router.send(msg)
+        route()
+        deal()
     @s.async.coroutine
     def main():
-        replier()
         queue()
+        replier()
         with s.sock.connect('req', r1) as req:
             yield req.send('asdf')
             msg = yield req.recv()
@@ -421,3 +422,13 @@ def test_pull_timeout():
             yield sock.send('', timeout=.001)
     with pytest.raises(s.sock.Timeout):
         s.async.run_sync(main)
+
+
+def test_pull_sync_timeout():
+    with pytest.raises(s.sock.Timeout):
+        s.sock.pull_sync(s.sock.route(), timeout=.001)
+
+
+def test_sub_sync_timeout():
+    with pytest.raises(s.sock.Timeout):
+        s.sock.sub_sync(s.sock.route(), timeout=.001)
