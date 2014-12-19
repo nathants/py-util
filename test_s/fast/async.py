@@ -1,9 +1,9 @@
+from __future__ import print_function, absolute_import
 import s
 
 
 def test_coroutines_do_not_persist_between_runsync_calls():
     state = []
-
     @s.async.coroutine
     def mutator():
         while True:
