@@ -8,46 +8,29 @@ import s
 _size = multiprocessing.cpu_count() + 2
 
 
-def _pool_factory():
-    @s.cached.func
-    def _pool(cls, size):
-        logging.debug('new: %s, size: %s', cls, size)
-        return cls(size)
-    return _pool
+@s.cached.func
+def _pool():
+    logging.debug('new process pool, size: %s', _size)
+    return concurrent.futures.ProcessPoolExecutor(_size)
 
 
-_pool = _pool_factory()
+def shutdown_pool():
+    _pool().shutdown(wait=False)
+    _pool.clear_cache()
 
 
-def _new_factory(cls):
-    def _new(fn, *a, **kw):
-        daemon = kw.pop('daemon', True)
-        obj = cls(target=fn, args=a, kwargs=kw)
-        obj.daemon = daemon
-        obj.start()
-        return obj
-    return _new
+def new(fn, *a, **kw):
+    daemon = kw.pop('daemon', True)
+    obj = multiprocessing.Process(target=fn, args=a, kwargs=kw)
+    obj.daemon = daemon
+    obj.start()
+    return obj
 
 
-def _wait_factory(cls):
-    _new = _new_factory(cls)
-    def _wait(*fns):
-        objs = [_new(fn) for fn in fns]
-        [obj.join() for obj in objs]
-    return _wait
+def wait(*fns):
+    objs = [new(fn) for fn in fns]
+    [obj.join() for obj in objs]
 
 
-def _submit_factory(cls, _globals):
-    def _submit(fn, *a, **kw):
-        pool = _globals['_pool'](cls, _globals['_size'])
-        return pool.submit(fn, *a, **kw)
-    return _submit
-
-
-submit = _submit_factory(concurrent.futures.ProcessPoolExecutor, globals())
-
-
-new = _new_factory(multiprocessing.Process)
-
-
-wait = _wait_factory(multiprocessing.Process)
+def submit(fn, *a, **kw):
+    return _pool().submit(fn, *a, **kw)
