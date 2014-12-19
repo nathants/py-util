@@ -206,6 +206,7 @@ def open_use_close(kind, method, route, msg=None, subscriptions=None, timeout=No
     raise s.async.Return(val)
 
 
+# fn(route, msg=None, subscriptions=None, timeout=None)
 push = functools.partial(open_use_close, 'push', 'send')
 pull = functools.partial(open_use_close, 'pull', 'recv')
 sub = functools.partial(open_use_close, 'sub', 'recv')
