@@ -257,17 +257,20 @@ def slow():
         pytest = 'py.test'
     else:
         pytest = 'py.test3'
-    futures = [s.proc.submit(s.shell.run, pytest, '-x --tb native', path, warn=True)
-               for path in slow_test_files()]
+    futures = {s.proc.submit(s.shell.run, 'timeout 5', pytest, '-x --tb native', path, warn=True): path
+               for path in slow_test_files()}
     for f in concurrent.futures.as_completed(futures):
         result = f.result()
-        if result['exitcode'] != 0:
+        if result['exitcode'] == 124:
+            s.proc.shutdown_pool() # may need to use proc.new() and terminate(). kill with more predjudice.
+            return [[{'result': 'timed out: {}'.format(futures[f]), 'path': 'test_*/slow/*.py', 'seconds': 0}]]
+        elif result['exitcode'] != 0:
             text = _format_pytest_output(result['output'])
             return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
 
 
 def fast():
-    result = s.shell.run('py.test -x --tb native', *fast_test_files(), warn=True)
+    result = s.shell.run('timeout 5 py.test -x --tb native', *fast_test_files(), warn=True)
     if result['exitcode'] != 0:
         text = _format_pytest_output(result['output'])
         return [[{'result': text, 'path': 'test_*/fast/*.py', 'seconds': 0}]]
@@ -343,6 +346,7 @@ def light_auto(trigger_route, results_route):
         data = light() or []
         s.sock.push_sync(results_route, ['fast', data])
         s.sock.sub_sync(trigger_route)
+        _consume_all_subs(trigger_route)
 
 
 def slow_auto(trigger_route, results_route):
@@ -350,6 +354,15 @@ def slow_auto(trigger_route, results_route):
         data = slow() or []
         s.sock.push_sync(results_route, ['slow', data])
         s.sock.sub_sync(trigger_route)
+        _consume_all_subs(trigger_route)
+
+
+def _consume_all_subs(route):
+    while True:
+        try:
+            s.sock.sub_sync(route, timeout=.0001)
+        except s.sock.Timeout:
+            break
 
 
 def one_auto(trigger_route, results_route):
