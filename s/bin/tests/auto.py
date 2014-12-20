@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 import blessed
 import s
 import s.bin.tests.server
+import s.bin.tests.lib
 s.sock # init zmq
 
 
@@ -72,7 +73,7 @@ def _app(terminal, pytest):
     def main():
         state = {}
         s.bin.tests.server.start()
-        s.test.run_tests_auto(route)
+        s.bin.tests.lib.run_tests_auto(route)
         with s.sock.bind('pull', route) as sock:
             while True:
                 name, data = yield sock.recv()

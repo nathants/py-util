@@ -330,7 +330,7 @@ def _parse_coverage(module_name, text):
 def _cover(test_file):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     try:
-        module_name = s.shell.module_name(s.test.code_file(test_file))
+        module_name = s.shell.module_name(code_file(test_file))
     except AssertionError:
         return
     else:

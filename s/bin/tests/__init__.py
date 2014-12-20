@@ -3,15 +3,16 @@ from s.bin.tests import auto
 from s.bin.tests import cover
 import argh
 import s
+import s.bin.tests.lib
 
 
 def main():
     argh.dispatch_commands([auto.auto,
                             cover.cover,
-                            s.test.one,
-                            s.test.light_auto,
-                            s.test.slow_auto,
-                            s.test.one_auto,
-                            s.test.slow,
-                            s.test.fast,
-                            s.test.light])
+                            s.bin.tests.lib.one,
+                            s.bin.tests.lib.light_auto,
+                            s.bin.tests.lib.slow_auto,
+                            s.bin.tests.lib.one_auto,
+                            s.bin.tests.lib.slow,
+                            s.bin.tests.lib.fast,
+                            s.bin.tests.lib.light])
