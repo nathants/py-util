@@ -81,13 +81,13 @@ class _ImmutableSet(frozenset):
     pass
 
 
-string_types = (str,
-                bytes,)
+string_types = (str,)
 with s.exceptions.ignore():
     string_types += (unicode,) # noqa
 
 
 immutable_types = (
+    bytes,
     int,
     float,
     type(None),

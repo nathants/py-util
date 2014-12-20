@@ -7,6 +7,7 @@ import six
 def test_kwargs():
     @s.schema.check(kwargs={str: int})
     def fn(**kw):
+        assert 'a' in kw and 'b' in kw
         return True
     fn(a=1, b=2)
     with pytest.raises(AssertionError):
@@ -105,6 +106,13 @@ def test_unicde_synonymous_with_str():
     assert s.schema.validate(u'asdf', 'asdf') == 'asdf'
     assert s.schema.validate('asdf', u'asdf') == 'asdf'
     assert s.schema.validate(dict, {u'a': 'b'}) == {'a': 'b'}
+
+
+def test_bytes_not_synonymous_with_str():
+    if six.PY3:
+        assert s.schema.validate(bytes, b'123') == b'123'
+        with pytest.raises(AssertionError):
+            s.schema.validate(str, b'123')
 
 
 def test_dicts_must_have_str_keys():
