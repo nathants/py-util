@@ -17,6 +17,7 @@ def is_valid(schema, value):
 
 
 def validate(schema, value):
+    # TODO update doctest with :fn and args/kwargs
     """
     >>> import pytest
 
@@ -162,6 +163,7 @@ def _starts_with_keyword(x):
 
 
 def _check(validator, value):
+    # TODO break this up into well named pieces
     assert not isinstance(validator, set), 'a set cannot be a validator: {}'.format(validator)
     if validator is object:
         return value
@@ -245,7 +247,6 @@ def _helpful_message(schema, value):
             continue
     else:
         schema = pprint.pformat(schema, width=1)
-
     return '\n\n--obj--\n{}\n--schema--\n{}\n--end--\n'.format(
         pprint.pformat(value, width=1),
         schema,
@@ -269,40 +270,31 @@ def get_schemas(arg_schemas, kwarg_schemas, fn):
 
 def check(*args, **kwargs):
     def decorator(fn):
+        # TODO break this up into well named pieces
         arg_schemas, kwarg_schemas = get_schemas(args, kwargs, fn)
-
         kwargs_schema = kwarg_schemas.pop('kwargs', None)
         args_schema = kwarg_schemas.pop('args', None)
-
         returns_schema = kwarg_schemas.pop('returns', lambda x: x)
         name = s.func.name(fn)
         @functools.wraps(fn)
         def decorated(*args, **kwargs):
             with s.exceptions.update(lambda x: x + '\n--info--\nschema.check failed for function: {}\n--end--\n'.format(name)):
-
                 assert len(arg_schemas) == len(args) or args_schema, 'you asked to check {} for {} pos args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
-                for key, value in kwargs.items():
-                    assert key in kwarg_schemas or kwargs_schema, 'cannot check {} for unknown key: {}={}'.format(name, key, value)
-
-                # TODO clean and more exceptions.updates()
-
                 _args = []
                 for i, (schema, arg) in enumerate(zip(arg_schemas, args)):
                     with s.exceptions.update(lambda x: x + '--arg num--\n{}\n--end--\n'.format(i)):
                         _args.append(validate(schema, arg))
                 if args_schema and args[len(arg_schemas):]:
                     _args += validate(args_schema, args[len(arg_schemas):])
-
                 _kwargs = {}
                 for k, v in kwargs.items():
                     if k in kwarg_schemas:
                         with s.exceptions.update(lambda x: x + '--arg keyword--\n{}\n--end--\n'.format(k)):
                             _kwargs[k] = validate(kwarg_schemas[k], v)
-                if kwargs_schema and len(kwargs) - len(kwarg_schemas):
-                    val = s.dicts.drop(kwargs, *kwarg_schemas.keys())
-                    val = validate(kwargs_schema, val)
-                    _kwargs = s.dicts.merge(_kwargs, val)
-
+                    elif kwargs_schema:
+                        _kwargs[k] = validate(kwargs_schema, {k: v})[k]
+                    else:
+                        raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
                 value = fn(*_args, **_kwargs)
                 if s.trace._is_futury(value):
                     @s.async.coroutine
