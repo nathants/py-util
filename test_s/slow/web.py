@@ -41,11 +41,37 @@ def test_get():
 
 
 def test_post():
-    pass
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        data = json.loads(request['body'])
+        raise s.async.Return({'code': data['num'] + 1})
+
+    @s.async.coroutine
+    def main(url):
+        resp = yield s.web.post(url, json.dumps({'num': 200}))
+        assert resp['code'] == 201
+
+    app = s.web.server([('/', {'post': handler})])
+    with s.web.test(app) as url:
+        s.async.run_sync(lambda: main(url))
 
 
 def test_post_timeout():
-    pass
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.sleep(1)
+        raise s.async.Return({'code': 200})
+
+    @s.async.coroutine
+    def main(url):
+        resp = yield s.web.post(url, '', timeout=.001)
+        assert resp['code'] == 201
+
+    app = s.web.server([('/', {'post': handler})])
+    with s.web.test(app) as url:
+        with pytest.raises(s.web.Timeout):
+            s.async.run_sync(lambda: main(url))
 
 
 def test_basic():

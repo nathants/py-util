@@ -63,7 +63,7 @@ def _request_to_dict(obj, arguments):
             'uri': obj.uri,
             'path': obj.path,
             'query': _query_parse(obj.query),
-            'body': obj.body,
+            'body': obj.body.decode('utf-8'),
             'headers': dict(obj.headers),
             'arguments': arguments}
 
@@ -108,7 +108,7 @@ with s.exceptions.ignore(ImportError):
     tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-@s.schema.check(str, str, returns=schemas.response, timeout=float)
+@s.schema.check(str, str, returns=schemas.response, timeout=float, kwargs=dict)
 @s.async.coroutine(freeze=False)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
