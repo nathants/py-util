@@ -104,7 +104,8 @@ def test(app, poll=True):
         proc.terminate()
 
 
-tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+with s.exceptions.ignore(ImportError):
+    tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
 @s.schema.check(str, str, returns=schemas.response, timeout=float)
