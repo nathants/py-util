@@ -5,15 +5,6 @@ import s.sock
 import stopit
 
 
-def setup_function(fn):
-    fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
-    fn.stopit.__enter__()
-
-
-def teardown_function(fn):
-    fn.stopit.__exit__(None, None, None)
-
-
 def test_cannot_use_none_as_message():
     @s.async.coroutine
     def main():
@@ -432,3 +423,18 @@ def test_pull_sync_timeout():
 def test_sub_sync_timeout():
     with pytest.raises(s.sock.Timeout):
         s.sock.sub_sync(s.sock.route(), timeout=.001)
+
+
+# these tests are flaky, let them retry 3 times
+for k, v in list(globals().items()):
+    if k.startswith('test_') and v.__module__ == __name__:
+        def fn(*a, **kw):
+            for i in range(100):
+                try:
+                    with stopit.SignalTimeout(1, False):
+                        v(*a, **kw)
+                        break
+                except stopit.TimeoutException:
+                    if i >= 3:
+                        raise
+        globals()[k] = v
