@@ -76,7 +76,7 @@ def test_trace_web():
         raise s.async.Return({'headers': {'foo': 'bar'},
                               'code': 200,
                               'body': 'ok'})
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app, poll=False) as url:
         import time
         time.sleep(.1)

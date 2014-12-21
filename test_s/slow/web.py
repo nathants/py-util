@@ -14,7 +14,7 @@ def test_get_timeout():
     def main(url):
         yield s.web.get(url, timeout=.001)
 
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app) as url:
         with pytest.raises(s.web.Timeout):
             s.async.run_sync(lambda: main(url))
@@ -35,7 +35,7 @@ def test_get():
         assert resp['code'] == 200
         assert resp['headers']['foo'] == 'bar'
 
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app) as url:
         s.async.run_sync(lambda: main(url))
 
@@ -52,7 +52,7 @@ def test_post():
         resp = yield s.web.post(url, json.dumps({'num': 200}))
         assert resp['code'] == 201
 
-    app = s.web.server([('/', {'post': handler})])
+    app = s.web.app([('/', {'post': handler})])
     with s.web.test(app) as url:
         s.async.run_sync(lambda: main(url))
 
@@ -68,7 +68,7 @@ def test_post_timeout():
         resp = yield s.web.post(url, '', timeout=.001)
         assert resp['code'] == 201
 
-    app = s.web.server([('/', {'post': handler})])
+    app = s.web.app([('/', {'post': handler})])
     with s.web.test(app) as url:
         with pytest.raises(s.web.Timeout):
             s.async.run_sync(lambda: main(url))
@@ -82,7 +82,7 @@ def test_basic():
         raise s.async.Return({'headers': {'foo': 'bar'},
                               'code': 200,
                               'body': 'ok'})
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url)
         assert resp['body'] == 'ok'
@@ -105,7 +105,7 @@ def test_middleware():
         raise s.async.Return({'headers': {'foo': 'bar'},
                               'code': 200,
                               'body': 'ok' + request['headers']['asdf']})
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url)
         assert resp['body'] == 'ok [mod req] [mod resp]'
@@ -117,7 +117,7 @@ def test_url_params():
         yield s.async.moment
         raise s.async.Return({'code': 200,
                               'body': json.dumps(request['query'])})
-    app = s.web.server([('/', {'GET': handler})])
+    app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + '?asdf=123&foo=bar&foo=notbar&stuff')
         data = json.loads(resp['body'])
@@ -132,7 +132,7 @@ def test_url_args():
         yield s.async.moment
         raise s.async.Return({'code': 200,
                               'body': json.dumps({'foo': request['arguments']['foo']})})
-    app = s.web.server([('/:foo/stuff', {'GET': handler})])
+    app = s.web.app([('/:foo/stuff', {'GET': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + 'something/stuff')
         assert json.loads(resp['body']) == {'foo': 'something'}

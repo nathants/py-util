@@ -75,7 +75,7 @@ def _parse_path(path):
                      for x in path.split('/')])
 
 
-def server(routes, debug=False):
+def app(routes, debug=False):
     routes = [(_parse_path(path), _verbs_to_handler(**verbs))
               for path, verbs in routes]
     return tornado.web.Application(routes, debug=debug)
