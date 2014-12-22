@@ -2,7 +2,6 @@ from __future__ import print_function, absolute_import
 import pytest
 import s
 import s.sock
-import stopit
 
 
 def test_cannot_use_none_as_message():
@@ -170,28 +169,29 @@ def test_pub_sub_subscriptions():
     state = {'send': True}
     @s.async.coroutine
     def pubber():
+        yield s.async.sleep(.01)
         with s.sock.bind('pub', route) as pub:
             while state['send']:
                 yield pub.send('asdf', topic='a')
                 yield pub.send('123', topic='b')
-                yield s.async.sleep(.01)
+                yield s.async.sleep(.001)
     @s.async.coroutine
     def subber():
         pubber()
-        with s.sock.connect('sub', route) as sock:
+        with s.sock.connect('sub', route) as sock1:
             responses = set()
-            for _ in range(10):
-                msg = yield sock.recv()
+            for _ in range(2):
+                msg = yield sock1.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf'), ('b', '123')}
-        with s.sock.connect('sub', route, subscriptions=['a']) as sock:
+        with s.sock.connect('sub', route, subscriptions=['a']) as sock2:
             responses = set()
-            for _ in range(10):
-                msg = yield sock.recv()
+            for _ in range(2):
+                msg = yield sock2.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf')}
+        state['send'] = False
     s.async.run_sync(subber)
-    state['send'] = False
 
 
 def test_req_rep_device():
@@ -423,18 +423,3 @@ def test_pull_sync_timeout():
 def test_sub_sync_timeout():
     with pytest.raises(s.sock.Timeout):
         s.sock.sub_sync(s.sock.route(), timeout=.001)
-
-
-# these tests are flaky, let them retry 3 times
-for k, v in list(globals().items()):
-    if k.startswith('test_') and v.__module__ == __name__:
-        def fn(*a, **kw):
-            for i in range(100):
-                try:
-                    with stopit.SignalTimeout(1, False):
-                        v(*a, **kw)
-                        break
-                except stopit.TimeoutException:
-                    if i >= 3:
-                        raise
-        globals()[k] = v
