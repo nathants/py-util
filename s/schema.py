@@ -8,6 +8,11 @@ import types
 import inspect
 
 
+_schema_commands = (':or',
+                    ':fn',
+                    ':optional')
+
+
 def is_valid(schema, value):
     try:
         validate(schema, value)
@@ -17,7 +22,6 @@ def is_valid(schema, value):
 
 
 def validate(schema, value):
-    # TODO update doctest with :fn and args/kwargs
     """
     >>> import pytest
 
@@ -74,8 +78,8 @@ def validate(schema, value):
     >>> with pytest.raises(AssertionError):
     ...     validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'rose'})
 
-    # dicts with optional k's provide a value for a missing key and validate provided keys
-    >>> schema = {'name': lambda x: x == ':optional' and 'jane' or isinstance(x, str)}
+    # dicts with :optional k's provide a value for a missing key and validate provided keys
+    >>> schema = {'name': (':optional', str, 'jane')}
     >>> assert validate(schema, {}) == {'name': 'jane'}
     >>> assert validate(schema, {'name': 'rose'}) == {'name': 'rose'}
     >>> with pytest.raises(AssertionError):
@@ -116,8 +120,14 @@ def validate(schema, value):
             value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
             value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
         else:
-            return _check(schema, value)
-        return value
+            value = _check(schema, value)
+        if type(schema) is type:
+            try:
+                return s.data.freeze(value)
+            except ValueError:
+                return value
+        else:
+            return s.data.freeze(value)
 
 
 def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
@@ -139,7 +149,7 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
     if value or not {type(x) for x in schema.keys()} == {type}: # if schema keys are all types, and value is empty, return
         for k, v in schema.items():
             if k not in value and (k, v) not in validated_schema_items: # only check schema items if they haven't already been satisfied
-                if type(k) is type: # if a type key is missing, look for an item that satisfies it
+                if isinstance(k, type): # if a type key is missing, look for an item that satisfies it
                     for vk, vv in value.items():
                         with s.exceptions.ignore(AssertionError):
                             validate(k, vk)
@@ -147,11 +157,12 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                             break
                     else:
                         raise AssertionError('{} <{}> is missing (key, value) pair: {} <{}>, {} <{}>'.format(value, type(value), k, type(k), v, type(v)))
-                else: # if a value key is missing, it must be optional or its a required key violation
-                    assert isinstance(v, types.FunctionType), '{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k))
-                    val = v(':optional')
-                    assert val != ':optional', 'you accidentally returned :optional instead of your actual default value for: {}, {}'.format(k, v)
-                    value = s.dicts.merge(value, {k: val})
+                elif isinstance(v, (list, tuple)) and v and v[0] == ':optional':
+                    assert len(v) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(v)
+                    _, schema, default_value = v
+                    value = s.dicts.merge(value, {k: validate(schema, default_value)})
+                else:
+                    raise AssertionError('{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k)))
     return value
 
 
@@ -169,21 +180,18 @@ def _check(validator, value):
         return value
     elif isinstance(validator, (list, tuple)):
         assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a a seq: {} <{}>'.format(value, type(value), validator, type(validator))
-        if isinstance(validator, list):
-            if not validator:
-                assert not value, 'you schema is an empty sequence, but this is not empty: {}'.format(value)
-            elif value:
-                assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
-                return s.data.freeze([_check(validator[0], v) for v in value])
-            return value
-        elif isinstance(validator, tuple):
-            if validator and validator[0] == ':or':
+        if validator and isinstance(validator[0], s.data.string_types) and validator[0] in _schema_commands:
+            if validator[0] == ':optional':
+                assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
+                return _check(validator[1], value)
+            elif validator[0] == ':or':
                 for v in validator[1:]:
                     with s.exceptions.ignore(AssertionError):
                         return _check(v, value)
                 raise AssertionError('{} <{}> did not match any of [{}]'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]])))
-            elif validator and validator[0] == ':fn':
+            elif validator[0] == ':fn':
                 assert isinstance(value, types.FunctionType), '{} <{}> is not a function'.format(value, type(value))
+                assert len(validator) in [2, 3], ':fn schema should be (:fn, [<args>...], {<kwargs>: <val>, ...}) or (:fn, [<args>...]), not: {}'.format(validator)
                 try:
                     args, kwargs = validator[1:]
                 except ValueError:
@@ -195,9 +203,15 @@ def _check(validator, value):
                 assert _args == args, 'pos args {_args} did not match {args}'.format(**locals())
                 assert _kwargs == kwargs, 'kwargs {_kwargs} did not match {kwargs}'.format(**locals())
                 return value
-            else:
-                assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
-                return s.data.freeze([_check(_validator, _val) for _validator, _val in zip(validator, value)])
+        elif isinstance(validator, list):
+            if not validator:
+                assert not value, 'you schema is an empty sequence, but this is not empty: {}'.format(value)
+            elif value:
+                assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
+            return [_check(validator[0], v) for v in value]
+        elif isinstance(validator, tuple):
+            assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
+            return [_check(_validator, _val) for _validator, _val in zip(validator, value)]
     elif isinstance(validator, dict):
         assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
         return validate(validator, value)
@@ -269,6 +283,7 @@ def get_schemas(arg_schemas, kwarg_schemas, fn):
 
 
 def check(*args, **kwargs):
+    # TODO add doctest with :fn and args/kwargs
     def decorator(fn):
         # TODO break this up into well named pieces
         arg_schemas, kwarg_schemas = get_schemas(args, kwargs, fn)
@@ -282,14 +297,14 @@ def check(*args, **kwargs):
                 assert len(arg_schemas) == len(args) or args_schema, 'you asked to check {} for {} pos args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
                 _args = []
                 for i, (schema, arg) in enumerate(zip(arg_schemas, args)):
-                    with s.exceptions.update(lambda x: x + '--arg num--\n{}\n--end--\n'.format(i)):
+                    with s.exceptions.update(lambda x: x + '\n--arg num--\n{}\n--end--\n'.format(i)):
                         _args.append(validate(schema, arg))
                 if args_schema and args[len(arg_schemas):]:
                     _args += validate(args_schema, args[len(arg_schemas):])
                 _kwargs = {}
                 for k, v in kwargs.items():
                     if k in kwarg_schemas:
-                        with s.exceptions.update(lambda x: x + '--arg keyword--\n{}\n--end--\n'.format(k)):
+                        with s.exceptions.update(lambda x: x + '\n--arg keyword--\n{}\n--end--\n'.format(k)):
                             _kwargs[k] = validate(kwarg_schemas[k], v)
                     elif kwargs_schema:
                         _kwargs[k] = validate(kwargs_schema, {k: v})[k]
@@ -300,14 +315,12 @@ def check(*args, **kwargs):
                     @s.async.coroutine
                     def validator():
                         val = yield value
-                        with s.exceptions.update(lambda x: x + '--return value--\n', AssertionError):
-                            assert val is not None, 'you cannot return None from s.schema.check\'d function'
-                            raise s.async.Return(s.schema.validate(returns_schema, val))
+                        assert val is not None, 'you cannot return None from s.schema.check\'d function'
+                        raise s.async.Return(s.schema.validate(returns_schema, val))
                     return validator()
                 else:
                     assert value is not None, 'you cannot return None from s.schema.check\'d function'
-                    with s.exceptions.update(lambda x: x + '--return value--\n'):
-                        return s.schema.validate(returns_schema, value)
+                    return s.schema.validate(returns_schema, value)
         decorated._schema = arg_schemas, {k: v for k, v in list(kwarg_schemas.items()) + [['returns', returns_schema]]}
         return decorated
     return decorator

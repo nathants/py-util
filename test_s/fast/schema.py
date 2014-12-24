@@ -231,12 +231,6 @@ def test_type_to_lambda():
         s.schema.validate(schema, {'a': 'notapple'})
 
 
-def test_optional_cannot_return_or():
-    schema = {'a': lambda x: ':optional'}
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, {})
-
-
 def test_required_type_to_type():
     schema = {'a': 'apple',
               str: float}
@@ -283,19 +277,20 @@ def test_type_to_value():
 
 
 def test_nested_optional():
-    schema = {'a': {'b': lambda x: x == ':optional' and 'default-val' or True}}
+    schema = {'a': {'b': (':optional', object, 'default-val')}}
     assert s.schema.validate(schema, {'a': {}}) == {'a': {'b': 'default-val'}}
-    schema = [{'name': lambda x: x == ':optional' and 'bob' or True}]
+    schema = [{'name': (':optional', object, 'bob')}]
     assert s.schema.validate(schema, [{}]) == [{'name': 'bob'}]
 
 
 def test_optional_value_key_with_validation():
     schema = {'a': 'apple',
-              'b': lambda x: x == ':optional' and 'banana' or x == 'banana'}
+              # 'b': lambda x: x == ':optional' and 'banana' or x == 'banana'}
+              'b': [':optional', str, 'banana']}
     s.schema.validate(schema, {'a': 'apple'}) == {'a': 'apple', 'b': 'banana'}
     s.schema.validate(schema, {'a': 'apple', 'b': 'banana'}) == {'a': 'apple', 'b': 'banana'}
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {'a': 'apple', 'b': 'notbanana'})
+        s.schema.validate(schema, {'a': 'apple', 'b': 1.0})
 
 
 def test_value_schema():
