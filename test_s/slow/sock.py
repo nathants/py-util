@@ -2,6 +2,16 @@ from __future__ import print_function, absolute_import
 import pytest
 import s
 import s.sock
+import stopit
+
+
+def setup_function(fn):
+    fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
+    fn.stopit.__enter__()
+
+
+def teardown_function(fn):
+    fn.stopit.__exit__(None, None, None)
 
 
 def test_cannot_use_none_as_message():
@@ -180,13 +190,13 @@ def test_pub_sub_subscriptions():
         pubber()
         with s.sock.connect('sub', route) as sock1:
             responses = set()
-            for _ in range(2):
+            for _ in range(10):
                 msg = yield sock1.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf'), ('b', '123')}
         with s.sock.connect('sub', route, subscriptions=['a']) as sock2:
             responses = set()
-            for _ in range(2):
+            for _ in range(10):
                 msg = yield sock2.recv()
                 responses.add(msg)
             assert responses == {('a', 'asdf')}
@@ -352,24 +362,30 @@ def test_sub_sync_subscriptions():
     route = s.sock.route()
     def fn():
         data = set()
-        for _ in range(10):
+        for _ in range(100):
             data.add(s.sock.sub_sync(route))
         assert data == {('a', 'asdf1'), ('b', 'asdf2')}
         data = set()
-        for _ in range(10):
+        for _ in range(100):
             data.add(s.sock.sub_sync(route, subscriptions=['b']))
         assert data == {('b', 'asdf2')}
     @s.async.coroutine
     def main():
         with s.sock.bind('pub', route) as sock:
-            yield s.async.sleep(.1)
             for _ in range(1000):
                 yield sock.send('asdf2', topic='b')
                 yield sock.send('asdf1', topic='a')
-    proc = s.proc.new(fn)
-    s.async.run_sync(main)
-    proc.join()
-    assert proc.exitcode == 0
+    # subbing is non deterministic. depending on timing, could grab all a's and no b's
+    for i in range(1000):
+        try:
+            proc = s.proc.new(fn)
+            s.async.run_sync(main)
+            proc.join()
+            assert proc.exitcode == 0
+            break
+        except:
+            if i >= 3:
+                raise
 
 
 def test_push_sync():

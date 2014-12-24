@@ -1,5 +1,15 @@
 from __future__ import print_function, absolute_import
 import s
+import stopit
+
+
+def setup_function(fn):
+    fn.stopit = stopit.SignalTimeout(1, False) # TODO add a message about which test timed out
+    fn.stopit.__enter__()
+
+
+def teardown_function(fn):
+    fn.stopit.__exit__(None, None, None)
 
 
 def test_coroutines_do_not_persist_between_runsync_calls():
