@@ -1,7 +1,7 @@
 dist/
 build/
 *flymake*
-.coverage
+.coverage*
 *.pyc
 __pycache__
 *egg*
