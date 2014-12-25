@@ -19,7 +19,7 @@ def pipe(value, *funcs):
 
 def name(fn):
     with s.exceptions.ignore():
-        return '{}.{}'.format(fn.__module__, fn.__name__)
+        return '{}:{}'.format(fn.__module__, fn.__name__)
     with s.exceptions.ignore():
         return fn.__name__
     with s.exceptions.ignore():

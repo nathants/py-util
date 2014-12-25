@@ -24,26 +24,26 @@ def test_args():
 
 
 def test_fn_types():
-    schema = (':fn', (int, int), {'returns': str})
+    schema = (':fn', (int, int), {'_return': str})
 
-    @s.schema.check(int, int, returns=str)
+    @s.schema.check(int, int, _return=str)
     def fn(x, y):
         return str(x + y)
     assert s.schema.validate(schema, fn) is fn
 
-    @s.schema.check(int, float, returns=str)
+    @s.schema.check(int, float, _return=str)
     def fn(x, y):
         return str(x + y)
     with pytest.raises(AssertionError):
         s.schema.validate(schema, fn) is fn
 
-    @s.schema.check(int, int, returns=float)
+    @s.schema.check(int, int, _return=float)
     def fn(x, y):
         return str(x + y)
     with pytest.raises(AssertionError):
         s.schema.validate(schema, fn) is fn
 
-    @s.schema.check(int, int, returns=float)
+    @s.schema.check(int, int, _return=float)
     def fn(x, y):
         return str(x + y)
     with pytest.raises(AssertionError):
@@ -160,7 +160,11 @@ def test_object_list():
     s.schema.validate(schema, [1, '2', 3.0])
 
 
-def test_test_annotations_return():
+def test_annotations_sends_and_yields():
+    pass
+
+
+def test_annotations_return():
     if six.PY3:
         def fn():
             return 123
@@ -193,7 +197,7 @@ def test_annotation_kwargs():
 
 
 def test_check_args_and_kwargs():
-    @s.schema.check(int, b=float, returns=str)
+    @s.schema.check(int, b=float, _return=str)
     def fn(a, b=0):
         return str(a + b)
     assert fn(1) == '1'
@@ -209,11 +213,59 @@ def test_check_args_and_kwargs():
 
 
 def test_check_returns():
-    @s.schema.check(returns=str)
+    @s.schema.check(_return=str)
     def badfn():
         return 0
     with pytest.raises(AssertionError):
         badfn()
+
+
+def test_check_generators():
+    @s.schema.check(int)
+    def main(x):
+        yield
+    next(main(1))
+    with pytest.raises(AssertionError):
+        next(main(1.0))
+
+
+def test_check_coroutines():
+    @s.async.coroutine
+    @s.schema.check(int, _return=float)
+    def main(x):
+        yield s.async.moment
+        if x > 0:
+            x = float(x)
+        raise s.async.Return(x)
+    assert s.async.run_sync(lambda: main(1)) == 1.0
+    with pytest.raises(AssertionError):
+        s.async.run_sync(lambda: main(1.0))
+    with pytest.raises(AssertionError):
+        s.async.run_sync(lambda: main(-1))
+
+
+def test_check_yields_and_sends():
+    @s.schema.check(_sends=int, _yields=str)
+    def main():
+        val = yield 'a'
+        if val > 0:
+            yield 'b'
+        else:
+            yield 3
+
+    gen = main()
+    assert gen.send(None) == 'a'
+    assert gen.send(1) == 'b'
+
+    gen = main()
+    next(gen)
+    with pytest.raises(AssertionError):
+        gen.send(-1) # violate _yields
+
+    gen = main()
+    next(gen)
+    with pytest.raises(AssertionError):
+        gen.send('1') # violate _sends
 
 
 def test_object_type():

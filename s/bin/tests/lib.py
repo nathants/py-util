@@ -262,6 +262,7 @@ def slow():
     for f in concurrent.futures.as_completed(futures):
         result = f.result()
         if result['exitcode'] == 124:
+            # TODO this isnt working. slow tests lock up sometimes. do it manually.
             s.proc.shutdown_pool() # may need to use proc.new() and terminate(). kill with more predjudice.
             return [[{'result': 'timed out: {}'.format(futures[f]), 'path': 'test_*/slow/*.py', 'seconds': 0}]]
         elif result['exitcode'] != 0:

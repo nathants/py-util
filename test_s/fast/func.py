@@ -1,4 +1,5 @@
 import pytest
+import collections
 import s
 
 
@@ -33,3 +34,7 @@ def test_pipe():
 def test_pipe_noncallable():
     with pytest.raises(AssertionError):
         s.func.pipe(1, _plus_one, _times_two, 2)
+
+
+def test_name():
+    assert s.func.name(test_name) == 'test_s.fast.func:test_name'

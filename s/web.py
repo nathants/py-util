@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import types
 import contextlib
 import datetime
 import tornado.web
@@ -57,7 +58,7 @@ def _query_parse(query):
             for k, v in parsed.items()}
 
 
-@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
+# @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
 def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
@@ -75,6 +76,7 @@ def _parse_path(path):
                      for x in path.split('/')])
 
 
+# @s.schema.check([(str, {str: types.FunctionType})], debug=bool, _freeze=False)
 def app(routes, debug=False):
     routes = [(_parse_path(path), _verbs_to_handler(**verbs))
               for path, verbs in routes]
@@ -82,6 +84,7 @@ def app(routes, debug=False):
 
 
 @contextlib.contextmanager
+# @s.schema.check(tornado.web.Application, poll=bool) # should returns capture yield?
 def test(app, poll=True):
     port = s.net.free_port()
     url = 'http://localhost:{}/'.format(port)
@@ -108,7 +111,7 @@ with s.exceptions.ignore(ImportError):
     tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-@s.schema.check(str, str, returns=schemas.response, timeout=float, kwargs=dict)
+# @s.schema.check(str, str, timeout=float, kwargs=dict, returns=schemas.response)
 @s.async.coroutine(freeze=False)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
@@ -128,16 +131,18 @@ def _fetch(method, url, **kw):
                           'body': response.body.decode('utf-8')})
 
 
+# @s.schema.check(str, kwargs=dict)
 def get(url, **kw):
     return _fetch('GET', url, **kw)
 
 
+# @s.schema.check(str, str, kwargs=dict)
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
-get_sync = s.async.make_sync(get)
-post_sync = s.async.make_sync(post)
+get_sync = s.schema.check(str, kwargs=dict)(s.async.make_sync(get))
+post_sync = s.schema.check(str, str, kwargs=dict)(s.async.make_sync(post))
 
 
 class Timeout(Exception):

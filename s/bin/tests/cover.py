@@ -63,7 +63,7 @@ def _list_functions(module_name):
 
 
 @argh.arg('grep_module', nargs='?', default=None)
-def cover(grep_module):
+def cover(grep_module, missing_tests=False):
     for test_file in s.bin.tests.lib.fast_test_files():
         try:
             s.bin.tests.lib.code_file(test_file)
@@ -76,7 +76,8 @@ def cover(grep_module):
 
         _print_code_module_name(test_file)
         _print_cov_data(test_file)
-        _print_missing_tests(test_file)
+        if missing_tests:
+            _print_missing_tests(test_file)
 
     if not grep_module:
         _print_missing_test_files()
