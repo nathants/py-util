@@ -23,14 +23,15 @@ def put(x, v, *ks):
     return merge(x, val)
 
 
-def merge(a, b, concat=False):
-    return {k: _merge(k, a, b, concat)
+def merge(a, b, concat=False, freeze=True):
+    return {k: _merge(k, a, b, concat, freeze)
             for k in set(list(a.keys()) +
                          list(b.keys()))}
 
 
-def _merge(k, a, b, concat):
-    a, b, = s.data.freeze(a), s.data.freeze(b)
+def _merge(k, a, b, concat, freeze):
+    if freeze:
+        a, b, = s.data.freeze(a), s.data.freeze(b)
     assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
     if k in a and k in b:
         if isinstance(a[k], dict) and isinstance(b[k], dict):
