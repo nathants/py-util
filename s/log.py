@@ -49,14 +49,12 @@ def _add_trace_level(debug=False):
 
 def _trace_file_handler(name):
     path = _get_trace_path(name)
-    s.shell.cron_rm_path_later(path, hours=24)
     handler = logging.handlers.WatchedFileHandler(path)
     return _make_handler(handler, 'trace', '%(message)s', False, _TraceOnly)
 
 
 def _stream_handler(level, format):
     level = 'debug' if s.shell.override('--debug') else level
-    # assert level in ('debug', 'info')
     return _make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace)
 
 

@@ -10,7 +10,6 @@ import os
 import s
 import random
 import string
-import time
 import argh
 import types
 
@@ -170,8 +169,6 @@ def tempdir(cleanup=True, intemp=True):
         if not os.path.exists(path):
             break
     run('mkdir -p', path)
-    if not cleanup and intemp:
-        cron_rm_path_later(path, hours=24)
     try:
         with cd(path):
             yield path
@@ -182,13 +179,8 @@ def tempdir(cleanup=True, intemp=True):
             run(_sudo(), 'rm -rf', path)
 
 
-def cron_rm_path_later(path, hours):
-    cmd = "python -c 'import time; assert {} + 60 * 60 * {} < time.time()' && sudo rm -rf {}".format(time.time(), hours, path)
-    when = '{} * * * *'.format(random.randint(0, 59))
-    cron(path.replace('/', '_'), when, cmd, selfdestruct=True)
-
-
 def cron(name, when, cmd, user='root', selfdestruct=False):
+    # TODO use users crontabs dir instead of cron.d
     if not os.path.isdir('/etc/cron.d') or not _sudo():
         return
     assert name not in os.listdir('/etc/cron.d'), '"{}" already exists in /etc/cron.d'.format(name)
