@@ -4,7 +4,6 @@ import s
 
 
 _conns = []
-_port = 8888
 _state = {}
 
 
@@ -18,8 +17,10 @@ def start():
         def on_close(self):
             with s.exceptions.ignore():
                 _conns.remove(self)
-    assert s.net.port_free(_port), 'something already running on port: {}'.format(_port)
-    tornado.web.Application([(r'/ws', Handler)]).listen(_port)
+    port = s.net.free_port()
+    with open('/tmp/tests_auto.port', 'w') as _file:
+        _file.write(str(port))
+    tornado.web.Application([(r'/ws', Handler)]).listen(port)
 
 
 def send(test_datas=None):
