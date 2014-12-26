@@ -4,8 +4,6 @@ import s
 import json
 
 
-import pytest
-@pytest.mark.only
 def test_get_timeout():
     @s.async.coroutine
     def handler(request):
