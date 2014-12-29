@@ -1,9 +1,9 @@
 from __future__ import absolute_import, print_function
 import blessed
 import s
+import s.sock # init zmq
 import s.bin.tests.server
 import s.bin.tests.lib
-s.sock # init zmq
 
 
 _max_seconds = .01
