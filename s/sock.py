@@ -15,11 +15,14 @@ import datetime
 
 def timeout(seconds):
     r = route()
-    s.async.ioloop().add_timeout(
-        datetime.timedelta(seconds=seconds),
-        lambda: s.sock.push(r, '')
-    )
-    return s.sock.bind('pull', r)
+    sock = s.sock.bind('pull', r, sockopts={'sndbuf': 1})
+    @s.async.coroutine(freeze=False)
+    def fn():
+        with s.sock.connect('push', r) as sock:
+            yield sock.send(None, forbid_none=False)
+        sock.close()
+    s.async.ioloop().add_timeout(datetime.timedelta(seconds=seconds), fn)
+    return sock
 
 
 def route():
