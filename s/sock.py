@@ -47,7 +47,7 @@ def new(action, kind, route, subscriptions=[""], sockopts={}, hwm=1):
         setattr(sock, k, v)
     getattr(sock, action)(route) # sock.bind(route)
     _setup_subscriptions(sock, kind, subscriptions)
-    return AsyncSock(sock)
+    return _AsyncSock(sock)
 
 
 def _setup_subscriptions(sock, kind, subscriptions):
@@ -57,6 +57,7 @@ def _setup_subscriptions(sock, kind, subscriptions):
             sock.setsockopt(zmq.SUBSCRIBE, subscr.encode('utf-8'))
 
 
+# fn(kind, route, ...)
 bind = functools.partial(new, 'bind')
 connect = functools.partial(new, 'connect')
 
@@ -70,8 +71,8 @@ _devices = {
 
 def device(kind, in_route, out_route, **kw):
     in_kind, out_kind = _devices[kind.lower()]
-    in_sock = bind(in_kind, in_route, **kw)._sock.socket
-    out_sock = bind(out_kind, out_route, **kw)._sock.socket
+    in_sock = bind(in_kind, in_route, **kw).socket
+    out_sock = bind(out_kind, out_route, **kw).socket
     return zmq.device(getattr(zmq, kind.upper()), in_sock, out_sock)
 
 
@@ -88,29 +89,23 @@ def process_send(msg):
     return msg
 
 
-class AsyncSock(object):
-    def __init__(self, sock):
-        self._sock = zmq.eventloop.zmqstream.ZMQStream(sock)
-        self.entered = False
-
+class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
     def __enter__(self, *a, **kw):
-        self.entered = True
         return self
 
     def __exit__(self, *a, **kw):
-        self._sock.close()
+        self.close()
 
     def type(self):
-        return self._sock.socket.type
+        return self.socket.type
 
     def recv(self, timeout=None):
         assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
-        assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
-        assert not self._sock._recv_callback, 'there is already a recv callback registered'
+        assert not self._recv_callback, 'there is already a recv callback registered'
         future = s.async.Future()
         future._action = 'recv()'
         def cb(msg):
-            self._sock.stop_on_recv()
+            self.stop_on_recv()
             if self.type() == zmq.SUB:
                 topic, msg = msg
                 msg = process_recv(msg)
@@ -128,39 +123,39 @@ class AsyncSock(object):
                 future.set_result(msg)
         if timeout:
             def timeout_cb():
-                self._sock.stop_on_recv()
+                self.stop_on_recv()
                 future.set_exception(Timeout)
             t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), timeout_cb)
             future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
-        self._sock.on_recv(cb)
+        self.on_recv(cb)
         return future
 
-    def send(self, msg, topic='', timeout=None):
+    def send(self, msg, topic='', timeout=None, forbid_none=True):
         assert not topic or self.type() == zmq.PUB, 'you can only use kwarg topic with pub sockets'
         assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
-        assert self.entered, 'you must use sockets as context managers, so that they are closed at some point'
-        assert msg is not None, 'you cannot use None as a message'
+        if forbid_none:
+            assert msg is not None, 'you cannot use None as a message'
         future = s.async.Future()
         future._action = 'send({}{})'.format(msg, ', topic={}'.format(topic) if topic else '')
         def fn(*_):
-            self._sock.stop_on_send()
+            self.stop_on_send()
             future.set_result(None)
         if self.type() == zmq.PUB:
             msg = process_send(msg)
             topic = topic.encode('utf-8')
             msg = topic, msg
-            self._sock.send_multipart(msg, callback=fn)
+            self.send_multipart(msg, callback=fn)
         elif self.type() in [zmq.ROUTER, zmq.DEALER]:
             identities, msg = msg[:-1], msg[-1]
             msg = process_send(msg)
             msg = identities + (msg,)
-            self._sock.send_multipart(msg, callback=fn)
+            self.send_multipart(msg, callback=fn)
         else:
             msg = process_send(msg)
-            self._sock.send(msg, callback=fn)
+            super(_AsyncSock, self).send(msg, callback=fn)
         if timeout:
             def cb():
-                q = self._sock._send_queue
+                q = self._send_queue
                 vals = []
                 while not q.empty():
                     vals.append(q.get())
@@ -177,22 +172,23 @@ class Timeout(Exception):
     pass
 
 
+# todo schema check for s.sock._AsyncSock
 def select(*socks):
     future = s.async.Future()
     def fn(sock, msg):
         for x in socks:
-            x._sock.stop_on_recv()
+            x.stop_on_recv()
         if sock.type() == zmq.SUB:
             topic, msg = msg
             topic = topic.decode('utf-8')
             msg = process_recv(msg)
-            future.set_result([id(sock), [topic, msg]])
+            future.set_result([sock, [topic, msg]])
         else:
             [msg] = msg
             msg = process_recv(msg)
-            future.set_result([id(sock), msg])
-    for sock in socks:
-        sock._sock.on_recv(functools.partial(fn, sock))
+            future.set_result([sock, msg])
+    for x in socks:
+        x.on_recv(functools.partial(fn, x))
     return future
 
 
@@ -216,3 +212,7 @@ sub = functools.partial(open_use_close, 'sub', 'recv')
 pull_sync = s.async.make_sync(pull)
 push_sync = s.async.make_sync(push)
 sub_sync = s.async.make_sync(sub)
+
+
+class schemas:
+    select_result = (_AsyncSock, object)
