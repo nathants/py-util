@@ -23,16 +23,8 @@ def _commitable_paths():
     return s.shell.run(cmd).splitlines()
 
 
-def _less(text):
-    if text:
-        with s.shell.tempdir():
-            with open('_', 'w') as _file:
-                _file.write(text + '\n\n')
-            s.shell.run('less -cR _', interactive=True)
-
-
 def _git_diff_cached_less(path):
-    _less(s.shell.run('git -c color.ui=always diff --cached', path))
+    s.shell.less(s.shell.run('git -c color.ui=always diff --cached', path))
 
 
 def _prompt_and_commit(path):
@@ -75,7 +67,7 @@ def commit(skip_precommit=False):
             if os.path.isfile(pre_commit) and not skip_precommit:
                 if s.shell.run(pre_commit, stream=True, warn=True)['exitcode'] != 0:
                     sys.exit(1)
-            _less('going to walk through these files:\n\n {}'.format('\n '.join(paths)))
+            s.shell.less('going to walk through these files:\n\n {}'.format('\n '.join(paths)))
             for path in paths:
                 s.shell.run('git add', path)
                 _git_diff_cached_less(path)
@@ -114,7 +106,7 @@ def status():
             output = s.shell.run('git -c color.ui=always status -s')
             if output:
                 text += s.strings.color('\n$red({repo})\n{output}\n'.format(**locals()))
-    _less(text)
+    s.shell.less(text)
 
 
 def main():

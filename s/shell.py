@@ -324,3 +324,11 @@ def override(flag):
             sys.argv.remove(flag)
         os.environ[var] = ''
         return True
+
+
+def less(text):
+    if text:
+        with s.shell.tempdir():
+            with open('_', 'w') as _file:
+                _file.write(text + '\n\n')
+            s.shell.run('less -cR _', interactive=True)
