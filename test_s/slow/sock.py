@@ -1,19 +1,11 @@
 from __future__ import print_function, absolute_import
 import pytest
 import s
-import s.sock
-import stopit
+import s.sock # init zmq
+from test_s.slow import flaky
 
 
-def setup_function(fn):
-    fn.stopit = stopit.SignalTimeout(2, False) # TODO add a message about which test timed out
-    fn.stopit.__enter__()
-
-
-def teardown_function(fn):
-    fn.stopit.__exit__(None, None, None)
-
-
+@flaky
 def test_cannot_use_none_as_message():
     @s.async.coroutine
     def main():
@@ -22,6 +14,7 @@ def test_cannot_use_none_as_message():
         s.async.run_sync(main)
 
 
+@flaky
 def test_pub_sub():
     route = s.sock.route()
     state = {'send': True}
@@ -41,6 +34,7 @@ def test_pub_sub():
     state['send'] = False
 
 
+@flaky
 def test_push_pull_reversed_connect_bind():
     route = s.sock.route()
     @s.async.coroutine
@@ -55,6 +49,7 @@ def test_push_pull_reversed_connect_bind():
     s.async.run_sync(puller)
 
 
+@flaky
 def test_push_pull_tcp():
     route = 'tcp://0.0.0.0:{}'.format(s.net.free_port())
     @s.async.coroutine
@@ -69,6 +64,7 @@ def test_push_pull_tcp():
     s.async.run_sync(puller)
 
 
+@flaky
 def test_push_pull():
     route = s.sock.route()
     @s.async.coroutine
@@ -83,6 +79,7 @@ def test_push_pull():
     s.async.run_sync(puller)
 
 
+@flaky
 def test_async_methods_error_when_no_ioloop():
     s.async.ioloop().clear()
     with pytest.raises(AssertionError):
@@ -91,17 +88,37 @@ def test_async_methods_error_when_no_ioloop():
         s.sock.bind('pull', s.sock.route()).send('')
 
 
+@flaky
 def test_timeout():
     @s.async.coroutine
     def main():
         with s.time.timer() as t:
             with s.sock.timeout(.1) as sock:
-                val = yield sock.recv()
-                assert val == ''
+                yield sock.recv()
         assert t['seconds'] >= .1
     s.async.run_sync(main)
 
 
+@flaky
+def test_select_timeout():
+    route = s.sock.route()
+    @s.async.coroutine
+    def pusher(route, msg, seconds=0):
+        yield s.async.sleep(seconds)
+        yield s.sock.push(route, msg)
+    @s.async.coroutine
+    def main():
+        pusher(route, 'msg1', .2)
+        socks = {s.sock.bind('pull', route): 'p',
+                 s.sock.timeout(.1): 't'}
+        sock, msg = yield s.sock.select(*socks)
+        assert socks[sock] == 't' and msg is None
+        for x in socks:
+            sock.close(linger=False)
+    s.async.run_sync(main)
+
+
+@flaky
 def test_select():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -115,14 +132,15 @@ def test_select():
         pusher(r2, 'msg2', .1)
         with s.sock.bind('pull', r1) as p1, s.sock.bind('pull', r2) as p2, s.sock.timeout(.2) as t:
             sock, msg = yield s.sock.select(p1, p2, t)
-            assert msg == 'msg1' and sock == id(p1)
+            assert msg == 'msg1' and sock == p1
             sock, msg = yield s.sock.select(p1, p2, t)
-            assert msg == 'msg2' and sock == id(p2)
+            assert msg == 'msg2' and sock == p2
             sock, msg = yield s.sock.select(p1, p2, t)
-            assert sock == id(t) and msg == ''
+            assert sock == t and msg is None
     s.async.run_sync(main)
 
 
+@flaky
 def test_push_pull_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -143,6 +161,7 @@ def test_push_pull_device_middleware():
     s.async.run_sync(main)
 
 
+@flaky
 def test_push_pull_data():
     route = s.sock.route()
     @s.async.coroutine
@@ -157,6 +176,7 @@ def test_push_pull_data():
     s.async.run_sync(puller)
 
 
+@flaky
 def test_req_rep():
     route = s.sock.route()
     @s.async.coroutine
@@ -174,6 +194,7 @@ def test_req_rep():
     s.async.run_sync(replier)
 
 
+@flaky
 def test_pub_sub_subscriptions():
     route = s.sock.route()
     state = {'send': True}
@@ -204,6 +225,7 @@ def test_pub_sub_subscriptions():
     s.async.run_sync(subber)
 
 
+@flaky
 def test_req_rep_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -229,6 +251,7 @@ def test_req_rep_device():
     proc.terminate()
 
 
+@flaky
 def test_req_rep_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -267,6 +290,7 @@ def test_req_rep_device_middleware():
     s.async.run_sync(main)
 
 
+@flaky
 def test_pub_sub_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -294,6 +318,7 @@ def test_pub_sub_device():
     proc.terminate()
 
 
+@flaky
 def test_pub_sub_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -322,6 +347,7 @@ def test_pub_sub_device_middleware():
     state['send'] = False
 
 
+@flaky
 def test_push_pull_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
@@ -342,6 +368,7 @@ def test_push_pull_device():
     s.async.run_sync(main)
 
 
+@flaky
 def test_sub_sync():
     route = s.sock.route()
     def fn():
@@ -358,6 +385,7 @@ def test_sub_sync():
     assert proc.exitcode == 0, proc.exitcode
 
 
+@flaky
 def test_sub_sync_subscriptions():
     route = s.sock.route()
     def fn():
@@ -388,6 +416,7 @@ def test_sub_sync_subscriptions():
                 raise
 
 
+@flaky
 def test_push_sync():
     route = s.sock.route()
     s.proc.new(s.sock.push_sync, route, 'asdf')
@@ -399,6 +428,7 @@ def test_push_sync():
     s.async.run_sync(main)
 
 
+@flaky
 def test_pull_sync():
     route = s.sock.route()
     def fn():
@@ -413,6 +443,7 @@ def test_pull_sync():
     assert proc.exitcode == 0, proc.exitcode
 
 
+@flaky
 def test_push_timeout():
     @s.async.coroutine
     def main():
@@ -422,6 +453,7 @@ def test_push_timeout():
         s.async.run_sync(main)
 
 
+@flaky
 def test_pull_timeout():
     @s.async.coroutine
     def main():
@@ -431,11 +463,13 @@ def test_pull_timeout():
         s.async.run_sync(main)
 
 
+@flaky
 def test_pull_sync_timeout():
     with pytest.raises(s.sock.Timeout):
         s.sock.pull_sync(s.sock.route(), timeout=.001)
 
 
+@flaky
 def test_sub_sync_timeout():
     with pytest.raises(s.sock.Timeout):
         s.sock.sub_sync(s.sock.route(), timeout=.001)

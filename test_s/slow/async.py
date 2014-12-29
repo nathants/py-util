@@ -1,17 +1,9 @@
 from __future__ import print_function, absolute_import
 import s
-import stopit
+from test_s.slow import flaky
 
 
-def setup_function(fn):
-    fn.stopit = stopit.SignalTimeout(2, False) # TODO add a message about which test timed out
-    fn.stopit.__enter__()
-
-
-def teardown_function(fn):
-    fn.stopit.__exit__(None, None, None)
-
-
+@flaky
 def test_actor_schema_matching():
     @s.async.actor
     def bob(self):
@@ -44,6 +36,7 @@ def test_actor_schema_matching():
     s.async.run_sync(main)
 
 
+@flaky
 def test_actor():
     @s.async.actor
     def bob(self, route):
@@ -72,6 +65,7 @@ def test_actor():
     s.async.run_sync(main)
 
 
+@flaky
 def test_actor_selective_receive():
     @s.async.actor(selective_receive=True)
     def bob(self):
