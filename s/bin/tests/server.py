@@ -24,7 +24,7 @@ def start():
 
 
 def send(test_datas=None):
-    if test_datas:
+    if test_datas is not None:
         _state['last'] = test_datas
     test_datas = _state.get('last') or []
     if any(y['result'] for x in test_datas for y in x):
