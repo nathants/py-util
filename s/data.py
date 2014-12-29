@@ -124,4 +124,4 @@ def freeze(value):
         return _ImmutableSeq(freeze(x) for x in value)
     elif isinstance(value, set):
         return _ImmutableSet(freeze(x) for x in value)
-    raise ValueError('not immutalizable: {} ({})'.format(value, type(value)))
+    raise ValueError('not immutalizable: {} <{}>'.format(value, type(value)))
