@@ -117,6 +117,10 @@ def _fn_type(decoratee, kind, rules, freeze):
     return decorated
 
 
+def _is_select_result(obj):
+    return s.schema.is_valid(s.sock.schemas.select_result, obj, _freeze=False)
+
+
 def _gen_type(decoratee, kind, rules, freeze):
     name = '{}:{}:{}'.format(kind, s.func.module_name(decoratee), decoratee.__name__)
     @functools.wraps(decoratee)
@@ -131,7 +135,7 @@ def _gen_type(decoratee, kind, rules, freeze):
                 with _state_layer(name):
                     try:
                         rules()
-                        if freeze:
+                        if freeze and not _is_select_result(to_send):
                             to_send = s.data.freeze(to_send)
                         if not first_send:
                             _trace_funcs[kind]['in'](name, 'gen.send', to_send)
