@@ -13,9 +13,9 @@ _schema_commands = (':or',
                     ':optional')
 
 
-def is_valid(schema, value):
+def is_valid(schema, value, _freeze=True):
     try:
-        validate(schema, value)
+        validate(schema, value, _freeze=_freeze)
         return True
     except AssertionError:
         return False
@@ -216,10 +216,8 @@ def _check(validator, value):
         assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
         return validate(validator, value)
     elif isinstance(validator, type):
-        val_type = type(value)
-        if type(value) in s.data.string_types:
-            val_type = str
-        assert val_type is validator, '{} <{}> is not a <{}>'.format(value, type(value), validator)
+        valid_str = isinstance(value, s.data.string_types) and validator in s.data.string_types
+        assert valid_str or isinstance(value, validator), '{} <{}> is not a <{}>'.format(value, type(value), validator)
         return value
     elif isinstance(validator, types.FunctionType):
         assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
@@ -337,7 +335,6 @@ def _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema
                 to_yield = validate(yields_schema, to_yield)
             except (s.async.Return, StopIteration) as e:
                 e.value = s.schema.validate(returns_schema, getattr(e, 'value', None))
-                assert e.value is not None, "you cannot return None from s.schema.check'd function"
                 raise
             to_send = yield to_yield
     return decorated
@@ -355,9 +352,7 @@ def check(*args, **kwargs):
 
         returns_schema = kwarg_schemas.pop('_return', object)
         name = s.func.name(decoratee)
-
         if inspect.isgeneratorfunction(decoratee):
-            print("huh?")
             sends_schema = kwarg_schemas.pop('_sends', object)
             yields_schema = kwarg_schemas.pop('_yields', object)
             decorated = _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, _freeze, returns_schema, sends_schema, yields_schema)
