@@ -1,6 +1,6 @@
 from __future__ import absolute_import, print_function
+import time
 import subprocess
-import concurrent.futures
 import re
 import sys
 import types
@@ -151,8 +151,6 @@ def _run_test(path, name, test, insight=True):
                 val = traceback.format_exc()
                 if insight:
                     try:
-                        # TODO this is why fail is slower than success for red/green light
-                        # TODO this should be async, and not block feedback to the websocket
                         val = _pytest_insight(path, name)
                     except:
                         val = val + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
@@ -182,7 +180,7 @@ def _test(test_path, insight=True):
 def _format_pytest_output(text):
     return s.func.pipe(
         text,
-        str.splitlines,
+        lambda x: x.splitlines(),
         reversed,
         lambda x: itertools.dropwhile(lambda y: y.startswith('===='), x),
         lambda x: itertools.takewhile(lambda y: not y.startswith('_____'), x),
@@ -252,22 +250,47 @@ def code_files():
     )
 
 
+def _run_slow_test(path, route):
+    pytest = 'py.test' if six.PY2 else 'py.test3'
+    val = s.shell.run('timeout 5', pytest, '-x --tb native', path, warn=True)
+    s.sock.push_sync(route, val)
+
+
+def _send_slow_result(result, socks):
+    for proc, _ in socks.values():
+        proc.terminate()
+    raise s.async.Return([[{'path': 'test_*/slow/*.py',
+                            'seconds': 0,
+                            'result': result}]])
+
+
+# todo schema me
+def _slow_socks():
+    return {s.sock.bind('pull', route): (s.proc.new(_run_slow_test, path, route), path)
+            for path in slow_test_files()
+            for route in [s.sock.route()]}
+
+
+@s.async.coroutine(freeze=False)
 def slow():
-    if six.PY2:
-        pytest = 'py.test'
-    else:
-        pytest = 'py.test3'
-    futures = {s.proc.submit(s.shell.run, 'timeout 5', pytest, '-x --tb native', path, warn=True): path
-               for path in slow_test_files()}
-    for f in concurrent.futures.as_completed(futures):
-        result = f.result()
-        if result['exitcode'] == 124:
-            # TODO this isnt working. slow tests lock up sometimes. do it manually.
-            s.proc.shutdown_pool() # may need to use proc.new() and terminate(). kill with more predjudice.
-            return [[{'result': 'timed out: {}'.format(futures[f]), 'path': 'test_*/slow/*.py', 'seconds': 0}]]
-        elif result['exitcode'] != 0:
-            text = _format_pytest_output(result['output'])
-            return [[{'result': text, 'path': 'test_*/slow/*.py', 'seconds': 0}]]
+    socks = _slow_socks()
+    start = time.time()
+    while True:
+        if not any(x.is_alive() for x, _ in socks.values()):
+            break
+
+        if time.time() - start > 10:
+            _send_slow_result('suite timed out without completeting:\n{}'.format('\n'.join(path for _, path in socks.values())), socks)
+
+        timeout = s.sock.timeout(.1)
+        sock, msg = yield s.sock.select(timeout, *socks)
+
+        if sock != timeout:
+            if msg['exitcode'] == 124:
+                _send_slow_result('timed out: {}'.format(socks[sock][1]), socks)
+
+            elif msg['exitcode'] != 0:
+                _send_slow_result(_format_pytest_output(msg['output']), socks)
 
 
 def fast():
@@ -347,23 +370,13 @@ def light_auto(trigger_route, results_route):
         data = light() or []
         s.sock.push_sync(results_route, ['fast', data])
         s.sock.sub_sync(trigger_route)
-        _consume_all_subs(trigger_route)
 
 
 def slow_auto(trigger_route, results_route):
     while True:
-        data = slow() or []
+        data = s.async.run_sync(slow) or []
         s.sock.push_sync(results_route, ['slow', data])
         s.sock.sub_sync(trigger_route)
-        _consume_all_subs(trigger_route)
-
-
-def _consume_all_subs(route):
-    while True:
-        try:
-            s.sock.sub_sync(route, timeout=.0001)
-        except s.sock.Timeout:
-            break
 
 
 def one_auto(trigger_route, results_route):
@@ -397,8 +410,7 @@ def run_tests_auto(output_route):
 
     s.shell.watch_files(watch_route)
 
-    with s.sock.bind('pub', trigger_route) as trigger, \
-         s.sock.bind('pull', watch_route) as watch: # noqa
+    with s.sock.bind('pub', trigger_route) as trigger, s.sock.bind('pull', watch_route) as watch:
         while True:
             changed_file = yield watch.recv()
             yield trigger.send(changed_file)
