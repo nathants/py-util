@@ -21,10 +21,10 @@ class schemas:
                'headers': {str: str},
                'arguments': {str: str}}
 
-    response = {'code': int,
-                'reason': str,
-                'headers': {str: str},
-                'body': str}
+    response = {'code': (':optional', int, 200),
+                'reason': (':optional', (':or', str, None), None),
+                'headers': (':optional', {str: str}, {}),
+                'body': (':optional', str, '')}
 
 
 def _new_handler_method(fn):
@@ -37,6 +37,7 @@ def _new_handler_method(fn):
     return method
 
 
+@s.schema.check(kwargs={str: types.FunctionType}, _return=type)
 def _verbs_to_handler(**verbs):
     class Handler(tornado.web.RequestHandler):
         for verb, fn in verbs.items():
@@ -45,20 +46,23 @@ def _verbs_to_handler(**verbs):
     return Handler
 
 
+@s.schema.check(schemas.response, tornado.web.RequestHandler)
 def _mutate_handler(response, handler):
-    handler.write(response.get('body', 'ok'))
-    handler.set_status(response.get('code', 200))
-    for header, value in response.get('headers', {}).items():
+    handler.write(response['body'])
+    handler.set_status(response['code'], response['reason'])
+    for header, value in response['headers'].items():
         handler.set_header(header, value)
+    return True
 
 
+@s.schema.check(str, _return={str: (':or', str, [str])})
 def _query_parse(query):
     parsed = six.moves.urllib.parse.parse_qs(query, True)
     return {k: v if len(v) > 1 else v.pop()
             for k, v in parsed.items()}
 
 
-# @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, returns=schemas.request)
+@s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, _return=schemas.request)
 def _request_to_dict(obj, arguments):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
@@ -69,6 +73,7 @@ def _request_to_dict(obj, arguments):
             'arguments': arguments}
 
 
+@s.schema.check(str, _return=str)
 def _parse_path(path):
     return '/'.join(['(?P<{}>.*)'.format(x[1:])
                      if x.startswith(':')
@@ -76,7 +81,7 @@ def _parse_path(path):
                      for x in path.split('/')])
 
 
-# @s.schema.check([(str, {str: types.FunctionType})], debug=bool, _freeze=False)
+@s.schema.check([(str, {str: types.FunctionType})], debug=bool, _return=tornado.web.Application)
 def app(routes, debug=False):
     routes = [(_parse_path(path), _verbs_to_handler(**verbs))
               for path, verbs in routes]
@@ -84,7 +89,7 @@ def app(routes, debug=False):
 
 
 @contextlib.contextmanager
-# @s.schema.check(tornado.web.Application, poll=bool) # should returns capture yield?
+@s.schema.check(tornado.web.Application, poll=bool)
 def test(app, poll=True):
     port = s.net.free_port()
     url = 'http://localhost:{}/'.format(port)
@@ -111,8 +116,8 @@ with s.exceptions.ignore(ImportError):
     tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-# @s.schema.check(str, str, timeout=float, kwargs=dict, returns=schemas.response)
 @s.async.coroutine(freeze=False)
+@s.schema.check(str, str, timeout=float, kwargs=dict, _return=schemas.response)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
@@ -131,12 +136,12 @@ def _fetch(method, url, **kw):
                           'body': response.body.decode('utf-8')})
 
 
-# @s.schema.check(str, kwargs=dict)
+@s.schema.check(str, kwargs=dict)
 def get(url, **kw):
     return _fetch('GET', url, **kw)
 
 
-# @s.schema.check(str, str, kwargs=dict)
+@s.schema.check(str, str, kwargs=dict)
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
