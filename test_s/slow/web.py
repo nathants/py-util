@@ -4,6 +4,19 @@ import s
 import json
 
 
+def test_normal_app():
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        raise s.async.Return({'body': 'asdf'})
+    port = s.net.free_port()
+    s.web.app([('/', {'get': handler})]).listen(port)
+    proc = s.proc.new(s.async.ioloop().start)
+    url = 'http://0.0.0.0:{port}'.format(**locals())
+    assert s.web.get_sync(url)['body'] == 'asdf'
+    proc.terminate()
+
+
 def test_get_timeout():
     @s.async.coroutine
     def handler(request):
