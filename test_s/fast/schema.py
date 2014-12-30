@@ -5,7 +5,7 @@ import six
 
 
 def test_kwargs():
-    @s.schema.check(kwargs={str: int})
+    @s.schema.check(_kwargs={str: int})
     def fn(**kw):
         assert 'a' in kw and 'b' in kw
         return True
@@ -15,7 +15,7 @@ def test_kwargs():
 
 
 def test_args():
-    @s.schema.check(args=[int])
+    @s.schema.check(_args=[int])
     def fn(*a):
         return True
     fn(1, 2)
@@ -28,32 +28,26 @@ def test_fn_types():
 
     @s.schema.check(int, int, _return=str)
     def fn(x, y):
-        return str(x + y)
+        pass
     assert s.schema.validate(schema, fn) is fn
 
     @s.schema.check(int, float, _return=str)
     def fn(x, y):
-        return str(x + y)
+        pass
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, fn) is fn
+        s.schema.validate(schema, fn) # pos arg 2 invalid
 
     @s.schema.check(int, int, _return=float)
     def fn(x, y):
-        return str(x + y)
+        pass
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, fn) is fn
-
-    @s.schema.check(int, int, _return=float)
-    def fn(x, y):
-        return str(x + y)
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, fn) is fn
+        s.schema.validate(schema, fn) # return invalid
 
     @s.schema.check(int, int)
     def fn(x, y):
-        return str(x + y)
+        pass
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, fn) is fn
+        s.schema.validate(schema, fn) # missing return schema
 
 
 def test_union_types():

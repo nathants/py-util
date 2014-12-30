@@ -118,7 +118,7 @@ def _fn_type(decoratee, kind, rules, freeze):
 
 
 def _is_select_result(obj):
-    return s.schema.is_valid(s.sock.schemas.select_result, obj, _freeze=False)
+    return s.schema.is_valid(s.sock.schemas.select_result, obj, freeze=False)
 
 
 def _gen_type(decoratee, kind, rules, freeze):

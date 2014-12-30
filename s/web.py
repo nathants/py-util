@@ -37,7 +37,7 @@ def _new_handler_method(fn):
     return method
 
 
-@s.schema.check(kwargs={str: types.FunctionType}, _return=type)
+@s.schema.check(_kwargs={str: types.FunctionType}, _return=type)
 def _verbs_to_handler(**verbs):
     class Handler(tornado.web.RequestHandler):
         for verb, fn in verbs.items():
@@ -117,7 +117,7 @@ with s.exceptions.ignore(ImportError):
 
 
 @s.async.coroutine(freeze=False)
-@s.schema.check(str, str, timeout=float, kwargs=dict, _return=schemas.response)
+@s.schema.check(str, str, timeout=float, _kwargs=dict, _return=schemas.response)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
@@ -136,18 +136,18 @@ def _fetch(method, url, **kw):
                           'body': response.body.decode('utf-8')})
 
 
-@s.schema.check(str, kwargs=dict)
+@s.schema.check(str, _kwargs=dict)
 def get(url, **kw):
     return _fetch('GET', url, **kw)
 
 
-@s.schema.check(str, str, kwargs=dict)
+@s.schema.check(str, str, _kwargs=dict)
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
-get_sync = s.schema.check(str, kwargs=dict)(s.async.make_sync(get))
-post_sync = s.schema.check(str, str, kwargs=dict)(s.async.make_sync(post))
+get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
+post_sync = s.schema.check(str, str, _kwargs=dict)(s.async.make_sync(post))
 
 
 class Timeout(Exception):
