@@ -4,7 +4,6 @@ import contextlib
 import datetime
 import tornado.web
 import tornado.httputil
-import tornado.ioloop
 import tornado.httpclient
 import s
 import requests
@@ -95,7 +94,7 @@ def test(app, poll=True):
     url = 'http://localhost:{}/'.format(port)
     def run():
         app.listen(port)
-        tornado.ioloop.IOLoop.current().start()
+        s.async.ioloop().start()
     proc = s.proc.new(run)
     if poll:
         while True:

@@ -43,7 +43,7 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
                 trace_fn = s.trace.mutable(fn)
             future = tornado.gen.coroutine(trace_fn)(*a, **kw)
             callback = _log_exceptions(*ignore_exceptions)
-            tornado.ioloop.IOLoop.current().add_future(future, callback)
+            ioloop().add_future(future, callback)
             return future
         decorated._is_coroutine = True
         return decorated
@@ -52,7 +52,7 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
 
 def sleep(duration_seconds):
     future = tornado.concurrent.Future()
-    tornado.ioloop.IOLoop.current().add_timeout(
+    ioloop().add_timeout(
         datetime.timedelta(seconds=duration_seconds),
         lambda: future.set_result(None)
     )
@@ -68,21 +68,22 @@ class _IOLoop(object):
         self.started = True
         self.ioloop.start()
 
-    def clear(self):
-        self.started = False
-
     def __getattr__(self, k):
         return getattr(self.ioloop, k)
 
 
+def ioloop_clear():
+    ioloop.clear_cache()
+    tornado.ioloop.IOLoop.clear_instance()
+
+
 @s.cached.func
 def ioloop():
-    tornado.ioloop.IOLoop.clear_instance()
     return _IOLoop(tornado.ioloop.IOLoop.instance())
 
 
 def run_sync(func, timeout=None):
-    ioloop.clear_cache()
+    ioloop_clear()
     io = ioloop()
     io.started = True
     val = io.run_sync(func, timeout=timeout)

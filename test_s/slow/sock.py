@@ -81,7 +81,7 @@ def test_push_pull():
 
 @flaky
 def test_async_methods_error_when_no_ioloop():
-    s.async.ioloop().clear()
+    s.async.ioloop().started = False
     with pytest.raises(AssertionError):
         s.sock.bind('pull', s.sock.route()).recv()
     with pytest.raises(AssertionError):

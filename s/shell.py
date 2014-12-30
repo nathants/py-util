@@ -301,7 +301,7 @@ def abspand(path):
 def watch_files(route):
     @s.trace.glue
     def watcher():
-        s.async.ioloop.clear_cache()
+        s.async.ioloop_clear()
         try:
             with s.shell.climb_git_root():
                 while True:
