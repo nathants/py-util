@@ -81,7 +81,7 @@ def _tree_print(data):
         lines.append('')
         lines.append(s.colors.green(path))
         size = max(len(x) for x, _ in files) + _ljust_offset
-        for name, loc in files:
+        for name, loc in sorted(files, key=lambda x: x[0]):
             lines.append(s.colors.blue(name.ljust(size)) +
                          s.colors.red(loc))
     s.shell.less('\n'.join(lines))
