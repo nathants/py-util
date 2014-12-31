@@ -83,8 +83,8 @@ def test_trace_web():
         resp = requests.get(url)
         assert resp.text == 'ok'
         assert resp.headers['foo'] == 'bar'
-    with open(s.log._trace_path) as _file:
-        results = [json.loads(x) for x in _file.read().splitlines()]
+    with open(s.log._trace_path) as f:
+        results = [json.loads(x) for x in f.read().splitlines()]
     _check_schema([('handler', 'gen', [object]),
                    ('handler', 'gen.yield', '<Future>'),
                    ('handler', 'gen.send', [None]),

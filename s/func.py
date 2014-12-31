@@ -30,8 +30,8 @@ def name(fn):
 def source(fn):
     try:
         filename, linenum = fn.func_code.co_filename, fn.func_code.co_firstlineno
-        with open(filename) as _file:
-            text = _file.read().splitlines()[linenum - 1]
+        with open(filename) as f:
+            text = f.read().splitlines()[linenum - 1]
             return '{filename}:{linenum} => {text}'.format(**locals())
     except:
         return name(fn)

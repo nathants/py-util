@@ -18,8 +18,8 @@ def start():
             with s.exceptions.ignore():
                 _conns.remove(self)
     port = s.net.free_port()
-    with open('/tmp/tests_auto.port', 'w') as _file:
-        _file.write(str(port))
+    with open('/tmp/tests_auto.port', 'w') as f:
+        f.write(str(port))
     tornado.web.Application([(r'/ws', Handler)]).listen(port)
 
 

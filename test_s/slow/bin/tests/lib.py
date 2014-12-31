@@ -23,9 +23,9 @@ def teardown_function(fn):
 
 
 def test__collect_tests():
-    with open('foo.py', 'w') as _file:
-        _file.write('def test1():\n'
-                    '    pass')
+    with open('foo.py', 'w') as f:
+        f.write('def test1():\n'
+                '    pass')
     assert s.bin.tests.lib._collect_tests('foo.py') == ("<Function 'test1'>",)
 
 
@@ -60,36 +60,36 @@ def test__python_packages():
 
 
 def test_one_result_per_test__test():
-    with open('test_foo.py', 'w') as _file:
-        _file.write('def test1():\n'
-                    '    pass\n'
-                    'def test2():\n'
-                    '    pass')
+    with open('test_foo.py', 'w') as f:
+        f.write('def test1():\n'
+                '    pass\n'
+                'def test2():\n'
+                '    pass')
     assert len(s.bin.tests.lib._test('test_foo.py')) == 2
 
 
 def test_import_syntax_error__test():
-    with open('test_foo.py', 'w') as _file:
-        _file.write('def test1():\n'
-                    'pass')
+    with open('test_foo.py', 'w') as f:
+        f.write('def test1():\n'
+                'pass')
     val = s.bin.tests.lib._test('test_foo.py')
     assert 'IndentationError: expected an indented block' in val[0]['result']
 
 
 def test_pytest_insight__test():
-    with open('test_foo.py', 'w') as _file:
-        _file.write('def test1():\n'
-                    '    x, y = 1, 3\n'
-                    '    assert x == y')
+    with open('test_foo.py', 'w') as f:
+        f.write('def test1():\n'
+                '    x, y = 1, 3\n'
+                '    assert x == y')
     val = s.bin.tests.lib._test('test_foo.py')
     assert 'assert 1 == 3' in val[0]['result']
 
 
 def test_pass__test():
-    with open('test_foo.py', 'w') as _file:
-        _file.write('def test1():\n'
-                    '   x, y = 1, 1\n'
-                    '   assert x == y')
+    with open('test_foo.py', 'w') as f:
+        f.write('def test1():\n'
+                '   x, y = 1, 1\n'
+                '   assert x == y')
     val = s.bin.tests.lib._test('test_foo.py')
     assert not val[0]['result']
 
@@ -97,12 +97,12 @@ def test_pass__test():
 def test_one_pass_one_fail_run_lightweight_tests_once():
     s.shell.run('mkdir .git')
     with s.shell.cd('test_foo/fast'):
-        with open('test1.py', 'w') as _file:
-            _file.write('def test1():\n'
-                        '    pass')
-        with open('test2.py', 'w') as _file:
-            _file.write('def test2():\n'
-                        '    1/0')
+        with open('test1.py', 'w') as f:
+            f.write('def test1():\n'
+                    '    pass')
+        with open('test2.py', 'w') as f:
+            f.write('def test2():\n'
+                    '    1/0')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
     val = s.bin.tests.lib.light()
     assert len(val) == 3
@@ -112,12 +112,12 @@ def test_one_pass_one_fail_run_lightweight_tests_once():
 def test_two_pass_run_lightweight_tests_once():
     s.shell.run('mkdir .git')
     with s.shell.cd('test_foo/fast'):
-        with open('test1.py', 'w') as _file:
-            _file.write('def test1():\n'
-                        '    pass')
-        with open('test2.py', 'w') as _file:
-            _file.write('def test2():\n'
-                        '    pass')
+        with open('test1.py', 'w') as f:
+            f.write('def test1():\n'
+                    '    pass')
+        with open('test2.py', 'w') as f:
+            f.write('def test2():\n'
+                    '    pass')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py')
     assert [x[0]['result'] for x in s.bin.tests.lib.light()] == [None, False, False]
 

@@ -277,8 +277,8 @@ def _pref_path(_file_):
 def get_or_prompt_pref(key, _file_, default=None, message=None):
     path = _pref_path(_file_)
     try:
-        with open(path) as _file:
-            data = yaml.safe_load(_file)
+        with open(path) as f:
+            data = yaml.safe_load(f)
     except IOError:
         data = {}
 
@@ -289,8 +289,8 @@ def get_or_prompt_pref(key, _file_, default=None, message=None):
             print(message)
         default = 'or default: {}'.format(default) if default else ''
         data[key] = six.moves.input('value for {key} {default}? '.format(**locals()))
-        with open(path, 'w') as _file:
-            yaml.dump(data, _file, default_flow_style=False)
+        with open(path, 'w') as f:
+            yaml.dump(data, f, default_flow_style=False)
         return data[key]
 
 
@@ -329,6 +329,6 @@ def override(flag):
 def less(text):
     if text:
         with s.shell.tempdir():
-            with open('_', 'w') as _file:
-                _file.write(text + '\n\n')
+            with open('_', 'w') as f:
+                f.write(text + '\n\n')
             s.shell.run('less -cR _', interactive=True)

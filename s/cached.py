@@ -26,10 +26,10 @@ def disk(fn):
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
         if not os.path.isfile(path):
-            with open(path, 'w') as _file:
-                json.dump(fn(*a, **kw), _file)
-        with open(path) as _file:
-            return json.load(_file)
+            with open(path, 'w') as f:
+                json.dump(fn(*a, **kw), f)
+        with open(path) as f:
+            return json.load(f)
     cached_fn.clear_cache = lambda: s.shell.run('rm -f', path)
     with s.exceptions.ignore(AttributeError):
         cached_fn = functools.wraps(callable)(cached_fn)

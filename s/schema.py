@@ -235,8 +235,8 @@ def _helpful_message(schema, value):
     for fn in [x for x in s.seqs.flatten(schema) if isinstance(x, types.FunctionType)]:
         try:
             filename, linenum = fn.func_code.co_filename, fn.func_code.co_firstlineno
-            with open(filename) as _file:
-                lines = _file.read().splitlines()
+            with open(filename) as f:
+                lines = f.read().splitlines()
             start = end = None
             for i in reversed(range(linenum)):
                 if not lines[i].strip() or 'def ' in lines[i] or 'class ' in lines[i]:
