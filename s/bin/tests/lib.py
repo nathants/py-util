@@ -123,14 +123,6 @@ def _mapwalk(dirs):
     return [s.shell.walk(x) for x in dirs]
 
 
-@s.trace.io
-def _collect_tests(test_file):
-    keep = ['<Function']
-    text = s.shell.run('py.test --collect-only', test_file)
-    return [x.strip() for x in text.splitlines()
-            if any(x.strip().startswith(y) for y in keep)]
-
-
 def _result(result, path, seconds):
     pred = lambda x: not x.startswith('test_')
     path = itertools.dropwhile(pred, path.split('/'))
@@ -293,13 +285,6 @@ def slow():
                 _send_slow_result(_format_pytest_output(msg['output']), socks)
 
 
-def fast():
-    result = s.shell.run('timeout 5 py.test -x --tb native', *fast_test_files(), warn=True)
-    if result['exitcode'] != 0:
-        text = _format_pytest_output(result['output'])
-        return [[{'result': text, 'path': 'test_*/fast/*.py', 'seconds': 0}]]
-
-
 def light():
     return [_test(x) for x in fast_test_files()]
 
@@ -308,16 +293,6 @@ def one(test_path):
     if os.path.isfile(test_path):
         return _test(test_path)
     return []
-
-
-@s.trace.logic
-def _drop_seconds(test_datas):
-    if test_datas:
-        return [s.dicts.drop(y, 'seconds')
-                for x in test_datas
-                for y in x]
-    else:
-        return test_datas
 
 
 def _modules_to_reload():

@@ -14,5 +14,4 @@ def main():
                             s.bin.tests.lib.slow_auto,
                             s.bin.tests.lib.one_auto,
                             s.bin.tests.lib.slow,
-                            s.bin.tests.lib.fast,
                             s.bin.tests.lib.light])

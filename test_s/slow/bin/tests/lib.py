@@ -22,13 +22,6 @@ def teardown_function(fn):
     sys.path.pop(0)
 
 
-def test__collect_tests():
-    with open('foo.py', 'w') as f:
-        f.write('def test1():\n'
-                '    pass')
-    assert s.bin.tests.lib._collect_tests('foo.py') == ("<Function 'test1'>",)
-
-
 def test_climb():
     s.shell.run('mkdir -p 1/2/3')
     s.shell.run('touch 1/a 1/2/b 1/2/3/c')
