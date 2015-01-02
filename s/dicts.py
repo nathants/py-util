@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 import s
+import collections
 
 
 def new(scope, *names):
@@ -83,3 +84,25 @@ def map(mapping_fn, obj):
         return val
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
     return s.seqs.walk(obj, fn)
+
+
+def tree():
+    return collections.defaultdict(tree)
+
+
+def to_nested(obj):
+    data = tree()
+    for k, v in obj.items():
+        data = put(data, v, *k.split('.'))
+    return dict(data)
+
+
+def to_dotted(obj):
+    if not isinstance(obj, dict):
+        return obj
+    while any(isinstance(x, dict) for x in obj.values()):
+        for k1, v2 in obj.items():
+            if isinstance(v2, dict):
+                for k2, v2 in obj.pop(k1).items():
+                    obj['{}.{}'.format(k1, k2)] = to_dotted(v2)
+    return obj

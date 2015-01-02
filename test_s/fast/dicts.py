@@ -80,3 +80,11 @@ def test_new():
 def test_map():
     fn = lambda k, v: ['{}!!'.format(k), v]
     assert s.dicts.map(fn, {'a': {'b': 'c'}}) == {'a!!': {'b!!': 'c'}}
+
+
+def test_to_nested():
+    assert s.dicts.to_nested({'a.b': 'c'}) == {'a': {'b': 'c'}}
+
+
+def test_to_dotted():
+    assert s.dicts.to_dotted({'a': {'b': 'c'}}) == {'a.b': 'c'}
