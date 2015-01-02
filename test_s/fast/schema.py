@@ -4,7 +4,6 @@ import pytest
 import six
 
 
-
 def test_kwargs():
     @s.schema.check(_kwargs={str: int})
     def fn(**kw):

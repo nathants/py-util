@@ -12,10 +12,14 @@ def flaky(retries=3, timeout=2):
             for i in range(100):
                 try:
                     with stopit.SignalTimeout(timeout, False):
-                        fn(*a, **kw)
+                        proc = s.proc.new(fn, *a, _daemon=False, **kw)
+                        proc.join()
+                        assert proc.exitcode == 0
                         break
                 except:
                     if i >= retries:
                         raise
+                finally:
+                    proc.terminate()
         return decorated
     return decorator

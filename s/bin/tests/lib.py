@@ -258,7 +258,7 @@ def _send_slow_result(result, socks):
 
 # todo schema me
 def _slow_socks():
-    return {s.sock.bind('pull', route): (s.proc.new(_run_slow_test, path, route), path)
+    return {s.sock.bind('pull', route): (s.proc.new(_run_slow_test, path, route, _daemon=False), path)
             for path in slow_test_files()
             for route in [s.sock.route()]}
 
@@ -377,7 +377,7 @@ def run_tests_auto(output_route):
     trigger_route = s.sock.route()
     watch_route = s.sock.route()
 
-    kw = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    kw = {'stdout': subprocess.PIPE, 'stderr': subprocess.PIPE}
     subprocess.Popen(['tests', 'light-auto', trigger_route, output_route], **kw)
     subprocess.Popen(['tests', 'slow-auto', trigger_route, output_route], **kw)
     subprocess.Popen(['tests', 'one-auto', trigger_route, output_route], **kw)

@@ -20,7 +20,7 @@ def shutdown_pool():
 
 
 def new(fn, *a, **kw):
-    daemon = kw.pop('daemon', True)
+    daemon = kw.pop('_daemon', True)
     obj = multiprocessing.Process(target=fn, args=a, kwargs=kw)
     obj.daemon = daemon
     obj.start()
