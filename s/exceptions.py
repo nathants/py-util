@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import contextlib
+import types
 
 
 @contextlib.contextmanager
@@ -14,13 +15,17 @@ def ignore(*exceptions):
 
 
 @contextlib.contextmanager
-def update(fn, *exceptions):
+def update(fn_or_str, *exceptions):
     try:
         yield
-    except (exceptions or Exception) as e:
-        try:
-            msg = e.args[0]
-        except:
-            msg = ''
-        e.args = (fn(msg),) + e.args[1:]
+    except Exception as e:
+        if type(e) in exceptions:
+            try:
+                msg = e.args[0]
+            except:
+                msg = ''
+            if isinstance(fn_or_str, types.FunctionType):
+                e.args = (fn_or_str(msg),) + e.args[1:]
+            else:
+                e.args = (msg + fn_or_str,) + e.args[1:]
         raise
