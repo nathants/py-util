@@ -112,35 +112,42 @@ def validate(schema, value, freeze=True):
     #
 
     """
-    with s.exceptions.update(lambda x: _prettify(x + _helpful_message(schema, value)), AssertionError):
-        if isinstance(schema, dict):
-            assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
-            for k in value.keys():
-                assert isinstance(k, s.data.string_types), 'thanks to json, dict keys must be str: {}, {}'.format(k, value)
-            value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
-            value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
-        else:
-            value = _check(schema, value)
-        if freeze:
-            if type(schema) is type:
-                with s.exceptions.ignore(ValueError):
-                    value = s.data.freeze(value)
+    try:
+        with s.exceptions.update(lambda x: _prettify(x + _helpful_message(schema, value)), AssertionError):
+            if isinstance(schema, dict):
+                assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
+                for k in value.keys():
+                    assert isinstance(k, s.data.string_types), 'thanks to json, dict keys must be str: {}, {}'.format(k, value)
+                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
+                value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
             else:
-                value = s.data.freeze(value)
-        return value
+                value = _check(schema, value)
+            if freeze:
+                if type(schema) is type:
+                    with s.exceptions.ignore(ValueError):
+                        value = s.data.freeze(value)
+                else:
+                    value = s.data.freeze(value)
+            return value
+    except AssertionError as e:
+        raise SchemaError(*e.args)
+
+
+class SchemaError(AssertionError):
+    pass
 
 
 def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
     validated_schema_items = []
     val = {}
     for k, v in value.items():
-        value_mismatch = k not in schema
-        type_mismatch = type(k) not in [x for x in schema if isinstance(x, type)] and object not in schema
-        assert not value_mismatch or not type_mismatch, '{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()]))
-        key = type(k) if value_mismatch else k
-        validator = schema.get(key, schema.get(object))
+        value_match = k in schema
+        type_match = type(k) in [x for x in schema if isinstance(x, type)] or object in schema
+        assert value_match or type_match, '{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()]))
+        key = k if value_match else type(k)
+        validator = schema.get(key) or schema[object]
         validated_schema_items.append((key, validator))
-        with s.exceptions.update(lambda x: x + "\n--key--\n'{}'".format(k), AssertionError):
+        with s.exceptions.update("\n--key--\n'{}'".format(k), AssertionError):
             val[k] = _check(validator, v)
     return val, validated_schema_items
 
@@ -269,7 +276,18 @@ def _prettify(x):
     return re.sub("\<\w+ \'(\w+)\'\>", r'\1', str(x))
 
 
-def get_schemas(arg_schemas, kwarg_schemas, fn):
+def get_schemas(fn, args, kwargs):
+    arg_schemas, kwarg_schemas = _read_annotations(fn, args, kwargs)
+    schemas = {'yield': kwarg_schemas.pop('_yield', object),
+               'send': kwarg_schemas.pop('_send', object),
+               'return': kwarg_schemas.pop('_return', object),
+               'args': kwarg_schemas.pop('_args', None),
+               'kwargs': kwarg_schemas.pop('_kwargs', None)}
+    schemas['arg'], schemas['kwarg'] = arg_schemas, kwarg_schemas
+    return schemas
+
+
+def _read_annotations(fn, arg_schemas, kwarg_schemas):
     if not arg_schemas and six.PY3:
         sig = inspect.signature(fn)
         arg_schemas = [x.annotation
@@ -287,56 +305,60 @@ def get_schemas(arg_schemas, kwarg_schemas, fn):
     return arg_schemas, kwarg_schemas
 
 
-def _check_args(args, kwargs, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze):
-    assert len(arg_schemas) == len(args) or args_schema, 'you asked to check {} for {} pos args, but {} were provided: {}'.format(name, len(arg_schemas), len(args), args)
+def _check_args(args, kwargs, name, freeze, schemas):
+    # TODO better to use inspect.getcallargs() for this?
+    assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided: {}'.format(name, len(schemas['arg']), len(args), args)
     _args = []
-    for i, (schema, arg) in enumerate(zip(arg_schemas, args)):
-        with s.exceptions.update(lambda x: x + '\n--arg num--\n{}\n--end--\n'.format(i)):
+    for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
+        with s.exceptions.update('\n--arg num--\n{}\n--end--\n'.format(i), AssertionError):
             _args.append(validate(schema, arg, freeze=freeze))
-    if args_schema and args[len(arg_schemas):]:
-        _args += validate(args_schema, args[len(arg_schemas):], freeze=freeze)
+    if schemas['args'] and args[len(schemas['arg']):]:
+        _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
     _kwargs = {}
     for k, v in kwargs.items():
-        if k in kwarg_schemas:
-            with s.exceptions.update(lambda x: x + '\n--arg keyword--\n{}\n--end--\n'.format(k)):
-                _kwargs[k] = validate(kwarg_schemas[k], v, freeze=freeze)
-        elif kwargs_schema:
-            _kwargs[k] = validate(kwargs_schema, {k: v}, freeze=freeze)[k]
+        if k in schemas['kwarg']:
+            with s.exceptions.update('\n--arg keyword--\n{}\n--end--\n'.format(k), AssertionError):
+                _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
+        elif schemas['kwargs']:
+            _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
         else:
             raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
     return _args, _kwargs
 
 
-def _fn_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, returns_schema):
+def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update(lambda x: x + '\n--info--\nschema.check failed for function: {}\n--end--\n'.format(name)):
-            args, kwargs = _check_args(args, kwargs, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze)
+        with s.exceptions.update('\n--info--\nschema.check failed for function: {}\n--end--\n'.format(name), SchemaError):
+            args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             value = decoratee(*args, **kwargs)
             assert value is not None, "you cannot return None from s.schema.check'd function"
-            return validate(returns_schema, value, freeze=freeze)
+            output = validate(schemas['return'], value, freeze=freeze)
+        return output
     return decorated
 
 
 # TODO too many args, make this a schema'd dict instead!
-def _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, returns_schema, sends_schema, yields_schema):
+# def _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, return_schema, sends_schema, yields_schema):
+def _gen_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        args, kwargs = _check_args(args, kwargs, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze)
-        generator = decoratee(*args, **kwargs)
-        to_send = None
-        first_send = True
-        while True:
-            if not first_send:
-                to_send = validate(sends_schema, to_send)
-            first_send = False
-            try:
-                to_yield = generator.send(to_send)
-                to_yield = validate(yields_schema, to_yield)
-            except (s.async.Return, StopIteration) as e:
-                e.value = s.schema.validate(returns_schema, getattr(e, 'value', None))
-                raise
-            to_send = yield to_yield
+        with s.exceptions.update('\n--info--\nschema.check failed for generator: {}\n--end--\n'.format(name), SchemaError):
+            args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
+            generator = decoratee(*args, **kwargs)
+            to_send = None
+            first_send = True
+            while True:
+                if not first_send:
+                    to_send = validate(schemas['send'], to_send)
+                first_send = False
+                try:
+                    to_yield = generator.send(to_send)
+                    to_yield = validate(schemas['yield'], to_yield)
+                except (s.async.Return, StopIteration) as e:
+                    e.value = validate(schemas['return'], getattr(e, 'value', None))
+                    raise
+                to_send = yield to_yield
     return decorated
 
 
@@ -344,18 +366,12 @@ def check(*args, **kwargs):
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
         freeze = kwargs.pop('_freeze', True)
-        arg_schemas, kwarg_schemas = get_schemas(args, kwargs, decoratee)
-        kwargs_schema = kwarg_schemas.pop('_kwargs', None)
-        args_schema = kwarg_schemas.pop('_args', None)
-        returns_schema = kwarg_schemas.pop('_return', object)
         name = s.func.name(decoratee)
+        schemas = get_schemas(decoratee, args, kwargs)
         if inspect.isgeneratorfunction(decoratee):
-            sends_schema = kwarg_schemas.pop('_sends', object)
-            yields_schema = kwarg_schemas.pop('_yields', object)
-            decorated = _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, returns_schema, sends_schema, yields_schema)
+            decorated = _gen_check(decoratee, name, freeze, schemas)
         else:
-            decorated = _fn_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, returns_schema)
-
-        decorated._schema = arg_schemas, {k: v for k, v in list(kwarg_schemas.items()) + [['_return', returns_schema]]}
+            decorated = _fn_check(decoratee, name, freeze, schemas)
+        decorated._schema = schemas['arg'], {k: v for k, v in list(schemas['kwarg'].items()) + [['_return', schemas['return']]]}
         return decorated
     return decorator

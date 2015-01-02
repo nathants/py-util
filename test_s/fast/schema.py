@@ -4,6 +4,7 @@ import pytest
 import six
 
 
+
 def test_kwargs():
     @s.schema.check(_kwargs={str: int})
     def fn(**kw):
@@ -137,8 +138,10 @@ def test_partial_comparisons_for_testing():
 
 
 def test_object_dict():
-    schema = {object: object}
+    schema = {object: int}
     s.schema.validate(schema, {'1': 2})
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, {'1': 2.0})
 
 
 def test_object_tuple():
@@ -152,10 +155,6 @@ def test_object_list():
     schema = [object]
     s.schema.validate(schema, [1, 2, 3])
     s.schema.validate(schema, [1, '2', 3.0])
-
-
-def test_annotations_sends_and_yields():
-    pass
 
 
 def test_annotations_return():
@@ -239,7 +238,7 @@ def test_check_coroutines():
 
 
 def test_check_yields_and_sends():
-    @s.schema.check(_sends=int, _yields=str)
+    @s.schema.check(_send=int, _yield=str)
     def main():
         val = yield 'a'
         if val > 0:
@@ -254,12 +253,12 @@ def test_check_yields_and_sends():
     gen = main()
     next(gen)
     with pytest.raises(AssertionError):
-        gen.send(-1) # violate _yields
+        gen.send(-1) # violate _yield
 
     gen = main()
     next(gen)
     with pytest.raises(AssertionError):
-        gen.send('1') # violate _sends
+        gen.send('1') # violate _send
 
 
 def test_object_type():
