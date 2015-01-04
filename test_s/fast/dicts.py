@@ -88,3 +88,7 @@ def test_to_nested():
 
 def test_to_dotted():
     assert s.dicts.to_dotted({'a': {'b': 'c'}}) == {'a.b': 'c'}
+    with pytest.raises(AssertionError):
+        s.dicts.to_dotted({'no.dots': {'or you': 'except'}})
+    with pytest.raises(AssertionError):
+        s.dicts.to_dotted({'no dots': {'or.you': 'except'}})

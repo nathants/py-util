@@ -97,9 +97,17 @@ def to_nested(obj):
     return dict(data)
 
 
+def _no_dots(x):
+    if s.schema.is_valid((object, object), x):
+        k, v = x
+        assert '.' not in k, 'you cannot use . in keys names'
+    return x
+
+
 def to_dotted(obj):
     if not isinstance(obj, dict):
         return obj
+    s.seqs.walk(obj, _no_dots)
     while any(isinstance(x, dict) for x in obj.values()):
         for k1, v2 in obj.items():
             if isinstance(v2, dict):
