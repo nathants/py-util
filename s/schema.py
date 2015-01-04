@@ -113,7 +113,7 @@ def validate(schema, value, freeze=True):
 
     """
     try:
-        with s.exceptions.update(lambda x: _prettify(x + _helpful_message(schema, value)), AssertionError):
+        with s.exceptions.update(_updater(schema, value), AssertionError):
             if isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
                 for k in value.keys():
@@ -133,6 +133,14 @@ def validate(schema, value, freeze=True):
         raise SchemaError(*e.args)
 
 
+def _formdent(x):
+    return s.strings.indent(pprint.pformat(x, width=1), 2)
+
+
+def _updater(schema, value):
+    return lambda x: _prettify(x + '\nobj:\n{}\nschema:\n{}'.format(_formdent(value), _formdent(schema)))
+
+
 class SchemaError(AssertionError):
     pass
 
@@ -147,7 +155,7 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
         key = k if value_match else type(k)
         validator = schema.get(key) or schema[object]
         validated_schema_items.append((key, validator))
-        with s.exceptions.update("\n--key--\n'{}'".format(k), AssertionError):
+        with s.exceptions.update("\nkey:\n  {}".format(k), AssertionError):
             val[k] = _check(validator, v)
     return val, validated_schema_items
 
@@ -238,42 +246,8 @@ def _check(validator, value):
         raise AssertionError('bad validator {} <{}>'.format(validator, type(validator)))
 
 
-def _helpful_message(schema, value):
-    for fn in [x for x in s.seqs.flatten(schema) if isinstance(x, types.FunctionType)]:
-        try:
-            filename, linenum = fn.func_code.co_filename, fn.func_code.co_firstlineno
-            with open(filename) as f:
-                lines = f.read().splitlines()
-            start = end = None
-            for i in reversed(range(linenum)):
-                if not lines[i].strip() or 'def ' in lines[i] or 'class ' in lines[i]:
-                    break
-                elif ' = ' in lines[i]:
-                    start = i
-                    break
-            if any(x in lines[start] for x in ['{', '(', '[']):
-                for i in range(linenum, len(lines) + 1):
-                    text = '\n'.join(lines[start:i])
-                    if all(text.count(x) == text.count(y) for x, y in [('{', '}'), ('[', ']'), ('(', ')')]):
-                        end = i
-                        break
-            if start is not None and end is not None:
-                schema = '\n'.join(lines[start:end])
-                size = len(lines[start]) - len(lines[start].lstrip())
-                schema = s.strings.unindent(schema, size)
-            break
-        except:
-            continue
-    else:
-        schema = pprint.pformat(schema, width=1)
-    return '\n\n--obj--\n{}\n--schema--\n{}\n--end--\n'.format(
-        pprint.pformat(value, width=1),
-        schema,
-    )
-
-
 def _prettify(x):
-    return re.sub("\<\w+ \'(\w+)\'\>", r'\1', str(x))
+    return re.sub("\<\w+ \'([\w\.]+)\'\>", r'\1', str(x))
 
 
 def get_schemas(fn, args, kwargs):
@@ -306,18 +280,18 @@ def _read_annotations(fn, arg_schemas, kwarg_schemas):
 
 
 def _check_args(args, kwargs, name, freeze, schemas):
-    # TODO better to use inspect.getcallargs() for this?
+    # TODO better to use inspect.getcallargs() for this? would change the semantics of pos arg checking. hmmn...
     assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided: {}'.format(name, len(schemas['arg']), len(args), args)
     _args = []
     for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
-        with s.exceptions.update('\n--arg num--\n{}\n--end--\n'.format(i), AssertionError):
+        with s.exceptions.update('\npos arg num:\n  {}'.format(i), AssertionError):
             _args.append(validate(schema, arg, freeze=freeze))
     if schemas['args'] and args[len(schemas['arg']):]:
         _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
     _kwargs = {}
     for k, v in kwargs.items():
         if k in schemas['kwarg']:
-            with s.exceptions.update('\n--arg keyword--\n{}\n--end--\n'.format(k), AssertionError):
+            with s.exceptions.update('\nkeyword arg:\n  {}'.format(k), AssertionError):
                 _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
         elif schemas['kwargs']:
             _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
@@ -329,21 +303,18 @@ def _check_args(args, kwargs, name, freeze, schemas):
 def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('\n--info--\nschema.check failed for function: {}\n--end--\n'.format(name), SchemaError):
+        with s.exceptions.update('\nschema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for function:' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             value = decoratee(*args, **kwargs)
-            assert value is not None, "you cannot return None from s.schema.check'd function"
             output = validate(schemas['return'], value, freeze=freeze)
         return output
     return decorated
 
 
-# TODO too many args, make this a schema'd dict instead!
-# def _gen_check(decoratee, arg_schemas, kwarg_schemas, args_schema, kwargs_schema, name, freeze, return_schema, sends_schema, yields_schema):
 def _gen_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('\n--info--\nschema.check failed for generator: {}\n--end--\n'.format(name), SchemaError):
+        with s.exceptions.update('\nschema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for generator:' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             generator = decoratee(*args, **kwargs)
             to_send = None
