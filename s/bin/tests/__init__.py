@@ -9,9 +9,6 @@ import s.bin.tests.lib
 def main():
     argh.dispatch_commands([auto.auto,
                             cover.cover,
-                            s.bin.tests.lib.one,
                             s.bin.tests.lib.light_auto,
                             s.bin.tests.lib.slow_auto,
-                            s.bin.tests.lib.one_auto,
-                            s.bin.tests.lib.slow,
-                            s.bin.tests.lib.light])
+                            s.bin.tests.lib.one_auto])
