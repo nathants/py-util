@@ -244,7 +244,7 @@ def code_files():
 
 def _run_slow_test(path, route):
     pytest = 'py.test' if six.PY2 else 'py.test3'
-    val = s.shell.run('timeout 5', pytest, '-x --tb native', path, warn=True)
+    val = s.shell.run('timeout 10', pytest, '-x --tb native', path, warn=True)
     s.sock.push_sync(route, val)
 
 
@@ -271,7 +271,7 @@ def slow():
         if not any(x.is_alive() for x, _ in socks.values()):
             break
 
-        if time.time() - start > 10:
+        if time.time() - start > 20:
             _send_slow_result('suite timed out without completeting:\n{}'.format('\n'.join(path for _, path in socks.values())), socks)
 
         timeout = s.sock.timeout(.1)
