@@ -35,3 +35,9 @@ def unindent(text, spaces):
         assert set(x[:spaces]) == {' '}, 'cannot unindent {spaces} spaces: {x}'.format(**locals())
         return x[spaces:]
     return '\n'.join(map(fn, text.splitlines()))
+
+
+def abbrev(text, max_len):
+    if len(text) > max_len:
+        text = text[:max_len] + ' ...'
+    return text
