@@ -10,7 +10,8 @@ import inspect
 
 _schema_commands = (':or',
                     ':fn',
-                    ':optional')
+                    ':optional',
+                    ':maybe')
 
 
 def is_valid(schema, value, freeze=True):
@@ -195,9 +196,14 @@ def _check(validator, value):
         return value
     elif isinstance(validator, (list, tuple)):
         assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a a seq: {} <{}>'.format(value, type(value), validator, type(validator))
-        if validator and isinstance(validator[0], s.data.string_types) and validator[0] in _schema_commands:
+        if validator and validator[0] in _schema_commands:
             if validator[0] == ':optional':
                 assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
+                return _check(validator[1], value)
+            elif validator[0] == ':maybe':
+                assert len(validator) == 2, ':maybe schema should be (:maybe, schema), not: {}'.format(validator)
+                if value is None:
+                    return None
                 return _check(validator[1], value)
             elif validator[0] == ':or':
                 for v in validator[1:]:
@@ -333,6 +339,7 @@ def _gen_check(decoratee, name, freeze, schemas):
     return decorated
 
 
+@s.hacks.optionally_parameterized_decorator
 def check(*args, **kwargs):
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):

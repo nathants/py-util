@@ -4,6 +4,14 @@ import pytest
 import six
 
 
+def test_maybe():
+    schema = (':maybe', str)
+    assert s.schema.validate(schema, 'foo') == 'foo'
+    assert s.schema.validate(schema, None) is None
+    with pytest.raises(AssertionError):
+        s.schema.validate(schema, True)
+
+
 def test_kwargs():
     @s.schema.check(_kwargs={str: int})
     def fn(**kw):
