@@ -62,7 +62,7 @@ def _when_dict_set_result_to_false(data):
         return (isinstance(x, dict)
                 and x['result']
                 and _match(x, data)
-                and s.dicts.put(x, False, 'result')
+                and s.dicts.put(x, 'result', False)
                 or x)
     return fn
 

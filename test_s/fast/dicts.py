@@ -3,11 +3,11 @@ import pytest
 
 
 def test_get():
-    assert s.dicts.get({'a': {'b': 'c'}}, 'a', 'b') == 'c'
+    assert s.dicts.get({'a': {'b': 'c'}}, ['a', 'b']) == 'c'
 
 
 def test_put():
-    assert s.dicts.put({}, 'c', 'a', 'b') == {'a': {'b': 'c'}}
+    assert s.dicts.put({}, ['a', 'b'], 'c') == {'a': {'b': 'c'}}
 
 
 def test_merge_freezes():
@@ -42,8 +42,13 @@ def test_simple_merge():
 
 
 def test_iterables_concatted():
-    assert s.dicts.merge({'a': {'b': ('a', 'b')}},
-                         {'a': {'b': ('c', 'd')}}, concat=True) == {'a': {'b': ('a', 'b', 'c', 'd')}}
+    assert s.dicts.merge({'a': ('a', 'b')},
+                         {'a': ('c', 'd')}, concat=True) == {'a': ('a', 'b', 'c', 'd')}
+
+
+def test_iterables_not_concatted():
+    assert s.dicts.merge({'a': ('a', 'b')},
+                         {'a': ('c', 'd')}) == {'a': ('c', 'd')}
 
 
 def test__concatable():
@@ -54,22 +59,22 @@ def test__concatable():
 
 
 def test_only():
-    assert s.dicts.take({'a': True, 'b': True, 'c': True}, 'a', 'b') == {'a': True, 'b': True}
+    assert s.dicts.take({'a': True, 'b': True, 'c': True}, ['a', 'b']) == {'a': True, 'b': True}
 
 
 def test_padded_only():
-    assert s.dicts.take({'a': True}, 'a', 'b', 'c', padded=None) == {'a': True, 'b': None, 'c': None}
+    assert s.dicts.take({'a': True}, ['a', 'b', 'c'], padded=None) == {'a': True, 'b': None, 'c': None}
 
 
 def test_drop():
     assert s.dicts.drop({'a': 'a', 'b': 'b'}, 'a') == {'b': 'b'}
+    assert s.dicts.drop({'a': 'a', 'b': 'b'}, ['a', 'b']) == {}
 
 
 def test__ks():
     assert s.dicts._ks(['a', 'b']) == ('a', 'b')
     assert s.dicts._ks(('a', 'b')) == ('a', 'b')
-    with pytest.raises(TypeError):
-        s.dicts._ks(None)
+    assert s.dicts._ks('a') == ('a',)
 
 
 def test_new():

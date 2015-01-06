@@ -20,7 +20,7 @@ def _capture_traces():
 
 def _check_schema(schemas, results):
     for result in results[len(schemas):]:
-        raise Exception('no schema provided for next item:', s.dicts.take(result, 'name', 'fntype'))
+        raise Exception('no schema provided for next item:', s.dicts.take(result, ['name', 'fntype']))
     for result, schema in zip(results, schemas):
         s.schema.validate(schema, (result['name'].split(':')[-1],
                                    result['fntype'],

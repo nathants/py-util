@@ -8,7 +8,7 @@ def new(scope, *names):
             for name in names}
 
 
-def get(x, *ks):
+def get(x, ks):
     ks = _ks(ks)
     x = x[ks[0]]
     for k in ks[1:]:
@@ -16,7 +16,7 @@ def get(x, *ks):
     return x
 
 
-def put(x, v, *ks):
+def put(x, ks, v):
     ks = _ks(ks)
     val = {ks[-1]: v}
     for k in reversed(ks[:-1]):
@@ -37,7 +37,7 @@ def _merge(k, a, b, concat, freeze):
     if k in a and k in b:
         if isinstance(a[k], dict) and isinstance(b[k], dict):
             return merge(a[k], b[k], concat)
-        elif _concatable(a[k], b[k]):
+        elif concat and _concatable(a[k], b[k]):
             return a[k] + b[k]
         else:
             return b[k]
@@ -48,7 +48,8 @@ def _merge(k, a, b, concat, freeze):
             return b[k]
 
 
-def take(x, *ks, **kw):
+def take(x, ks, **kw):
+    ks = _ks(ks)
     val = {k: x[k]
            for k in x
            if k in ks}
@@ -57,17 +58,20 @@ def take(x, *ks, **kw):
     return val
 
 
-def drop(x, *ks):
+def drop(x, ks):
+    ks = _ks(ks)
     return {k: v
             for k, v in x.items()
             if k not in ks}
 
 
+@s.schema.check((':or', object, [object]), _return=[object])
 def _ks(ks):
-    if isinstance(ks, list):
+    if isinstance(ks, (list, tuple)):
         return tuple(ks)
-    elif isinstance(ks, tuple):
-        return ks
+    else:
+        return (ks,)
+
     raise TypeError('ks must be a list of keys')
 
 
@@ -93,7 +97,7 @@ def tree():
 def to_nested(obj):
     data = tree()
     for k, v in obj.items():
-        data = put(data, v, *k.split('.'))
+        data = put(data, k.split('.'), v)
     return dict(data)
 
 

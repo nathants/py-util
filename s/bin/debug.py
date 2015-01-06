@@ -32,7 +32,7 @@ def _header(data, highlight=False):
 
 def _body(data, hide_keys, pretty, max_lines):
     val = []
-    for k, v in s.dicts.drop(data, *hide_keys).items():
+    for k, v in s.dicts.drop(data, hide_keys).items():
         if not v:
             continue
         elif isinstance(v, (tuple, list, dict)) and pretty:
