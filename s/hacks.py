@@ -69,6 +69,10 @@ def pformat_prep(val):
 
 
 def optionally_parameterized_decorator(fn):
+    """
+    wont work if you decorator can be invoked with a single function argument,
+    which is the same signature as decorator usage
+    """
     def decorated(*a, **kw):
         if len(a) == 1 and isinstance(a[0], types.FunctionType) and not kw:
             return fn()(*a, **kw)
