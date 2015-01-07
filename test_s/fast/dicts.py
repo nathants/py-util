@@ -6,8 +6,8 @@ def test_get():
     assert s.dicts.get({'a': {'b': 'c'}}, ['a', 'b']) == 'c'
 
 
-def test_put():
-    assert s.dicts.put({}, ['a', 'b'], 'c') == {'a': {'b': 'c'}}
+def test_set():
+    assert s.dicts.set({}, ['a', 'b'], 'c') == {'a': {'b': 'c'}}
 
 
 def test_merge_freezes():
@@ -84,7 +84,7 @@ def test_new():
 
 def test_map():
     fn = lambda k, v: ['{}!!'.format(k), v]
-    assert s.dicts.map(fn, {'a': {'b': 'c'}}) == {'a!!': {'b!!': 'c'}}
+    assert s.dicts.map(fn, {'a': {'b': [1, 2]}}) == {'a!!': {'b!!': [1, 2]}}
 
 
 def test_to_nested():

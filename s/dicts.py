@@ -16,7 +16,7 @@ def get(x, ks):
     return x
 
 
-def put(x, ks, v):
+def set(x, ks, v):
     ks = _ks(ks)
     val = {ks[-1]: v}
     for k in reversed(ks[:-1]):
@@ -26,8 +26,7 @@ def put(x, ks, v):
 
 def merge(a, b, concat=False, freeze=True):
     return {k: _merge(k, a, b, concat, freeze)
-            for k in set(list(a.keys()) +
-                         list(b.keys()))}
+            for k in {x for x in list(a.keys()) + list(b.keys())}}
 
 
 def _merge(k, a, b, concat, freeze):
@@ -82,12 +81,11 @@ def _concatable(*xs):
 
 def map(mapping_fn, obj):
     def mapper(*x):
-        assert isinstance(x, tuple) and len(x) == 2, 'your mapping_fn must take an (<object>, <object>) {}'.format(x)
         val = mapping_fn(*x)
         assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
         return val
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
-    return s.seqs.walk(obj, fn)
+    return s.seqs.walk(fn, obj)
 
 
 def tree():
@@ -97,21 +95,19 @@ def tree():
 def to_nested(obj):
     data = tree()
     for k, v in obj.items():
-        data = put(data, k.split('.'), v)
+        data = set(data, k.split('.'), v)
     return dict(data)
 
 
-def _no_dots(x):
-    if s.schema.is_valid((object, object), x):
-        k, v = x
-        assert '.' not in k, 'you cannot use . in keys names'
-    return x
+def _no_dots(k, v):
+    assert '.' not in k, 'you cannot use . in keys names'
+    return [k, v]
 
 
 def to_dotted(obj):
     if not isinstance(obj, dict):
         return obj
-    s.seqs.walk(obj, _no_dots)
+    s.dicts.map(_no_dots, obj)
     while any(isinstance(x, dict) for x in obj.values()):
         for k1, v2 in obj.items():
             if isinstance(v2, dict):

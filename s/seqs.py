@@ -2,12 +2,12 @@ from __future__ import print_function, absolute_import
 import itertools
 
 
-def walk(data, fn):
+def walk(fn, data):
     data = fn(data)
     if isinstance(data, (list, tuple, set)):
-        return type(data)(walk(x, fn) for x in data)
+        return type(data)(walk(fn, x) for x in data)
     elif isinstance(data, dict):
-        return type(data)(walk(x, fn) for x in data.items())
+        return type(data)(walk(fn, x) for x in data.items())
     else:
         return data
 
