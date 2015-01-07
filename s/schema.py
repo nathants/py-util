@@ -136,7 +136,20 @@ def _formdent(x):
     return s.strings.indent(pprint.pformat(x, width=1), 2)
 
 
+def _update_functions(schema):
+    def fn(x):
+        if isinstance(x, types.FunctionType):
+            if six.PY3:
+                filename, linenum = x.__code__.co_filename, x.__code__.co_firstlineno
+            else:
+                filename, linenum = x.func_code.co_filename, x.func_code.co_firstlineno
+            x = 'lambda:{filename}:{linenum}'.format(**locals())
+        return x
+    return s.seqs.walk(fn, schema)
+
+
 def _updater(schema, value):
+    schema = _update_functions(schema)
     return lambda x: _prettify(x + '\nobj:\n{}\nschema:\n{}'.format(_formdent(value), _formdent(schema)))
 
 
