@@ -108,7 +108,6 @@ def _fn_type(decoratee, kind, rules, freeze):
                 val = decoratee(*a, **kw)
                 if freeze:
                     val = s.data.freeze(val)
-                assert val is not None, 'you cannot return None from: {name}'.format(**locals())
             except:
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise

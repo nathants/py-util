@@ -194,11 +194,3 @@ def test_logic_gen_raise():
     with pytest.raises(ZeroDivisionError):
         for i, x in enumerate(logic()):
             assert i == x
-
-
-def test_logic_return_none():
-    @s.trace.logic
-    def fn():
-        return None
-    with pytest.raises(AssertionError):
-        fn()
