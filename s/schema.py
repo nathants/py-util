@@ -114,11 +114,9 @@ def validate(schema, value, freeze=True):
 
     """
     try:
-        with s.exceptions.update(_updater(schema, value), AssertionError):
+        with s.exceptions.update(_updater(schema, value), AssertionError, SchemaError):
             if isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
-                for k in value.keys():
-                    assert isinstance(k, s.data.string_types), 'thanks to json, dict keys must be str: {}, {}'.format(k, value)
                 value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
                 value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
             else:

@@ -9,11 +9,6 @@ def test_unicode_synonymous_with_str():
     assert s.data.freeze(u'asdf') == 'asdf'
 
 
-def test_dicts_must_have_str_keys():
-    with pytest.raises(Exception):
-        s.data.freeze({1: 2})
-
-
 def test_setitem_freeze():
     with pytest.raises(Exception):
         s.data.freeze({'a': 1})['a'] = 2

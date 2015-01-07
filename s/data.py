@@ -117,8 +117,6 @@ def freeze(value):
     if isinstance(value, immutable_types):
         return value
     elif isinstance(value, dict):
-        for k in value.keys():
-            assert isinstance(k, s.data.string_types), 'dict keys must be str: {}, {}'.format(k, value)
         return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
     elif isinstance(value, listy_types):
         return _ImmutableSeq(freeze(x) for x in value)

@@ -117,13 +117,6 @@ def test_bytes_not_synonymous_with_str():
             s.schema.validate(str, b'123')
 
 
-def test_dicts_must_have_str_keys():
-    schema = {object: object}
-    assert s.schema.validate({str: str}, {'a': 'b'}) == {'a': 'b'}
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: 2})
-
-
 def test_bytes_matches_str_schemas():
     schema = 'asdf'
     s.schema.validate(schema, b'asdf')
