@@ -87,6 +87,15 @@ def app(routes, debug=False):
     return tornado.web.Application(routes, debug=debug)
 
 
+def wait_for_200(url):
+    while True:
+        try:
+            str(requests.get(url)) # wait for http requests to succeed
+            break
+        except requests.exceptions.ConnectionError:
+            time.sleep(1e-6)
+
+
 @contextlib.contextmanager
 @s.schema.check(tornado.web.Application, poll=bool)
 def test(app, poll=True):
@@ -97,12 +106,7 @@ def test(app, poll=True):
         s.async.ioloop().start()
     proc = s.proc.new(run)
     if poll:
-        while True:
-            try:
-                str(requests.get(url)) # wait for http requests to succeed
-                break
-            except requests.exceptions.ConnectionError:
-                time.sleep(1e-6)
+        wait_for_200(url)
     try:
         yield url
     except:
