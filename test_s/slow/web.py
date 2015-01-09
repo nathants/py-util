@@ -4,6 +4,10 @@ import s
 import json
 
 
+def test_non_2XX_codes():
+    pass
+
+
 def test_normal_app():
     @s.async.coroutine
     def handler(request):
