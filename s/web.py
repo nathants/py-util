@@ -125,8 +125,7 @@ def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
     future = s.async.Future()
-    response = tornado.httpclient.AsyncHTTPClient().fetch(request)
-    s.async.chain(response, future)
+    response = tornado.httpclient.AsyncHTTPClient().fetch(request, callback=lambda x: future.set_result(x))
     if timeout:
         s.async.ioloop().add_timeout(
             datetime.timedelta(seconds=timeout),
