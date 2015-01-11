@@ -18,7 +18,7 @@ class schemas:
                'query': {str: (':or', str, [str])},
                'body': str,
                'headers': {str: str},
-               'arguments': {str: str}}
+               'args': {str: str}}
 
     response = {'code': (':optional', int, 200),
                 'reason': (':optional', (':or', str, None), None),
@@ -29,8 +29,8 @@ class schemas:
 def _new_handler_method(fn):
     assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
     @s.async.coroutine(trace=False)
-    def method(self, **arguments):
-        request = _request_to_dict(self.request, arguments)
+    def method(self, **args):
+        request = _request_to_dict(self.request, args)
         response = yield fn(request)
         _mutate_handler(response, self)
     return method
@@ -62,14 +62,14 @@ def _query_parse(query):
 
 
 @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, _return=schemas.request)
-def _request_to_dict(obj, arguments):
+def _request_to_dict(obj, args):
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
             'path': obj.path,
             'query': _query_parse(obj.query),
             'body': obj.body.decode('utf-8'),
             'headers': dict(obj.headers),
-            'arguments': arguments}
+            'args': args}
 
 
 @s.schema.check(str, _return=str)
@@ -87,7 +87,7 @@ def app(routes, debug=False):
     return tornado.web.Application(routes, debug=debug)
 
 
-def wait_for_200(url):
+def wait_for_http(url):
     while True:
         try:
             str(requests.get(url)) # wait for http requests to succeed
@@ -106,7 +106,7 @@ def test(app, poll=True):
         s.async.ioloop().start()
     proc = s.proc.new(run)
     if poll:
-        wait_for_200(url)
+        wait_for_http(url)
     try:
         yield url
     except:
@@ -135,7 +135,7 @@ def _fetch(method, url, **kw):
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
-                          'body': response.body.decode('utf-8')})
+                          'body': (response.body or b'').decode('utf-8')})
 
 
 @s.schema.check(str, _kwargs=dict)
@@ -148,6 +148,7 @@ def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
+# todo make_sync can be a decorator?
 get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
 post_sync = s.schema.check(str, str, _kwargs=dict)(s.async.make_sync(post))
 
