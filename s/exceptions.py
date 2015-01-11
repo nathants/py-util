@@ -28,5 +28,5 @@ def update(fn_or_str, *exceptions, **kw):
                 if isinstance(fn_or_str, types.FunctionType):
                     e.args = (fn_or_str(msg),) + e.args[1:]
                 else:
-                    e.args = (msg + fn_or_str,) + e.args[1:]
+                    e.args = (msg + '\n' + fn_or_str,) + e.args[1:]
         raise

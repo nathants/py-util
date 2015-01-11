@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import traceback
 import six
 import functools
 import re
@@ -167,7 +168,7 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
         key = k if value_match else type(k)
         validator = schema.get(key) or schema[object]
         validated_schema_items.append((key, validator))
-        with s.exceptions.update("\nkey:\n  {}".format(k), AssertionError):
+        with s.exceptions.update("key:\n  {}".format(k), AssertionError):
             val[k] = _check(validator, v)
     return val, validated_schema_items
 
@@ -218,9 +219,12 @@ def _check(validator, value):
                 return _check(validator[1], value)
             elif validator[0] == ':or':
                 for v in validator[1:]:
-                    with s.exceptions.ignore(AssertionError):
+                    tracebacks = []
+                    try:
                         return _check(v, value)
-                raise AssertionError('{} <{}> did not match any of [{}]'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]])))
+                    except AssertionError as e:
+                        tracebacks.append(traceback.format_exc())
+                raise AssertionError('{} <{}> did not match any of [{}]\n{}'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]]), '\n'.join(tracebacks)))
             elif validator[0] == ':fn':
                 assert isinstance(value, types.FunctionType), '{} <{}> is not a function'.format(value, type(value))
                 assert len(validator) in [2, 3], ':fn schema should be (:fn, [<args>...], {<kwargs>: <val>, ...}) or (:fn, [<args>...]), not: {}'.format(validator)
@@ -301,14 +305,14 @@ def _check_args(args, kwargs, name, freeze, schemas):
     assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided: {}\n{}'.format(name, len(schemas['arg']), len(args), args, schemas)
     _args = []
     for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
-        with s.exceptions.update('\npos arg num:\n  {}'.format(i), AssertionError):
+        with s.exceptions.update('pos arg num:\n  {}'.format(i), AssertionError):
             _args.append(validate(schema, arg, freeze=freeze))
     if schemas['args'] and args[len(schemas['arg']):]:
         _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
     _kwargs = {}
     for k, v in kwargs.items():
         if k in schemas['kwarg']:
-            with s.exceptions.update('\nkeyword arg:\n  {}'.format(k), AssertionError):
+            with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
                 _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
         elif schemas['kwargs']:
             _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
@@ -320,18 +324,18 @@ def _check_args(args, kwargs, name, freeze, schemas):
 def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('\nschema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for function:' not in x):
+        with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for function:' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             value = decoratee(*args, **kwargs)
             output = validate(schemas['return'], value, freeze=freeze)
-        return output
+            return output
     return decorated
 
 
 def _gen_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('\nschema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for generator:' not in x):
+        with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for generator:' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             generator = decoratee(*args, **kwargs)
             to_send = None
