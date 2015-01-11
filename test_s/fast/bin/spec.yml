@@ -1,29 +1,69 @@
+# spec ./spec.yml --cmd 'python ./spec.py'
+
 google:
 
   should work:
-    - request: {route: "http://google.com"}
-      response: {code: 200}
+    - req:
+        route: "http://google.com"
+      rep:
+        code: 200
 
 the api:
 
   has status:
-    - request: {route: /}
-      response: {code: 200}
+    - req:
+        route: /
+      rep:
+        code: 200
+
+  should fetch a value after putting it, but not before:
+    - req:
+        route: /fetch/123
+      rep:
+        code: 404
+
+    - req:
+        route: /put
+        verb: post
+        body: asdf
+      rep:
+        code: 200
+        body: {$var: id}
+
+    - req:
+        route: /fetch/$id
+      rep:
+        body: {$var: body}
+        code: 200
+
+    - req:
+        route: /fetch/$id
+      rep:
+        body: {var: body}
+        code: 200
+
 
   should read a value after writing, but not before:
 
-    - request: {route: /get/foo}
-      response: {code: 404}
+    - req:
+        route: /get/foo
+      rep:
+        code: 404
 
-    - request:
+    - req:
         route: /set/foo
         verb: post
         body: bar
-      response: {code: 200}
+      rep:
+        code: 200
 
-    - request: {route: /get/foo}
-      response: {body: bar}
+    - req:
+        route: /get/foo
+      rep:
+        body: bar
 
   should 404 on missing route:
-    - request: {route: /missing}
-      response: {code: 404}
+    - req:
+        route: /missing
+      rep:
+        code: 404

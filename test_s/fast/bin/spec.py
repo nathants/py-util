@@ -1,5 +1,6 @@
 import argh
 import s
+import uuid
 
 
 @s.async.coroutine
@@ -13,7 +14,7 @@ _state = {}
 @s.async.coroutine
 def set(request):
     yield s.async.moment
-    _state[request['arguments']['key']] = request['body']
+    _state[request['args']['key']] = request['body']
     raise s.async.Return({'code': 200})
 
 
@@ -21,22 +22,38 @@ def set(request):
 def get(request):
     yield s.async.moment
     try:
-        body = _state[request['arguments']['key']]
-        raise s.async.Return({'body': body})
+        raise s.async.Return({'body': _state[request['args']['key']]})
+    except KeyError:
+        raise s.async.Return({'code': 404})
+
+
+@s.async.coroutine
+def put(request):
+    yield s.async.moment
+    id = str(uuid.uuid4())
+    _state[id] = request['body']
+    raise s.async.Return({'body': id})
+
+
+@s.async.coroutine
+def fetch(request):
+    yield s.async.moment
+    try:
+        raise s.async.Return({'body': _state[request['args']['id']]})
     except KeyError:
         raise s.async.Return({'code': 404})
 
 
 def main(port=8888):
     s.log.setup()
-    s.web.app(
-        [
-            ('/', {'get': root}),
-            ('/set/:key', {'post': set}),
-            ('/get/:key', {'get': get}),
-        ],
-        debug=True
-    ).listen(port)
+    routes = [
+        ('/', {'get': root}),
+        ('/set/:key', {'post': set}),
+        ('/get/:key', {'get': get}),
+        ('/put', {'post': put}),
+        ('/fetch/:id', {'get': fetch}),
+    ]
+    s.web.app(routes, debug=True).listen(port)
     s.async.ioloop().start()
 
 
