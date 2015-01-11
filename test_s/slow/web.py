@@ -148,7 +148,7 @@ def test_url_args():
     def handler(request):
         yield s.async.moment
         raise s.async.Return({'code': 200,
-                              'body': json.dumps({'foo': request['arguments']['foo']})})
+                              'body': json.dumps({'foo': request['args']['foo']})})
     app = s.web.app([('/:foo/stuff', {'GET': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + 'something/stuff')
