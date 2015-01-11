@@ -95,6 +95,8 @@ def run(*a, **kw):
     elif popen or stream or warn or callback:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
         if popen:
+            if stream:
+                s.proc.new(_process_lines, proc, log_or_print, callback)
             return proc
         output = _process_lines(proc, log_or_print, callback)
         if warn:
