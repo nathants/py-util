@@ -1,23 +1,29 @@
 from __future__ import print_function, absolute_import
-import logging
+import yaml
 import s
 import os
-import yaml
 import json
 import argh
-import atexit
+
+
+# todo how to deal with many apps/ports, ie fig up?
 
 
 class schemas:
-    item = {'req': {'route': (':optional', str, '/'),
-                    'verb': (':optional', (':or', 'get', 'post'), 'get'),
-                    'body': (':optional', str, ''),
+    _verbs = (':or', 'get', 'post')
+
+    _body = (':or', str, {'$set': str}, {'$get': str})
+
+    item = {'info': (':optional', str, ''),
+            'req': {'route': (':optional', str, '/'),
+                    'verb': (':optional', _verbs, 'get'),
+                    'body': (':optional', _body, ''),
                     'https': (':optional', bool, False)},
 
             'rep': {'code': (':optional', int, 200),
-                    'body': (':optional', (':or', str, {'$var': str}, {'var': str}), '')}}
+                    'body': (':optional', _body, '')}}
 
-    data = (':or', [item], {str: [item]}, {str: {str: [item]}})
+    data = {str: {str: [item]}}
 
 
 def main():
@@ -26,97 +32,106 @@ def main():
 
 _state = {'port': None,
           'proc': None,
-          'vars': {}}
+          'vars': None,
+          'host': None}
 
 
-@atexit.register
-def kill_proc():
-    if _state['proc']:
-        _state['proc'].terminate()
+def _reset():
+    s.web.post_sync(_state['host'] + '/_reset', '')
 
 
-def _restart_if_cmd():
-    if _state['cmd']:
-        logging.debug('restart: {cmd}'.format(**_state))
-        _state['port'] = s.net.free_port()
-        if _state['proc']:
-            _state['proc'].terminate()
-        _state['proc'] = s.shell.run(_state['cmd'], '--port', _state['port'], stream=_state['stream'], popen=True)
-        s.web.wait_for_http('http://0.0.0.0:{port}'.format(**_state))
-
-
-def _main(conf_path, cmd='', stream=False, filter=None):
+def _main(conf_path, host='', cmd='', stream=False, filter=None):
     _state['stream'] = stream
     _state['cmd'] = cmd
+    _state['host'] = host.rstrip('/')
 
     with open(os.path.expanduser(conf_path)) as f:
         data = yaml.safe_load(f)
     data = s.schema.validate(schemas.data, data)
 
-    _restart_if_cmd()
+    _reset()
 
     print('spec: {conf_path}'.format(**locals()))
 
-    if s.schema.is_valid([schemas.item], data):
-        for item in data:
-            print(_run(item))
+    for k1, v in data.items():
+        print('\n' + s.colors.blue(k1))
+        for k2, rep_v in v.items():
+            if not filter or any(filter in x for x in [k1, k2]):
+                _state['vars'] = {}
+                _reset()
+                print('\n' + s.strings.indent(s.colors.yellow(k2), 1))
+                for i, item in enumerate(rep_v):
+                    _process(i, item)
 
-    elif s.schema.is_valid({str: [schemas.item]}, data):
-        for k, v in data.items():
-            if not filter or filter in k:
-                print(k)
-                _restart_if_cmd()
-                for item in v:
-                    print(s.strings.indent(_run(item), 1))
 
-    elif s.schema.is_valid({str: {str: [schemas.item]}}, data):
-        for k1, v1 in data.items():
-            print('\n' + s.colors.blue(k1))
-            for k2, v2 in v1.items():
-                if not filter or any(filter in x for x in [k1, k2]):
-                    _restart_if_cmd()
-                    print('\n', s.colors.yellow(k2))
-                    for i, item in enumerate(v2):
-                        print('  {} '.format(i + 1), end='')
-                        try:
-                            _run(item)
-                        except:
-                            print(s.colors.red(' :error\n'))
-                            text = '\nfailed in $red({}.{}) item number $red({})'.format(k1, k2, i + 1)
-                            with s.exceptions.update(s.strings.color(text)):
-                                raise
+def _process(i, item):
+    if item.get('info'):
+        print(s.strings.indent(s.colors.white('{info}'.format(**item)), 2))
+    print(s.strings.indent('{} '.format(i + 1), 3 if item.get('info') else 2), end='')
+    try:
+        _run(item)
+    except:
+        print(s.colors.red(' :error\n'))
+        text = _format(s.dicts.drop(item, 'info'))
+        print(s.colors.red(s.strings.indent(text, 2)) + '\n')
+        raise
+    if item.get('info'):
+        print('')
+
+
+def _format(x):
+    return yaml.safe_dump(json.loads(json.dumps(x)), default_flow_style=False)
+
+
+def _get_url(item):
+    route = item['req']['route']
+    if route.startswith('http'):
+        url = item['req']['route']
+    elif _state.get('host'):
+        url = _state['host'] + route
+    else:
+        protocol = 'https://' if item['req']['https'] else 'http://'
+        host = '0.0.0.0:{port}'.format(**_state)
+        url = protocol + host + route
+    assert url.startswith('http'), url
+    url = '/'.join(s.dicts.get(_state, ['vars'] + x[1:].split('.'))
+                   if x.startswith('$')
+                   else x
+                   for x in url.split('/'))
+    return url
+
+
+def _get_body(item):
+    body = item['req']['body']
+    if s.schema.is_valid({'$get': str}, body):
+        body = s.dicts.get(_state, ['vars'] + body['$get'].split('.'))
+    if not s.schema.is_valid(str, body):
+        body = json.dumps(body)
+    return body
 
 
 @s.schema.check(schemas.item)
 def _run(item):
-    func_name = '{verb}_sync'.format(**item['req'])
-    route = item['req']['route']
-    if not route.startswith('http'):
-        protocol = 'https://' if item['req']['https'] else 'http://'
-        host = '0.0.0.0:{port}'.format(**_state)
-        url = protocol + host + route
-    else:
-        url = item['req']['route']
-        assert url.startswith('http'), url
-    url = '/'.join(_state['vars'][x[1:]]
-                   if x.startswith('$')
-                   else x
-                   for x in url.split('/'))
-    body = item['req']['body']
-    if not s.schema.is_valid(str, body):
-        body = json.dumps(body)
-    with s.exceptions.update('\nverb={func_name}, url={url}, body={body}'.format(**locals())):
-        print(s.colors.cyan(item['req']['verb']), url, end='')
+    verb = item['req']['verb']
+    func_name = '{verb}_sync'.format(**locals())
+    url = _get_url(item)
+    body = _get_body(item)
+    print(s.colors.cyan(item['req']['verb'].ljust(4)), url, end='')
+    with s.exceptions.update('\nverb={verb}, url={url}, body={body}'.format(**locals())):
         rep = getattr(s.web, func_name)(url, *[body] if body else [])
-        for k, v1 in item['rep'].items():
-            if k == 'body':
-                if not v1:
-                    continue
-                elif s.schema.is_valid({'$var': str}, v1):
-                    _state['vars'][v1['$var']] = rep[k]
-                    continue
-            v2 = rep[k]
-            if s.schema.is_valid({'var': str}, v1):
-                v1 = _state['vars'][v1['var']]
-            assert v1 == v2, 'excepted {k}={v1}, but got {k}={v2}'.format(**locals())
+        for k, v in item['rep'].items():
+            _check_rep(k, v, rep)
     print(s.colors.green(' :ok'))
+
+
+def _check_rep(k, v, rep):
+    if k == 'body':
+        if not v:
+            return
+        elif s.schema.is_valid({'$set': str}, v):
+            _state['vars'][v['$set']] = rep[k]
+            return
+    rep_v = rep[k]
+    if s.schema.is_valid({'$get': str}, v):
+        v = s.dicts.get(_state, ['vars'] + v['$get'].split('.'))
+    assert v == rep_v, 'response expected {k}={v}, but got {k}={rep_v}'.format(**locals())

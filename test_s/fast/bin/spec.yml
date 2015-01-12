@@ -1,8 +1,6 @@
-# spec ./spec.yml --cmd 'python ./spec.py'
-
 google:
 
-  should work:
+  is a thing:
     - req:
         route: "http://google.com"
       rep:
@@ -17,34 +15,68 @@ the api:
         code: 200
 
   should fetch a value after putting it, but not before:
-    - req:
+    - info: fetching an unknown id 404s
+      req:
         route: /fetch/123
       rep:
         code: 404
 
-    - req:
+    - info: putting a value returns an id
+      req:
         route: /put
         verb: post
         body: asdf
       rep:
-        code: 200
-        body: {$var: id}
+        body: {$set: id}
 
-    - req:
+    - info: fetching that id returns the value
+      req:
         route: /fetch/$id
       rep:
-        body: {$var: body}
-        code: 200
+        body: asdf
 
-    - req:
+    - info: fetching that id and store the return value in a var
+      req:
         route: /fetch/$id
       rep:
-        body: {var: body}
-        code: 200
+        body: {$set: body}
 
+    - info: fetching that id again, returns an identical value
+      req:
+        route: /fetch/$id
+      rep:
+        body: {$get: body}
+
+  can get an object back instead of a value on put:
+    - info: putting a value returns an id in a dict
+      req:
+        route: /put?return_dict=true
+        verb: post
+        body: foo
+      rep:
+        body: {$set: id}
+
+    - info: fetching that id with $obj.key returns the value
+      req:
+        route: /fetch/$id.uuid
+      rep:
+        body: foo
+
+    - info: dotted access works for req body
+      req:
+        route: /put
+        verb: post
+        body: {$get: id.uuid}
+      rep:
+        body: {$set: new_id}
+
+    - info: dotted access works for rep body
+      req:
+        route: /fetch/$new_id
+      rep:
+        body: {$get: id.uuid}
 
   should read a value after writing, but not before:
-
     - req:
         route: /get/foo
       rep:
