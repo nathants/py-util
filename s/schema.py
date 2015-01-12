@@ -324,7 +324,7 @@ def _check_args(args, kwargs, name, freeze, schemas):
 def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for function:' not in x):
+        with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for ' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             value = decoratee(*args, **kwargs)
             output = validate(schemas['return'], value, freeze=freeze)
@@ -335,7 +335,7 @@ def _fn_check(decoratee, name, freeze, schemas):
 def _gen_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for generator:' not in x):
+        with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for ' not in x):
             args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             generator = decoratee(*args, **kwargs)
             to_send = None
