@@ -92,12 +92,10 @@ def run(*a, **kw):
     log_or_print('$({}) [cwd={}]'.format(s.colors.yellow(cmd), os.getcwd()))
     if interactive:
         _interactive_func[warn](cmd, **_call_kw)
-    elif popen or stream or warn or callback:
+    elif popen:
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
+    elif stream or warn or callback:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
-        if popen:
-            if stream:
-                s.proc.new(_process_lines, proc, log_or_print, callback)
-            return proc
         output = _process_lines(proc, log_or_print, callback)
         if warn:
             log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
