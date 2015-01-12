@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import json
 import types
 import contextlib
 import datetime
@@ -12,18 +13,20 @@ import six
 
 
 class schemas:
+    json = (':or',) + s.data.json_types
+
     request = {'verb': str,
                'uri': str,
                'path': str,
                'query': {str: (':or', str, [str])},
-               'body': str,
+               'body': json,
                'headers': {str: str},
                'args': {str: str}}
 
     response = {'code': (':optional', int, 200),
                 'reason': (':optional', (':or', str, None), None),
                 'headers': (':optional', {str: str}, {}),
-                'body': (':optional', str, '')}
+                'body': (':optional', json, '')}
 
 
 def _new_handler_method(fn):
@@ -47,7 +50,9 @@ def _verbs_to_handler(**verbs):
 
 @s.schema.check(schemas.response, tornado.web.RequestHandler)
 def _mutate_handler(response, handler):
-    handler.write(response['body'])
+    body = response['body']
+    body = body if s.schema.is_valid(str, body) else json.dumps(body)
+    handler.write(body)
     handler.set_status(response['code'], response['reason'])
     for header, value in response['headers'].items():
         handler.set_header(header, value)
@@ -63,11 +68,14 @@ def _query_parse(query):
 
 @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, _return=schemas.request)
 def _request_to_dict(obj, args):
+    body = obj.body.decode('utf-8')
+    with s.exceptions.ignore(ValueError):
+        body = json.loads(body)
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
             'path': obj.path,
             'query': _query_parse(obj.query),
-            'body': obj.body.decode('utf-8'),
+            'body': body,
             'headers': dict(obj.headers),
             'args': args}
 
@@ -120,9 +128,11 @@ with s.exceptions.ignore(ImportError):
 
 
 @s.async.coroutine(freeze=False)
-@s.schema.check(str, str, timeout=float, _kwargs=dict, _return=schemas.response)
+@s.schema.check(str, str, timeout=float, _kwargs={object: object, 'body': schemas.json}, _return=schemas.response)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
+    if 'body' in kw and not s.schema.is_valid(str, kw['body']):
+        kw['body'] = json.dumps(kw['body'])
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
     future = s.async.Future()
     response = tornado.httpclient.AsyncHTTPClient().fetch(request, callback=lambda x: future.set_result(x))
@@ -132,10 +142,13 @@ def _fetch(method, url, **kw):
             lambda: not future.done() and future.set_exception(Timeout)
         )
     response = yield future
+    body = (response.body or b'').decode('utf-8')
+    with s.exceptions.ignore(ValueError):
+        body = json.loads(body)
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
-                          'body': (response.body or b'').decode('utf-8')})
+                          'body': body})
 
 
 @s.schema.check(str, _kwargs=dict)
@@ -143,14 +156,14 @@ def get(url, **kw):
     return _fetch('GET', url, **kw)
 
 
-@s.schema.check(str, str, _kwargs=dict)
+@s.schema.check(str, schemas.json, _kwargs=dict)
 def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
 # todo make_sync can be a decorator?
 get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
-post_sync = s.schema.check(str, str, _kwargs=dict)(s.async.make_sync(post))
+post_sync = s.schema.check(str, schemas.json, _kwargs=dict)(s.async.make_sync(post))
 
 
 class Timeout(Exception):
