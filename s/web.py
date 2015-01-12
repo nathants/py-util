@@ -56,7 +56,6 @@ def _mutate_handler(response, handler):
     handler.set_status(response['code'], response['reason'])
     for header, value in response['headers'].items():
         handler.set_header(header, value)
-    return True
 
 
 @s.schema.check(str, _return={str: (':or', str, [str])})
