@@ -8,7 +8,9 @@ def test_spec():
     with s.shell.cd(os.path.dirname(__file__)):
         port = s.net.free_port()
         proc = s.shell.run('python ./spec.py --port {port}'.format(**locals()), popen=True)
-        s.shell.run('spec ./spec.yml --host "http://localhost:{port}"'.format(**locals()), stream=True)
+        url = 'http://localhost:{port}'.format(**locals())
+        s.web.wait_for_http(url)
+        s.shell.run('spec ./spec.yml --host {url}'.format(**locals()), stream=True)
         proc.terminate()
 
 
