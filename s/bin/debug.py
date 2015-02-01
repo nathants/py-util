@@ -33,9 +33,7 @@ def _header(data, highlight=False):
 def _body(data, hide_keys, pretty, max_lines):
     val = []
     for k, v in s.dicts.drop(data, hide_keys).items():
-        if not v:
-            continue
-        elif isinstance(v, (tuple, list, dict)) and pretty:
+        if isinstance(v, (tuple, list, dict)) and pretty:
             v = pprint.pformat(v, width=1).splitlines()
             size = len(k) + 3
             if len(v) > max_lines:
@@ -92,7 +90,6 @@ def _visualize(width, height, index, path, datas, hidden_keys, max_lines, pair, 
         return _visualize_single(index, path, datas, hidden_keys, max_lines, pair, pretty)
 
 
-@s.trace.logic
 def _pair(index, datas):
     data = datas[index]
     inward = datas[index]['direction'] == 'in'
