@@ -29,6 +29,13 @@ class schemas:
                 'body': (':optional', json, '')}
 
 
+def _try_decode(text):
+    try:
+        return text.decode('utf-8')
+    except:
+        return text
+
+
 def _new_handler_method(fn):
     assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
     @s.async.coroutine(trace=False)
@@ -67,7 +74,7 @@ def _query_parse(query):
 
 @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, _return=schemas.request)
 def _request_to_dict(obj, args):
-    body = obj.body.decode('utf-8')
+    body = _try_decode(obj.body)
     with s.exceptions.ignore(ValueError):
         body = json.loads(body)
     return {'verb': obj.method.lower(),
@@ -141,7 +148,7 @@ def _fetch(method, url, **kw):
             lambda: not future.done() and future.set_exception(Timeout)
         )
     response = yield future
-    body = (response.body or b'').decode('utf-8')
+    body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError):
         body = json.loads(body)
     raise s.async.Return({'code': response.code,
