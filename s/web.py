@@ -26,7 +26,7 @@ class schemas:
     response = {'code': (':optional', int, 200),
                 'reason': (':optional', (':or', str, None), None),
                 'headers': (':optional', {str: str}, {}),
-                'body': (':optional', json, '')}
+                'body': (':optional', (':or', json, str, bytes), '')}
 
 
 def _try_decode(text):
@@ -149,7 +149,7 @@ def _fetch(method, url, **kw):
         )
     response = yield future
     body = _try_decode(response.body or b'')
-    with s.exceptions.ignore(ValueError):
+    with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
