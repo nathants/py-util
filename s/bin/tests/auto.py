@@ -79,7 +79,7 @@ def _app(terminal, pytest):
                 name, data = yield sock.recv()
                 state[name] = data
                 if 'fast' in state and _one_and_all_passed(name, data):
-                    state['fast'] = s.seqs.walk(state['fast'], _when_dict_set_result_to_false(data))
+                    state['fast'] = s.seqs.walk(_when_dict_set_result_to_false(data), state['fast'])
                 all_data = sum(state.values(), ())
                 text = '\n'.join(map(_view, all_data)) or s.colors.green('tests passed')
                 _print(terminal, text)
