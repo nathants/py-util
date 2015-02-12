@@ -188,7 +188,7 @@ def _format_pytest_output(text):
 @s.trace.glue
 def _pytest_insight(test_file, query):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
-    val = s.shell.run('py.test -qq -k', query, test_file, warn=True)
+    val = s.shell.run('py.test --tb native -qq -k', query, test_file, warn=True)
     assert not any(x.startswith('ERROR: file not found:') for x in val['output'].splitlines())
     assert not any(x.startswith('ERROR: not found:') for x in val['output'].splitlines())
     assert val['exitcode'] != 0
