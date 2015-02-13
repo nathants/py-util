@@ -83,7 +83,6 @@ def ioloop():
 
 
 def run_sync(func, timeout=None):
-    ioloop_clear()
     io = ioloop()
     io.started = True
     val = io.run_sync(func, timeout=timeout)
