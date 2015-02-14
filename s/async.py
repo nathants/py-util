@@ -23,8 +23,8 @@ def _log_exceptions(*ignore):
             future.result()
         except Exception as e:
             if e not in _recent:
-                _recent.append(e)
                 if not isinstance(e, (tornado.gen.Return,) + ignore):
+                    _recent.append(e)
                     logging.exception('exception in future: %s', future)
     return fn
 
