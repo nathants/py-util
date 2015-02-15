@@ -1,9 +1,9 @@
-import os
 import setuptools
+import os
 
 
 setuptools.setup(
-    version="0.0.2",
+    version="0.0.1",
     license='mit',
     name="s",
     author='nathan todd-stone',
