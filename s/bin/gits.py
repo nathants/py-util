@@ -72,6 +72,7 @@ def commit(skip_precommit=False):
                 s.shell.run('git add', path)
                 _git_diff_cached_less(path)
                 print('[c]ommit, [s]kip, [p]atch ? ', end='')
+                print('')
                 action = pager.getch()
                 if action == 'c':
                     _prompt_and_commit(path)
