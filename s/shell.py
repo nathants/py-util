@@ -83,6 +83,7 @@ _call_kw = {'shell': True, 'executable': '/bin/bash', 'stderr': subprocess.STDOU
 def run(*a, **kw):
     interactive = kw.pop('interactive', False)
     warn = kw.pop('warn', False)
+    zero = kw.pop('zero', False)
     echo = kw.pop('echo', False)
     callback = kw.pop('callback', None)
     stream = kw.pop('stream', _state.get('stream', False))
@@ -94,12 +95,14 @@ def run(*a, **kw):
         _interactive_func[warn](cmd, **_call_kw)
     elif popen:
         return subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
-    elif stream or warn or callback:
+    elif stream or warn or callback or zero:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, **_call_kw)
         output = _process_lines(proc, log_or_print, callback)
         if warn:
             log_or_print('exit-code={} from cmd: {}'.format(proc.returncode, cmd))
             return {'output': output, 'exitcode': proc.returncode, 'cmd': cmd}
+        elif zero:
+            return proc.returncode == 0
         elif proc.returncode != 0:
             output = '' if stream else output
             raise Exception('{}\nexitcode={} from cmd: {}, cwd: {}'.format(output, proc.returncode, cmd, os.getcwd()))
