@@ -5,21 +5,35 @@ import s
 import os
 
 
+_services = './docker/state/services.yml'
+
+
 @argh.arg('cmd', nargs='?', default=None)
-def run(action_name, cmd, tty=False):
+def run(action_name, cmd, tty=False, no_clean_before=False, no_clean_after=False):
     """run an action"""
     build(action_name)
     tty = True if cmd == 'bash' else tty
     action = _get_action(action_name)
-
-    stop(action_name)
-
+    if not no_clean_before:
+        stop(action_name)
     try:
         _start_deps(action)
         print('start main')
         s.shell.run(_run_cmd(action['main'], tty=tty, cmd=cmd), interactive=True)
     finally:
-        stop(action_name)
+        if not no_clean_after:
+            stop(action_name)
+
+
+def ports(action_name, container_name=None):
+    action = _get_action(action_name)
+    if container_name:
+        print(_exposed_port(action[container_name]['tag']))
+    else:
+        for container_name, data in action.items():
+            port = _exposed_port(data['tag'])
+            if port:
+                print('{container_name}:{port}'.format(**locals()))
 
 
 def stop(action_name):
@@ -28,35 +42,6 @@ def stop(action_name):
         with s.exceptions.ignore():
             s.shell.run('docker kill', data['tag'])
             s.shell.run('docker rm', data['tag'])
-
-
-
-_services = './docker/state/services.yml'
-
-
-def _exposed_port(tag):
-    return int(s.shell.run('docker port', tag).split(':')[-1])
-
-
-def _start_deps(action):
-    s.shell.run('rm -f', _services)
-    to_start = list(s.dicts.drop(action, 'main').items())
-    started = []
-    for i in itertools.count():
-        container_name, data = to_start.pop()
-        deps = data.get('depends', [])
-        if not deps or all(x in started for x in deps):
-            print('start dep:', container_name)
-            s.shell.run(_run_cmd(data, bg=True))
-            started.append(container_name)
-            with open(_services, 'a') as f:
-                f.write(yaml.dump({container_name: {'port': _exposed_port(data['tag']),
-                                                    'host': _host_ip()}}))
-        else:
-            to_start.append([container_name, data])
-        assert i < 500, 'never resolved dependency order. remaining: {}'.format(to_start)
-        if not to_start:
-            return
 
 
 def build(action_name, container=None, nocache=False, pull=False, force=False):
@@ -92,6 +77,34 @@ def main():
 def _main():
     s.shell.run('mkdir -p ./docker/state')
     s.shell.dispatch_commands(globals(), __name__)
+
+
+def _exposed_port(tag):
+    port = s.shell.run('docker port', tag).split(':')[-1]
+    if port:
+        return int(port)
+
+
+def _start_deps(action):
+    s.shell.run('rm -f', _services)
+    to_start = list(s.dicts.drop(action, 'main').items())
+    if to_start:
+        started = []
+        for i in itertools.count():
+            container_name, data = to_start.pop()
+            deps = data.get('depends', [])
+            if not deps or all(x in started for x in deps):
+                print('start dep:', container_name)
+                s.shell.run(_run_cmd(data, bg=True))
+                started.append(container_name)
+                with open(_services, 'a') as f:
+                    f.write(yaml.dump({container_name: {'port': _exposed_port(data['tag']),
+                                                        'host': _host_ip()}}))
+            else:
+                to_start.append([container_name, data])
+            assert i < 500, 'never resolved dependency order. remaining: {}'.format(to_start)
+            if not to_start:
+                return
 
 
 def _tag_containers(action_name, action):
