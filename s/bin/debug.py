@@ -57,13 +57,22 @@ def _visualize_flat(width, height, index, datas):
     size = max(len(data) for (data, _), _ in datas)
     datas = [[x.ljust(size) + y, data] for (x, y), data in datas]
     size = max(len(x) for x, _ in datas) + 1
-    datas = [[x.ljust(size) + ('args=' + str(data['args']) if data.get('args') else
-                               'value=' + str(data['value']) if data.get('value') else
-                               ''),
+    datas = [[x.ljust(size) + ('args=' + str(data['args'])
+                               if data.get('args') else
+                               'value=' + str(data['value'])
+                               if data.get('value')
+                               else ''),
               data]
              for x, data in datas]
-    datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''), data]
+    datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''),
+              data]
              for x, data in datas]
+    datas = [[x + (' traceback=' + data['traceback'].splitlines()[-1]
+                   if data.get('traceback')
+                   else ''),
+              data]
+             for x, data in datas]
+
     datas = [[x[:min(width - 1, 200)], data] for x, data in datas]
     datas[0] = [s.colors.green(datas[0][0]), datas[0][1]]
     return '\n'.join([x for x, _ in datas])
