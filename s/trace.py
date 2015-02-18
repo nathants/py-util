@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import sys
 import os
 import inspect
 import pprint
@@ -117,6 +118,7 @@ def _fn_type(decoratee, kind, rules, freeze):
 
 
 def _is_select_result(obj):
+    # TODO is this too tightly coupled to select() ?
     return s.schema.is_valid(s.sock.schemas.select_result, obj, freeze=False)
 
 
@@ -130,6 +132,7 @@ def _gen_type(decoratee, kind, rules, freeze):
         generator = decoratee(*a, **kw)
         to_send = None
         first_send = True
+        send_exception = False
         while True:
                 with _state_layer(name):
                     try:
@@ -139,7 +142,11 @@ def _gen_type(decoratee, kind, rules, freeze):
                         if not first_send:
                             _trace_funcs[kind]['in'](name, 'gen.send', to_send)
                         first_send = False
-                        to_yield = generator.send(to_send)
+                        if send_exception:
+                            to_yield = generator.throw(*send_exception)
+                            send_exception = False
+                        else:
+                            to_yield = generator.send(to_send)
                         if freeze and not _is_futury(to_yield):
                             to_yield = s.data.freeze(to_yield)
                     except (s.async.Return, StopIteration) as e:
@@ -150,7 +157,10 @@ def _gen_type(decoratee, kind, rules, freeze):
                         raise
                     else:
                         _trace_funcs[kind]['out'](name, 'gen.yield', val=to_yield)
-                to_send = yield to_yield
+                try:
+                    to_send = yield to_yield
+                except:
+                    send_exception = sys.exc_info()
     return decorated
 
 

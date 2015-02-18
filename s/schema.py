@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import sys
 import traceback
 import six
 import functools
@@ -340,17 +341,25 @@ def _gen_check(decoratee, name, freeze, schemas):
             generator = decoratee(*args, **kwargs)
             to_send = None
             first_send = True
+            send_exception = False
             while True:
                 if not first_send:
                     to_send = validate(schemas['send'], to_send)
                 first_send = False
                 try:
-                    to_yield = generator.send(to_send)
+                    if send_exception:
+                        to_yield = generator.throw(*send_exception)
+                        send_exception = False
+                    else:
+                        to_yield = generator.send(to_send)
                     to_yield = validate(schemas['yield'], to_yield)
                 except (s.async.Return, StopIteration) as e:
                     e.value = validate(schemas['return'], getattr(e, 'value', None))
                     raise
-                to_send = yield to_yield
+                try:
+                    to_send = yield to_yield
+                except:
+                    send_exception = sys.exc_info()
     return decorated
 
 
