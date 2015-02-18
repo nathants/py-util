@@ -30,7 +30,7 @@ def _make_handler(handler, level, format, pprint, filter=None):
 
 def _get_format(format, short):
     return (format if format
-            else _short_format if s.shell.override('--short')
+            else _short_format if s.shell.override('--short') or short
             else _standard_format)
 
 
