@@ -10,6 +10,9 @@ import types
 import inspect
 
 
+# TODO what is the schema story for functions that return Futures? they are opaque.
+
+
 _schema_commands = (':or',
                     ':fn',
                     ':optional',
@@ -116,7 +119,7 @@ def validate(schema, value, freeze=True):
 
     """
     try:
-        with s.exceptions.update(_updater(schema, value), AssertionError, SchemaError):
+        with s.exceptions.update(_updater(schema, value), AssertionError):
             if isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
                 value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
@@ -208,7 +211,7 @@ def _check(validator, value):
     if validator is object:
         return value
     elif isinstance(validator, (list, tuple)):
-        assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a a seq: {} <{}>'.format(value, type(value), validator, type(validator))
+        assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a seq: {} <{}>'.format(value, type(value), validator, type(validator))
         if validator and validator[0] in _schema_commands:
             if validator[0] == ':optional':
                 assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
@@ -289,11 +292,25 @@ def _read_annotations(fn, arg_schemas, kwarg_schemas):
         arg_schemas = [x.annotation
                        for x in sig.parameters.values()
                        if x.default is inspect._empty
-                       and x.annotation is not inspect._empty]
+                       and x.annotation is not inspect._empty
+                       and x.kind is x.POSITIONAL_OR_KEYWORD]
         val = {x.name: x.annotation
                for x in sig.parameters.values()
                if x.default is not inspect._empty
+               or x.kind is x.KEYWORD_ONLY
                and x.annotation is not inspect._empty}
+        val = s.dicts.merge(val,
+                            {'_args': x.annotation
+                             for x in sig.parameters.values()
+                             if x.annotation is not inspect._empty
+                             and x.kind is x.VAR_POSITIONAL},
+                            freeze=False)
+        val = s.dicts.merge(val,
+                            {'_kwargs': x.annotation
+                             for x in sig.parameters.values()
+                             if x.annotation is not inspect._empty
+                             and x.kind is x.VAR_KEYWORD},
+                            freeze=False)
         kwarg_schemas = s.dicts.merge(kwarg_schemas, val, freeze=False)
         if sig.return_annotation is not inspect._empty:
             kwarg_schemas['_return'] = sig.return_annotation
@@ -316,7 +333,8 @@ def _check_args(args, kwargs, name, freeze, schemas):
             with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
                 _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
         elif schemas['kwargs']:
-            _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
+            with s.exceptions.update('keyword args schema failed.', AssertionError):
+                _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
         else:
             raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
     return _args, _kwargs
@@ -325,14 +343,15 @@ def _check_args(args, kwargs, name, freeze, schemas):
 def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for ' not in x):
+        with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), AssertionError, when=lambda x: 'failed for ' not in x):
             if args and inspect.ismethod(getattr(args[0], decoratee.__name__, None)):
                 a, kwargs = _check_args(args[1:], kwargs, name, freeze, schemas)
                 args = [args[0]] + a
             else:
                 args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
             value = decoratee(*args, **kwargs)
-            output = validate(schemas['return'], value, freeze=freeze)
+            with s.exceptions.update('schema.check failed for return value of function:\n {}'.format(name), AssertionError):
+                output = validate(schemas['return'], value, freeze=freeze)
             return output
     return decorated
 
@@ -340,7 +359,7 @@ def _fn_check(decoratee, name, freeze, schemas):
 def _gen_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
-        with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), SchemaError, when=lambda x: 'failed for ' not in x):
+        with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), AssertionError, when=lambda x: 'failed for ' not in x):
             if args and inspect.ismethod(getattr(args[0], decoratee.__name__, None)):
                 a, kwargs = _check_args(args[1:], kwargs, name, freeze, schemas)
                 args = [args[0]] + a
@@ -352,7 +371,8 @@ def _gen_check(decoratee, name, freeze, schemas):
             send_exception = False
             while True:
                 if not first_send:
-                    to_send = validate(schemas['send'], to_send)
+                    with s.exceptions.update('schema.check failed for send value of generator:\n {}'.format(name), AssertionError):
+                        to_send = validate(schemas['send'], to_send)
                 first_send = False
                 try:
                     if send_exception:
@@ -360,9 +380,11 @@ def _gen_check(decoratee, name, freeze, schemas):
                         send_exception = False
                     else:
                         to_yield = generator.send(to_send)
-                    to_yield = validate(schemas['yield'], to_yield)
+                    with s.exceptions.update('schema.check failed for yield value of generator:\n {}'.format(name), AssertionError):
+                        to_yield = validate(schemas['yield'], to_yield)
                 except (s.async.Return, StopIteration) as e:
-                    e.value = validate(schemas['return'], getattr(e, 'value', None))
+                    with s.exceptions.update('schema.check failed for return value of generator:\n {}'.format(name), AssertionError):
+                        e.value = validate(schemas['return'], getattr(e, 'value', None))
                     raise
                 try:
                     to_send = yield to_yield
