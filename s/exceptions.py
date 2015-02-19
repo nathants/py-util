@@ -19,7 +19,7 @@ def update(fn_or_str, *exceptions, **kw):
     try:
         yield
     except Exception as e:
-        if type(e) in exceptions or not exceptions:
+        if isinstance(e, exceptions) or not exceptions:
             try:
                 msg = e.args[0]
             except:
