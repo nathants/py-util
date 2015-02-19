@@ -12,6 +12,22 @@ def test_maybe():
         s.schema.validate(schema, True)
 
 
+def test_method():
+    class Foo(object):
+        @s.schema.check(int, _return=str)
+        def bar(self, x):
+            return str(x)
+    assert Foo().bar(1) == '1'
+
+
+def test_generator_method():
+    class Foo(object):
+        @s.schema.check(int, _yield=str)
+        def bar(self, x):
+            yield str(x)
+    assert next(Foo().bar(1)) == '1'
+
+
 def test_kwargs():
     @s.schema.check(_kwargs={str: int})
     def fn(**kw):
