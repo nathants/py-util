@@ -65,3 +65,19 @@ def test_coroutines_must_be_generators():
         @s.async.coroutine
         def main():
             pass
+
+
+def test_exception_handling():
+    @s.async.coroutine(AssertionError)
+    def throw():
+        yield s.async.moment
+        assert False
+
+    @s.async.coroutine(AssertionError)
+    def fn():
+        try:
+            yield throw()
+        except:
+            raise s.async.Return('yes')
+
+    assert s.async.run_sync(fn) == 'yes'
