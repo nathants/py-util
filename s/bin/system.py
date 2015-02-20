@@ -40,8 +40,8 @@ def stop(action_name):
     action = _get_action(action_name)
     for container_name, data in action.items():
         with s.exceptions.ignore():
-            s.shell.run('docker kill', data['tag'])
-            s.shell.run('docker rm', data['tag'])
+            s.shell.run('sudo docker kill', data['tag'])
+            s.shell.run('sudo docker rm', data['tag'])
 
 
 def build(action_name, container=None, nocache=False, pull=False, force=False):
@@ -49,7 +49,7 @@ def build(action_name, container=None, nocache=False, pull=False, force=False):
     action = _get_action(action_name)
     for container_name, data in action.items():
         if not container or container_name == container:
-            if force or not s.shell.run('docker inspect', data['tag'], zero=True, stream=False):
+            if force or not s.shell.run('sudo docker inspect', data['tag'], zero=True, stream=False):
                 s.shell.run(_build_cmd(data, nocache, pull), stream=True)
                 print(s.colors.green('built:'), data['tag'])
 
@@ -80,7 +80,7 @@ def _main():
 
 
 def _exposed_port(tag):
-    port = s.shell.run('docker port', tag).split(':')[-1]
+    port = s.shell.run('sudo docker port', tag).split(':')[-1]
     if port:
         return int(port)
 
@@ -129,7 +129,7 @@ def _get_action(action_name):
 
 def _build_cmd(data, nocache, pull):
     return ' '.join([
-        'docker build',
+        'sudo docker build',
         '-t', data['tag'],
         '--force-rm=true',
         '-f ' + data['dockerfile'] if 'dockerfile' in data else '',
@@ -141,7 +141,7 @@ def _build_cmd(data, nocache, pull):
 
 def _run_cmd(data, tty=False, cmd=None, bg=False):
     return ' '.join(
-        ['docker run',
+        ['sudo docker run',
          '--publish-all=true',
          '-it' if tty else '',
          '-d' if bg else '',
