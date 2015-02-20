@@ -8,9 +8,7 @@ import pprint
 import s
 import types
 import inspect
-
-
-# TODO what is the schema story for functions that return Futures? they are opaque.
+import concurrent.futures
 
 
 _schema_commands = (':or',
@@ -120,7 +118,17 @@ def validate(schema, value, freeze=True):
     """
     try:
         with s.exceptions.update(_updater(schema, value), AssertionError):
-            if isinstance(schema, dict):
+            # TODO does this block belong in _check()? should they even be seperate?
+            if isinstance(value, (s.async.Future, concurrent.futures.Future)):
+                future = type(value)()
+                @value.add_done_callback
+                def fn(f):
+                    try:
+                        future.set_result(validate(schema, f.result()))
+                    except Exception as e:
+                        future.set_exception(e)
+                return future
+            elif isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
                 value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
                 value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)

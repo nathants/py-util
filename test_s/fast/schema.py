@@ -4,6 +4,23 @@ import pytest
 import six
 
 
+def test_future():
+    schema = str
+    f1 = s.async.Future()
+    f2 = s.schema.validate(schema, f1)
+    f1.set_result('asdf')
+    assert f2.result() == 'asdf'
+
+
+def test_future_fail():
+    schema = str
+    f1 = s.async.Future()
+    f2 = s.schema.validate(schema, f1)
+    f1.set_result(1)
+    with pytest.raises(AssertionError):
+        f2.result()
+
+
 def test_maybe():
     schema = (':maybe', str)
     assert s.schema.validate(schema, 'foo') == 'foo'
