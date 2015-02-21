@@ -17,12 +17,15 @@ import datetime
 _recent = collections.deque(maxlen=99)
 
 
+_dont_log_exceptions = False
+
+
 def _log_exceptions(*ignore):
     def fn(future):
         try:
             future.result()
         except Exception as e:
-            if e not in _recent:
+            if e not in _recent and not _dont_log_exceptions:
                 if not isinstance(e, (tornado.gen.Return,) + ignore):
                     _recent.append(e)
                     logging.exception('exception in future: %s', future)
