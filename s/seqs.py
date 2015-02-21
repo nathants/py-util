@@ -2,14 +2,14 @@ from __future__ import print_function, absolute_import
 import itertools
 
 
-def walk(fn, data):
-    data = fn(data)
-    if isinstance(data, (list, tuple, set)):
-        return type(data)(walk(fn, x) for x in data)
-    elif isinstance(data, dict):
-        return type(data)(walk(fn, x) for x in data.items())
+def walk(fn, seq):
+    seq = fn(seq)
+    if isinstance(seq, (list, tuple, set)):
+        return type(seq)(walk(fn, x) for x in seq)
+    elif isinstance(seq, dict):
+        return type(seq)(walk(fn, x) for x in seq.items())
     else:
-        return data
+        return seq
 
 
 def concat(*seqs):
@@ -22,21 +22,21 @@ def concat(*seqs):
     return val
 
 
-def flatten(data):
-    if isinstance(data, (list, tuple, set)):
-        data = map(flatten, data)
-        data = itertools.chain(*data)
-        return tuple(data)
-    elif isinstance(data, dict):
-        data = itertools.chain(*data.items())
-        data = map(flatten, data)
-        data = itertools.chain(*data)
-        return tuple(data)
+def flatten(seq):
+    if isinstance(seq, (list, tuple, set)):
+        seq = map(flatten, seq)
+        seq = itertools.chain(*seq)
+        return tuple(seq)
+    elif isinstance(seq, dict):
+        seq = itertools.chain(*seq.items())
+        seq = map(flatten, seq)
+        seq = itertools.chain(*seq)
+        return tuple(seq)
     else:
-        return (data,)
+        return (seq,)
 
 
-def split_with(pred, coll):
-    a = list(itertools.takewhile(pred, coll))
-    b = list(coll[len(a):])
+def split_with(pred, seq):
+    a = list(itertools.takewhile(pred, seq))
+    b = list(seq[len(a):])
     return [a, b]
