@@ -13,6 +13,12 @@ def inline(*funcs):
     return _fn
 
 
+# TODO add pipe_as [fn, arg, arg, ':val']
+# TODO add pipe_first
+# TODO add pipe_last
+# TODO add pipe_some
+
+
 def pipe(value, *funcs):
     return inline(*funcs)(value)
 
