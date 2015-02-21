@@ -172,7 +172,7 @@ class Timeout(Exception):
     pass
 
 
-# todo schema check for s.sock._AsyncSock
+# TODO schema check for s.sock._AsyncSock
 def select(*socks):
     future = s.async.Future()
     def fn(sock, msg):

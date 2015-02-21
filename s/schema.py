@@ -352,6 +352,7 @@ def _fn_check(decoratee, name, freeze, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
         with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), AssertionError, when=lambda x: 'failed for ' not in x):
+            # TODO dry this out with _gen_check()
             if args and inspect.ismethod(getattr(args[0], decoratee.__name__, None)):
                 a, kwargs = _check_args(args[1:], kwargs, name, freeze, schemas)
                 args = [args[0]] + a

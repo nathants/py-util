@@ -256,7 +256,7 @@ def _send_slow_result(result, socks):
                             'result': result}]])
 
 
-# todo schema me
+# TODO schema me
 def _slow_socks():
     return {s.sock.bind('pull', route): (s.proc.new(_run_slow_test, path, route, _daemon=False), path)
             for path in slow_test_files()

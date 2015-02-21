@@ -167,7 +167,7 @@ def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
-# todo make_sync can be a decorator?
+# TODO make_sync can be a decorator?
 get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
 post_sync = s.schema.check(str, schemas.json, _kwargs=dict)(s.async.make_sync(post))
 

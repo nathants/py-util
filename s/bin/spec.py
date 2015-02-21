@@ -6,7 +6,7 @@ import json
 import argh
 
 
-# todo how to deal with many apps/ports, ie fig up?
+# TODO how to deal with many apps/ports, ie fig up?
 
 
 class schemas:
