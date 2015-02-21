@@ -1,13 +1,10 @@
 from __future__ import absolute_import
+import inspect
 import collections
 import functools
 import s
 import json
 import os
-
-
-# DO NOT use these to decorate class methods
-# todo how to enforce this at decoration time?
 
 
 _attr = '_cached_value'
@@ -25,6 +22,7 @@ def disk(fn):
     path = _disk_cache_path(fn)
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
+        assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
         if not os.path.isfile(path):
             with open(path, 'w') as f:
                 json.dump(fn(*a, **kw), f)
@@ -43,6 +41,7 @@ def is_cached(fn):
 def func(fn):
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
+        assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
         if not hasattr(cached_fn, _attr):
             cached_fn.clear_cache = lambda: hasattr(cached_fn, _attr) and delattr(cached_fn, _attr)
             setattr(cached_fn, _attr, fn(*a, **kw))

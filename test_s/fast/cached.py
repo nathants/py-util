@@ -1,5 +1,16 @@
+from __future__ import print_function, absolute_import
 import s
+import pytest
 import collections
+
+
+def test_methods_are_illegal():
+    class Foo(object):
+        @s.cached.func
+        def fn(self):
+            pass
+    with pytest.raises(AssertionError):
+        Foo().fn()
 
 
 def test_func():
