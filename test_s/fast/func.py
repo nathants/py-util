@@ -1,8 +1,8 @@
-import pytest
+from __future__ import print_function, absolute_import
 import s
 
 
-def _plus_one(x, *a):
+def _plus_one(x):
     return x + 1
 
 
@@ -14,26 +14,36 @@ def _three_minus(x):
     return 3 - x
 
 
-def test_inline():
-    assert s.func.inline(_plus_one, _times_two, _three_minus)(1) == -1
-    assert s.func.inline(_plus_one, _times_two, _three_minus)(1) == _three_minus(_times_two(_plus_one(1)))
-    assert s.func.inline(_three_minus, _times_two, _plus_one)(1) == 5
-    assert s.func.inline(_three_minus, _times_two, _plus_one)(1) == _plus_one(_times_two(_three_minus(1)))
+def _subtract(x, y):
+    return x - y
 
 
-def test_inline_noncallable():
-    with pytest.raises(AssertionError):
-        s.func.inline(_three_minus, _times_two, 1)(1)
-
-
-def test_pipe():
-    assert s.func.pipe(1, _plus_one, _times_two, _three_minus) == -1
-
-
-def test_pipe_noncallable():
-    with pytest.raises(AssertionError):
-        s.func.pipe(1, _plus_one, _times_two, 2)
+def _divide(x, y):
+    try:
+        return x / y
+    except:
+        return None
 
 
 def test_name():
     assert s.func.name(test_name) == 'test_s.fast.func:test_name'
+
+
+def test_pipe_first():
+    assert s.func.pipe(1, [_subtract, 3], _plus_one) == -1
+
+
+def test_pipe_last():
+    assert s.func.pipe_last(1, [_subtract, 3], _plus_one) == 3
+
+
+def test_pipe_some():
+    assert s.func.pipe_some(1, [_divide, 0]) is None
+
+
+def test_pipe_some_last():
+    assert s.func.pipe_some_last(0, [_divide, 1]) is None
+
+
+def test_module_name():
+    assert s.func.module_name(test_module_name) == 'test_s.fast.func'

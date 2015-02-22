@@ -3,24 +3,48 @@ import s
 import sys
 
 
-def inline(*funcs):
-    for fn in funcs:
-        assert callable(fn), '{} is not callable'.format(fn)
-    def _fn(val):
-        for func in funcs:
-            val = func(val)
-        return val
-    return _fn
+def pipe_last(value, *args):
+    for arg in args:
+        if callable(arg):
+            value = arg(value)
+        else:
+            fn, arg = arg[0], list(arg[1:]) + [value]
+            value = fn(*arg)
+    return value
 
 
-# TODO add pipe_as [fn, arg, arg, ':val']
-# TODO add pipe_first
-# TODO add pipe_last
-# TODO add pipe_some
+def pipe_some_last(value, *args):
+    for arg in args:
+        if value is None:
+            return
+        elif callable(arg):
+            value = arg(value)
+        else:
+            fn, arg = arg[0], list(arg[1:]) + [value]
+            value = fn(*arg)
+    return value
 
 
-def pipe(value, *funcs):
-    return inline(*funcs)(value)
+def pipe(value, *args):
+    for arg in args:
+        if callable(arg):
+            value = arg(value)
+        else:
+            fn, arg = arg[0], arg[1:]
+            value = fn(value, *arg)
+    return value
+
+
+def pipe_some(value, *args):
+    for arg in args:
+        if value is None:
+            return
+        elif callable(arg):
+            value = arg(value)
+        else:
+            fn, arg = arg[0], arg[1:]
+            value = fn(value, *arg)
+    return value
 
 
 def name(fn):
@@ -44,11 +68,11 @@ def source(fn):
 
 
 def module_name(fn):
-    module = fn.__module__
-    with s.exceptions.ignore():
-        if module == '__main__':
+    if fn.__module__ != '__main__':
+        return fn.__module__
+    else:
+        with s.exceptions.ignore():
             for x in range(20):
-                _module = '.'.join(__file__.split('.')[0].split('/')[x:])
-                if _module in sys.modules:
-                    return _module
-    return module
+                module = '.'.join(__file__.split('.')[0].split('/')[x:])
+                if module in sys.modules:
+                    return module
