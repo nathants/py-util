@@ -25,6 +25,11 @@ def is_valid(schema, value, freeze=True):
         return False
 
 
+# TODO how to schema this set of objects: (':foo', 1, 2), (':foo', 3, 4, 5)
+# different lengths? *args?
+# think about schemaing the args to s.func.pipe()
+
+
 def validate(schema, value, freeze=True):
     """
     >>> import pytest
