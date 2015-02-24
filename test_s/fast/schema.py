@@ -363,7 +363,6 @@ def test_nested_optional():
 
 def test_optional_value_key_with_validation():
     schema = {'a': 'apple',
-              # 'b': lambda x: x == ':optional' and 'banana' or x == 'banana'}
               'b': [':optional', str, 'banana']}
     s.schema.validate(schema, {'a': 'apple'}) == {'a': 'apple', 'b': 'banana'}
     s.schema.validate(schema, {'a': 'apple', 'b': 'banana'}) == {'a': 'apple', 'b': 'banana'}

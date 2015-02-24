@@ -22,6 +22,7 @@ _future_types = (tornado.concurrent.Future,
 
 
 def _trace(val):
+    # TODO migrate to msgpack, dict keys must be str is a deal breaker
     try:
         text = json.dumps(val)
     except:
@@ -187,6 +188,8 @@ def _rule_violation_message():
         '',
     ])
 
+
+# TODO with coroutines on the scene, do we still need this io/logic/glue business?
 
 def _io_rules():
     assert _get_state(offset=1) != 'logic', 'logic cannot contain io\n{}'.format(_rule_violation_message())
