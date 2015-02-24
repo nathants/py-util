@@ -105,11 +105,13 @@ def _fn_type(decoratee, kind, rules, freeze):
         with _state_layer(name):
             try:
                 if freeze:
-                    a, kw = s.data.freeze(a), s.data.freeze(kw)
+                    with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+                        a, kw = s.data.freeze(a), s.data.freeze(kw)
                 rules()
                 val = decoratee(*a, **kw)
                 if freeze:
-                    val = s.data.freeze(val)
+                    with s.exceptions.update('trying to return value from: {name}'.format(**locals())):
+                        val = s.data.freeze(val)
             except:
                 _trace_funcs[kind]['out'](name, 'fn', traceback=traceback.format_exc())
                 raise
@@ -129,7 +131,8 @@ def _gen_type(decoratee, kind, rules, freeze):
     def decorated(*a, **kw):
         _trace_funcs[kind]['in'](name, 'gen', *a, **kw)
         if freeze:
-            a, kw = s.data.freeze(a), s.data.freeze(kw)
+            with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+                a, kw = s.data.freeze(a), s.data.freeze(kw)
         generator = decoratee(*a, **kw)
         to_send = None
         first_send = True
@@ -139,7 +142,8 @@ def _gen_type(decoratee, kind, rules, freeze):
                     try:
                         rules()
                         if freeze and not _is_select_result(to_send):
-                            to_send = s.data.freeze(to_send)
+                            with s.exceptions.update('trying to freeze send value to: {name}'.format(**locals())):
+                                to_send = s.data.freeze(to_send)
                         if not first_send:
                             _trace_funcs[kind]['in'](name, 'gen.send', to_send)
                         first_send = False
@@ -149,8 +153,10 @@ def _gen_type(decoratee, kind, rules, freeze):
                         else:
                             to_yield = generator.send(to_send)
                         if freeze and not _is_futury(to_yield):
-                            to_yield = s.data.freeze(to_yield)
+                            with s.exceptions.update('trying to freeze yield value from: {name}'.format(**locals())):
+                                to_yield = s.data.freeze(to_yield)
                     except (s.async.Return, StopIteration) as e:
+                        # TODO should we be freezing this?
                         _trace_funcs[kind]['out'](name, 'gen', val=getattr(e, 'value', None))
                         raise e
                     except:
