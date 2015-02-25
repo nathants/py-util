@@ -65,6 +65,38 @@ def test_get():
         s.async.run_sync(lambda: main(url))
 
 
+def test_get_params_json():
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        raise s.async.Return({'body': request['query']})
+
+    @s.async.coroutine
+    def main(url):
+        resp = yield s.web.get(url, query={'data': [1, 2, 3]})
+        assert resp['body'] == {'data': [1, 2, 3]}
+
+    app = s.web.app([('/', {'get': handler})])
+    with s.web.test(app) as url:
+        s.async.run_sync(lambda: main(url))
+
+
+def test_get_params():
+    @s.async.coroutine
+    def handler(request):
+        yield s.async.moment
+        raise s.async.Return({'body': request['query']})
+
+    @s.async.coroutine
+    def main(url):
+        resp = yield s.web.get(url, query={'foo': 'bar'})
+        assert resp['body'] == {'foo': 'bar'}
+
+    app = s.web.app([('/', {'get': handler})])
+    with s.web.test(app) as url:
+        s.async.run_sync(lambda: main(url))
+
+
 def test_post():
     @s.async.coroutine
     def handler(request):
@@ -144,8 +176,8 @@ def test_url_params():
     app = s.web.app([('/', {'get': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + '?asdf=123&foo=bar&foo=notbar&stuff')
-        assert resp['body'] == {'asdf': '123',
-                                'foo': ['bar', 'notbar'],
+        assert resp['body'] == {'asdf': 123,
+                                'foo': ('bar', 'notbar'),
                                 'stuff': ''}
 
 

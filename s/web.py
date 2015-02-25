@@ -18,7 +18,7 @@ class schemas:
     request = {'verb': str,
                'uri': str,
                'path': str,
-               'query': {str: (':or', str, [str])},
+               'query': {str: (':or', str, [str]) + s.data.json_types},
                'body': json,
                'headers': {str: str},
                'args': {str: str}}
@@ -65,17 +65,21 @@ def _mutate_handler(response, handler):
         handler.set_header(header, value)
 
 
-@s.schema.check(str, _return={str: (':or', str, [str])})
+@s.schema.check(str, _return=schemas.request['query'])
 def _query_parse(query):
     parsed = six.moves.urllib.parse.parse_qs(query, True)
-    return {k: v if len(v) > 1 else v.pop()
-            for k, v in parsed.items()}
+    val = {k: v if len(v) > 1 else v.pop()
+           for k, v in parsed.items()}
+    for k, v in val.items():
+        with s.exceptions.ignore(ValueError, TypeError):
+            val[k] = json.loads(v)
+    return val
 
 
 @s.schema.check(tornado.httputil.HTTPServerRequest, {str: str}, _return=schemas.request)
 def _request_to_dict(obj, args):
     body = _try_decode(obj.body)
-    with s.exceptions.ignore(ValueError):
+    with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
     return {'verb': obj.method.lower(),
             'uri': obj.uri,
@@ -134,11 +138,15 @@ with s.exceptions.ignore(ImportError):
 
 
 @s.async.coroutine(freeze=False)
-@s.schema.check(str, str, timeout=float, _kwargs={object: object, 'body': schemas.json}, _return=schemas.response)
+@s.schema.check(str, str, timeout=(':or', int, float), body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', None)
     if 'body' in kw and not s.schema.is_valid(str, kw['body']):
         kw['body'] = json.dumps(kw['body'])
+    if 'query' in kw:
+        assert '?' not in url, 'you cannot user keyword arg query and have ? already in the url: {url}'.format(**locals())
+        url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if s.schema.is_valid(str, v) else json.dumps(v)))
+                              for k, v in kw.pop('query').items())
     request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
     future = s.async.Future()
     response = tornado.httpclient.AsyncHTTPClient().fetch(request, callback=lambda x: future.set_result(x))
@@ -167,8 +175,12 @@ def post(url, body, **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
-# TODO make_sync can be a decorator?
+# TODO make_sync can be a decorator? if not just define these as functions the long way. its better docs.
+
+# get_sync(url, **kw)
 get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
+
+# post_sync(url, data, **kw)
 post_sync = s.schema.check(str, schemas.json, _kwargs=dict)(s.async.make_sync(post))
 
 
