@@ -108,7 +108,8 @@ def app(routes, debug=False):
 def wait_for_http(url):
     while True:
         try:
-            str(requests.get(url)) # wait for http requests to succeed
+            with s.log.disable('requests.packages.urllib3.connectionpool'):
+                str(requests.get(url)) # wait for http requests to succeed
             break
         except requests.exceptions.ConnectionError:
             time.sleep(1e-6)
@@ -157,7 +158,7 @@ def _fetch(method, url, **kw):
             lambda: not future.done() and future.set_exception(Timeout)
         )
     response = yield future
-    assert not blowup or response.code == 200, '{method} {url} did not return 200'
+    assert not blowup or response.code == 200, '{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals())
     body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
