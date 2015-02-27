@@ -333,6 +333,7 @@ def _read_annotations(fn, arg_schemas, kwarg_schemas):
 
 def _check_args(args, kwargs, name, freeze, schemas):
     # TODO better to use inspect.getcallargs() for this? would change the semantics of pos arg checking. hmmn...
+    # look at the todo in s.web.post for an example.
     assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided: {}\n{}'.format(name, len(schemas['arg']), len(args), args, schemas)
     _args = []
     for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):

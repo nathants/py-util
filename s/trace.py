@@ -14,6 +14,12 @@ import tornado.concurrent
 import concurrent.futures
 
 
+"""
+TODO
+drop io/glue/logic/mutate. merge to a single functions.
+"""
+
+
 _state = {}
 
 
