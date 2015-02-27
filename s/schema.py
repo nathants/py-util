@@ -364,10 +364,10 @@ def _fn_check(decoratee, name, freeze, schemas):
                 args = [args[0]] + a
             else:
                 args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
-            value = decoratee(*args, **kwargs)
-            with s.exceptions.update('schema.check failed for return value of function:\n {}'.format(name), AssertionError):
-                output = validate(schemas['return'], value, freeze=freeze)
-            return output
+        value = decoratee(*args, **kwargs)
+        with s.exceptions.update('schema.check failed for return value of function:\n {}'.format(name), AssertionError):
+            output = validate(schemas['return'], value, freeze=freeze)
+        return output
     return decorated
 
 
@@ -380,31 +380,31 @@ def _gen_check(decoratee, name, freeze, schemas):
                 args = [args[0]] + a
             else:
                 args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
-            generator = decoratee(*args, **kwargs)
-            to_send = None
-            first_send = True
-            send_exception = False
-            while True:
-                if not first_send:
-                    with s.exceptions.update('schema.check failed for send value of generator:\n {}'.format(name), AssertionError):
-                        to_send = validate(schemas['send'], to_send)
-                first_send = False
-                try:
-                    if send_exception:
-                        to_yield = generator.throw(*send_exception)
-                        send_exception = False
-                    else:
-                        to_yield = generator.send(to_send)
-                    with s.exceptions.update('schema.check failed for yield value of generator:\n {}'.format(name), AssertionError):
-                        to_yield = validate(schemas['yield'], to_yield)
-                except (s.async.Return, StopIteration) as e:
-                    with s.exceptions.update('schema.check failed for return value of generator:\n {}'.format(name), AssertionError):
-                        e.value = validate(schemas['return'], getattr(e, 'value', None))
-                    raise
-                try:
-                    to_send = yield to_yield
-                except:
-                    send_exception = sys.exc_info()
+        generator = decoratee(*args, **kwargs)
+        to_send = None
+        first_send = True
+        send_exception = False
+        while True:
+            if not first_send:
+                with s.exceptions.update('schema.check failed for send value of generator:\n {}'.format(name), AssertionError):
+                    to_send = validate(schemas['send'], to_send)
+            first_send = False
+            try:
+                if send_exception:
+                    to_yield = generator.throw(*send_exception)
+                    send_exception = False
+                else:
+                    to_yield = generator.send(to_send)
+                with s.exceptions.update('schema.check failed for yield value of generator:\n {}'.format(name), AssertionError):
+                    to_yield = validate(schemas['yield'], to_yield)
+            except (s.async.Return, StopIteration) as e:
+                with s.exceptions.update('schema.check failed for return value of generator:\n {}'.format(name), AssertionError):
+                    e.value = validate(schemas['return'], getattr(e, 'value', None))
+                raise
+            try:
+                to_send = yield to_yield
+            except:
+                send_exception = sys.exc_info()
     return decorated
 
 
