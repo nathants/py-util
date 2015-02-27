@@ -138,11 +138,12 @@ with s.exceptions.ignore(ImportError):
 
 
 @s.async.coroutine(freeze=False)
-@s.schema.check(str, str, timeout=(':or', int, float), body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
+@s.schema.check(str, str, timeout=(':or', int, float), blowup=bool, body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
 def _fetch(method, url, **kw):
-    timeout = kw.pop('timeout', None)
+    timeout = kw.pop('timeout', 10)
     if 'body' in kw and not s.schema.is_valid(str, kw['body']):
         kw['body'] = json.dumps(kw['body'])
+    blowup = kw.pop('blowup', False)
     if 'query' in kw:
         assert '?' not in url, 'you cannot user keyword arg query and have ? already in the url: {url}'.format(**locals())
         url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if s.schema.is_valid(str, v) else json.dumps(v)))
@@ -156,6 +157,7 @@ def _fetch(method, url, **kw):
             lambda: not future.done() and future.set_exception(Timeout)
         )
     response = yield future
+    assert not blowup or response.code == 200, '{method} {url} did not return 200'
     body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
@@ -170,18 +172,18 @@ def get(url, **kw):
     return _fetch('GET', url, **kw)
 
 
-@s.schema.check(str, schemas.json, _kwargs=dict)
-def post(url, body, **kw):
+# TODO support schema.check for pos/keyword args with default like body
+def post(url, body='', **kw):
     return _fetch('POST', url, body=body, **kw)
 
 
 # TODO make_sync can be a decorator? if not just define these as functions the long way. its better docs.
 
 # get_sync(url, **kw)
-get_sync = s.schema.check(str, _kwargs=dict)(s.async.make_sync(get))
+get_sync = s.async.make_sync(get)
 
 # post_sync(url, data, **kw)
-post_sync = s.schema.check(str, schemas.json, _kwargs=dict)(s.async.make_sync(post))
+post_sync = s.async.make_sync(post)
 
 
 class Timeout(Exception):
