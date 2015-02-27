@@ -1,5 +1,6 @@
 import yaml
 import itertools
+import sys
 import argh
 import s
 import os
@@ -19,7 +20,10 @@ def run(action_name, cmd, tty=False, no_clean_before=False, no_clean_after=False
     try:
         _start_deps(action)
         print('start main')
-        s.shell.run(_run_cmd(action['main'], tty=tty, cmd=cmd), interactive=True)
+        try:
+            s.shell.run(_run_cmd(action['main'], tty=tty, cmd=cmd), interactive=True)
+        except:
+            sys.exit(1)
     finally:
         if not no_clean_after:
             stop(action_name)
