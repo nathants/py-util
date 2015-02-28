@@ -8,4 +8,5 @@ pyzmq==14.4.1
 requests==2.5.0
 six==1.8.0
 stopit==1.1.0
-tornado==4.0.2
+tornado==4.1
+boto==2.36.0

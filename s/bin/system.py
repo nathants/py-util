@@ -101,9 +101,11 @@ def _start_deps(action):
                 print('start dep:', container_name)
                 s.shell.run(_run_cmd(data, bg=True))
                 started.append(container_name)
+                data = {'port': _exposed_port(data['tag']),
+                        'host': _host_ip()}
                 with open(_services, 'a') as f:
-                    f.write(yaml.dump({container_name: {'port': _exposed_port(data['tag']),
-                                                        'host': _host_ip()}}))
+                    f.write(yaml.dump({container_name: data}))
+                s.web.wait_for_http('http://{host}:{port}'.format(**data))
             else:
                 to_start.append([container_name, data])
             assert i < 500, 'never resolved dependency order. remaining: {}'.format(to_start)
