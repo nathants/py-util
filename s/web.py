@@ -155,7 +155,7 @@ def _fetch(method, url, **kw):
     if timeout:
         s.async.ioloop().add_timeout(
             datetime.timedelta(seconds=timeout),
-            lambda: not future.done() and future.set_exception(Timeout)
+            lambda: not future.done() and future.set_exception(Timeout())
         )
     response = yield future
     assert not blowup or response.code == 200, '{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals())

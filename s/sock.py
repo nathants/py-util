@@ -124,7 +124,7 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
         if timeout:
             def timeout_cb():
                 self.stop_on_recv()
-                future.set_exception(Timeout)
+                future.set_exception(Timeout())
             t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), timeout_cb)
             future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
         self.on_recv(cb)
@@ -162,7 +162,7 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
                 for val in vals:
                     if val[0] != (msg if isinstance(msg, type) else [msg]):
                         q.put(val)
-                future.set_exception(Timeout)
+                future.set_exception(Timeout())
             t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), cb)
             future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
         return future
