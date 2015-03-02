@@ -158,7 +158,10 @@ def _fetch(method, url, **kw):
             lambda: not future.done() and future.set_exception(Timeout())
         )
     response = yield future
-    assert not blowup or response.code == 200, '{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals())
+    if blowup and response.code != 200:
+        raise Blowup('{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals()),
+                     response.code,
+                     response.reason)
     body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
@@ -166,6 +169,13 @@ def _fetch(method, url, **kw):
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
                           'body': body})
+
+
+class Blowup(Exception):
+    def __init__(self, message, code, reason):
+        super().__init__(message)
+        self.code = code
+        self.reason = reason
 
 
 @s.schema.check(str, _kwargs=dict)
