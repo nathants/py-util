@@ -146,6 +146,8 @@ class _SelectiveSelf(_Self):
             self._to_redeliver.append(self._last_msg)
 
 
+# TODO not using push/pull instead of send/recv actually better?
+# TODO offer toro.Queue instead of zeromq. does it actually make a measureable difference? trongo?
 @s.hacks.optionally_parameterized_decorator
 def actor(selective_receive=False):
     def decorator(fn):
@@ -154,11 +156,13 @@ def actor(selective_receive=False):
         def _actor(*a, **kw):
             self = _SelectiveSelf() if selective_receive else _Self()
             coroutine(freeze=False)(fn)(self, *a, **kw)
+            # TODO add on_done and on_error to the actors future to monitor its death
             return self._route
         return _actor
     return decorator
 
 
+# TODO is this actually good? obfuscates?
 def make_sync(fn):
     def fn_sync(*a, **kw):
         @s.async.coroutine
