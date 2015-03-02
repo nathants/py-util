@@ -38,8 +38,8 @@ def context(pid):
 
 
 def new(action, kind, route, subscriptions=[""], sockopts={}, hwm=1):
-    assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert action in ['bind', 'connect'], 'invalid action: {}'.format(action)
+    assert kind.lower() in ['pub', 'sub', 'req', 'rep', 'push', 'pull', 'router', 'dealer', 'pair'], 'invalid kind: {}'.format(kind)
     assert route.split('://')[0] in ['ipc', 'tcp', 'pgm', 'epgm'], 'invalid route: {}'.format(route)
     sock = context(os.getpid()).socket(getattr(zmq, kind.upper()))
     sock.hwm = hwm
