@@ -82,10 +82,11 @@ def ioloop():
     return _IOLoop(tornado.ioloop.IOLoop.instance())
 
 
-def run_sync(func, timeout=None):
+def run_sync(fn, *a, **kw):
+    timeout = kw.pop('timeout', None)
     io = ioloop()
     io.started = True
-    val = io.run_sync(func, timeout=timeout)
+    val = io.run_sync(lambda: fn(*a, **kw), timeout=timeout)
     while io._callbacks:
         io._callbacks.pop()
     io.started = False
