@@ -107,10 +107,7 @@ class _Self(object):
     def __call__(self):
         return self._route
 
-    def push(self, route, msg, **kw):
-        return s.sock.push(route, msg, **kw)
-
-    def pull(self):
+    def recv(self):
         return self._sock.recv()
 
 
@@ -122,7 +119,7 @@ class _SelectiveSelf(_Self):
         self._try_redeliver = False
         self._last_msg = None
 
-    def pull(self):
+    def recv(self):
         if self._redelivered and not self._to_redeliver:
             self._to_redeliver = self._redelivered[:]
             self._redelivered = []
