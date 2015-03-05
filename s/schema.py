@@ -14,7 +14,8 @@ import concurrent.futures
 _schema_commands = (':or',
                     ':fn',
                     ':optional',
-                    ':maybe')
+                    ':maybe',
+                    ':merge')
 
 
 def is_valid(schema, value, freeze=True):
@@ -123,7 +124,7 @@ def validate(schema, value, freeze=True):
     """
     try:
         with s.exceptions.update(_updater(schema, value), AssertionError):
-            # TODO does this block belong in _check()? should they even be seperate?
+            # TODO does this block belong in _check()? should validate and _check even be seperate?
             if isinstance(value, (s.async.Future, concurrent.futures.Future)):
                 future = type(value)()
                 @value.add_done_callback
@@ -147,7 +148,7 @@ def validate(schema, value, freeze=True):
                     value = s.data.freeze(value)
             return value
     except AssertionError as e:
-        raise SchemaError(*e.args)
+        raise Error(*e.args)
 
 
 def _formdent(x):
@@ -171,7 +172,7 @@ def _updater(schema, value):
     return lambda x: _prettify(x + '\nobj:\n{}\nschema:\n{}'.format(_formdent(value), _formdent(schema)))
 
 
-class SchemaError(AssertionError):
+class Error(AssertionError):
     pass
 
 
@@ -181,12 +182,12 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
     for k, v in value.items():
         value_match = k in schema
         type_match = type(k) in [x for x in schema if isinstance(x, type)] or object in schema
-        assert value_match or type_match, '{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()]))
-        key = k if value_match else type(k)
-        validator = schema.get(key) or schema[object]
-        validated_schema_items.append((key, validator))
-        with s.exceptions.update("key:\n  {}".format(k), AssertionError):
-            val[k] = _check(validator, v)
+        if value_match or type_match:
+            key = k if value_match else type(k)
+            validator = schema.get(key) or schema[object]
+            validated_schema_items.append((key, validator))
+            with s.exceptions.update("key:\n  {}".format(k), AssertionError):
+                val[k] = _check(validator, v)
     return val, validated_schema_items
 
 
@@ -219,69 +220,74 @@ def _starts_with_keyword(x):
 
 
 def _check(validator, value):
-    # TODO break this up into well named pieces
-    assert not isinstance(validator, set), 'a set cannot be a validator: {}'.format(validator)
-    if validator is object:
-        return value
-    elif isinstance(validator, (list, tuple)):
-        assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a seq: {} <{}>'.format(value, type(value), validator, type(validator))
-        if validator and validator[0] in _schema_commands:
-            if validator[0] == ':optional':
-                assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
-                return _check(validator[1], value)
-            elif validator[0] == ':maybe':
-                assert len(validator) == 2, ':maybe schema should be (:maybe, schema), not: {}'.format(validator)
-                if value is None:
-                    return None
-                return _check(validator[1], value)
-            elif validator[0] == ':or':
-                for v in validator[1:]:
-                    tracebacks = []
+    with s.exceptions.update(_updater(validator, value), AssertionError):
+        # TODO break this up into well named pieces
+        assert not isinstance(validator, set), 'a set cannot be a validator: {}'.format(validator)
+        if validator is object:
+            return value
+        elif isinstance(validator, (list, tuple)):
+            assert isinstance(value, (list, tuple)) or _starts_with_keyword(validator), '{} <{}> is not a seq: {} <{}>'.format(value, type(value), validator, type(validator))
+            if validator and validator[0] in _schema_commands:
+                if validator[0] == ':merge':
+                    assert len(validator) == 3, ':merge schema should be (:merge, dict1, dict2), not: {}'.format(validator)
+                    assert all(isinstance(x, dict) for x in validator[1:]), ':merge only works with two dicts, not: {}'.format(validator[1:])
+                    return validate(s.dicts.merge(*validator[1:], freeze=False), value)
+                elif validator[0] == ':optional':
+                    assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
+                    return _check(validator[1], value)
+                elif validator[0] == ':maybe':
+                    assert len(validator) == 2, ':maybe schema should be (:maybe, schema), not: {}'.format(validator)
+                    if value is None:
+                        return None
+                    return _check(validator[1], value)
+                elif validator[0] == ':or':
+                    for v in validator[1:]:
+                        tracebacks = []
+                        try:
+                            return _check(v, value)
+                        except AssertionError as e:
+                            tracebacks.append(traceback.format_exc())
+                    raise AssertionError('{} <{}> did not match any of [{}]\n{}'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]]), '\n'.join(tracebacks)))
+                elif validator[0] == ':fn':
+                    assert isinstance(value, types.FunctionType), '{} <{}> is not a function'.format(value, type(value))
+                    assert len(validator) in [2, 3], ':fn schema should be (:fn, [<args>...], {<kwargs>: <val>, ...}) or (:fn, [<args>...]), not: {}'.format(validator)
                     try:
-                        return _check(v, value)
-                    except AssertionError as e:
-                        tracebacks.append(traceback.format_exc())
-                raise AssertionError('{} <{}> did not match any of [{}]\n{}'.format(value, type(value), ', '.join(['{} <{}>'.format(x, type(x)) for x in validator[1:]]), '\n'.join(tracebacks)))
-            elif validator[0] == ':fn':
-                assert isinstance(value, types.FunctionType), '{} <{}> is not a function'.format(value, type(value))
-                assert len(validator) in [2, 3], ':fn schema should be (:fn, [<args>...], {<kwargs>: <val>, ...}) or (:fn, [<args>...]), not: {}'.format(validator)
-                try:
-                    args, kwargs = validator[1:]
-                except ValueError:
-                    [args], kwargs = validator[1:], {}
-                try:
-                    _args, _kwargs = value._schema
-                except ValueError:
-                    [_args], _kwargs = value._schema, {}
-                assert _args == args, 'pos args {_args} did not match {args}'.format(**locals())
-                assert _kwargs == kwargs, 'kwargs {_kwargs} did not match {kwargs}'.format(**locals())
-                return value
-        elif isinstance(validator, list):
-            if not validator:
-                assert not value, 'you schema is an empty sequence, but this is not empty: {}'.format(value)
-            elif value:
-                assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
-            return [_check(validator[0], v) for v in value]
-        elif isinstance(validator, tuple):
-            assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
-            return [_check(_validator, _val) for _validator, _val in zip(validator, value)]
-    elif isinstance(validator, dict):
-        assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
-        return validate(validator, value)
-    elif isinstance(validator, type):
-        valid_str = isinstance(value, s.data.string_types) and validator in s.data.string_types
-        assert valid_str or isinstance(value, validator), '{} <{}> is not a <{}>'.format(value, type(value), validator)
-        return value
-    elif isinstance(validator, types.FunctionType):
-        assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
-        return value
-    elif isinstance(validator, s.data.json_types):
-        with s.exceptions.ignore(AttributeError):
-            value = value.decode('utf-8')
-        assert value == validator, '{} <{}> != {} <{}>'.format(value, type(value), validator, type(validator))
-        return value
-    else:
-        raise AssertionError('bad validator {} <{}>'.format(validator, type(validator)))
+                        args, kwargs = validator[1:]
+                    except ValueError:
+                        [args], kwargs = validator[1:], {}
+                    try:
+                        _args, _kwargs = value._schema
+                    except ValueError:
+                        [_args], _kwargs = value._schema, {}
+                    assert _args == args, 'pos args {_args} did not match {args}'.format(**locals())
+                    assert _kwargs == kwargs, 'kwargs {_kwargs} did not match {kwargs}'.format(**locals())
+                    return value
+            elif isinstance(validator, list):
+                if not validator:
+                    assert not value, 'you schema is an empty sequence, but this is not empty: {}'.format(value)
+                elif value:
+                    assert len(validator) == 1, 'list validators represent variable length iterables and must contain a single validator: {}'.format(validator)
+                return [_check(validator[0], v) for v in value]
+            elif isinstance(validator, tuple):
+                assert len(validator) == len(value), '{} <{}> mismatched length of validator {} <{}>'.format(value, type(value), validator, type(validator))
+                return [_check(_validator, _val) for _validator, _val in zip(validator, value)]
+        elif isinstance(validator, dict):
+            assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
+            return validate(validator, value)
+        elif isinstance(validator, type):
+            valid_str = isinstance(value, s.data.string_types) and validator in s.data.string_types
+            assert valid_str or isinstance(value, validator), '{} <{}> is not a <{}>'.format(value, type(value), validator)
+            return value
+        elif isinstance(validator, types.FunctionType):
+            assert validator(value), '{} <{}> failed validator {}'.format(value, type(value), s.func.source(validator))
+            return value
+        elif isinstance(validator, s.data.json_types):
+            with s.exceptions.ignore(AttributeError):
+                value = value.decode('utf-8')
+            assert value == validator, '{} <{}> != {} <{}>'.format(value, type(value), validator, type(validator))
+            return value
+        else:
+            raise AssertionError('bad validator {} <{}>'.format(validator, type(validator)))
 
 
 def _prettify(x):
@@ -332,26 +338,32 @@ def _read_annotations(fn, arg_schemas, kwarg_schemas):
 
 
 def _check_args(args, kwargs, name, freeze, schemas):
-    # TODO better to use inspect.getcallargs() for this? would change the semantics of pos arg checking. hmmn...
-    # look at the todo in s.web.post for an example.
-    assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided: {}\n{}'.format(name, len(schemas['arg']), len(args), args, schemas)
-    _args = []
-    for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
-        with s.exceptions.update('pos arg num:\n  {}'.format(i), AssertionError):
-            _args.append(validate(schema, arg, freeze=freeze))
-    if schemas['args'] and args[len(schemas['arg']):]:
-        _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
-    _kwargs = {}
-    for k, v in kwargs.items():
-        if k in schemas['kwarg']:
-            with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
-                _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
-        elif schemas['kwargs']:
-            with s.exceptions.update('keyword args schema failed.', AssertionError):
-                _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
-        else:
-            raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
-    return _args, _kwargs
+    try:
+        with s.exceptions.update(_prettify, AssertionError):
+            # TODO better to use inspect.getcallargs() for this? would change the semantics of pos arg checking. hmmn...
+            # look at the todo in s.web.post for an example.
+            assert len(schemas['arg']) == len(args) or schemas['args'], 'you asked to check {} for {} pos args, but {} were provided\nargs:\n{}\nschema:\n{}'.format(
+                name, len(schemas['arg']), len(args), pprint.pformat(args, width=1), pprint.pformat(schemas, width=1)
+            )
+            _args = []
+            for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
+                with s.exceptions.update('pos arg num:\n  {}'.format(i), AssertionError):
+                    _args.append(validate(schema, arg, freeze=freeze))
+            if schemas['args'] and args[len(schemas['arg']):]:
+                _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
+            _kwargs = {}
+            for k, v in kwargs.items():
+                if k in schemas['kwarg']:
+                    with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
+                        _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
+                elif schemas['kwargs']:
+                    with s.exceptions.update('keyword args schema failed.', AssertionError):
+                        _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
+                else:
+                    raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
+            return _args, _kwargs
+    except AssertionError as e:
+        raise Error(*e.args)
 
 
 def _fn_check(decoratee, name, freeze, schemas):

@@ -4,6 +4,11 @@ import pytest
 import six
 
 
+def test_merge():
+    schema = (':merge', {'a': str, 'b': str}, {'b': int})
+    s.schema.validate(schema, {'a': 'a', 'b': 1})
+
+
 def test_future():
     schema = str
     f1 = s.async.Future()
@@ -298,8 +303,7 @@ def test_object_type():
     schema = {str: object}
     s.schema.validate(schema, {'a': 'apple'})
     s.schema.validate(schema, {'b': 'banana'})
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: 'apple'})
+    assert s.schema.validate(schema, {1: 'apple'}) == {}
 
 
 def test_type_to_lambda():
@@ -410,17 +414,13 @@ def test_nested_type_to_type():
     s.schema.validate(schema, {'1': {'1': 1}})
     with pytest.raises(AssertionError):
         s.schema.validate(schema, {'1': {'1': '1'}})
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, {'1': {1: 1}})
-    with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: {'1': 1}})
 
 
 def test_type_to_type():
     schema = {str: int}
     s.schema.validate(schema, {'1': 1})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: 1})
+        s.schema.validate(schema, {'1': '1'})
 
 
 def test_value_to_type():
@@ -461,9 +461,9 @@ def test_iterable_length_n():
     schema = {str: [str]}
     s.schema.validate(schema, {'1': ['1', '2']})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: 1})
+        s.schema.validate(schema, {'1': 1})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: ['1', 2]})
+        s.schema.validate(schema, {'1': ['1', 2]})
     with pytest.raises(AssertionError):
         s.schema.validate(schema, {'1': None})
 
@@ -472,11 +472,11 @@ def test_iterable_fixed_length():
     schema = {str: (str, str)}
     s.schema.validate(schema, {'1': ['1', '2']})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: ['1']})
+        s.schema.validate(schema, {'1': ['1']})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: ['1', '2', '3']})
+        s.schema.validate(schema, {'1': ['1', '2', '3']})
     with pytest.raises(AssertionError):
-        s.schema.validate(schema, {1: ['1', 2]})
+        s.schema.validate(schema, {'1': ['1', 2]})
 
 
 def test_nested_iterables():
