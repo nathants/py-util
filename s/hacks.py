@@ -1,8 +1,8 @@
 from __future__ import absolute_import, print_function
+import inspect
 import types
 import sys
 import six
-import inspect
 import collections
 
 
@@ -28,12 +28,12 @@ def stringify(x):
 
 
 class ModuleRedirector(object):
-    def __init__(self, name, fn, redirect_everything=False):
+    def __init__(self, name, decoratee, redirect_everything=False):
         self._orig_module_ = sys.modules[name]
         sys.modules[name] = self
         self._everything_ = redirect_everything
-        fn.__module__ = __name__
-        self.__fn__ = fn
+        decoratee.__module__ = __name__
+        self.__fn__ = decoratee
 
     def __getattr__(self, name):
         try:
@@ -49,8 +49,8 @@ def decorate(val, _name_, decorator):
     assert callable(decorator)
     for k, v in list(val.items()):
         if callable(v) and v.__module__ == _name_:
-            fn = decorator(v)
-            val[k] = fn
+            decoratee = decorator(v)
+            val[k] = decoratee
 
 
 def pformat_prep(val):
@@ -68,14 +68,23 @@ def pformat_prep(val):
     return val
 
 
-def optionally_parameterized_decorator(fn):
+def optionally_parameterized_decorator(decoratee):
     """
     wont work if you decorator can be invoked with a single function argument,
-    which is the same signature as decorator usage
+    which is the same signature as decorator usage.
     """
     def decorated(*a, **kw):
-        if len(a) == 1 and isinstance(a[0], types.FunctionType) and not kw:
-            return fn()(*a, **kw)
+        method = (len(a) == 2
+                  and inspect.ismethod(getattr(a[0], decoratee.__name__, None))
+                  and isinstance(a[1], types.FunctionType)
+                  and not kw)
+        function = (len(a) == 1
+                    and isinstance(a[0], types.FunctionType)
+                    and not kw)
+        if method:
+            return decoratee(a[0])(*a[1:], **kw)
+        elif function:
+            return decoratee()(*a, **kw)
         else:
-            return fn(*a, **kw)
+            return decoratee(*a, **kw)
     return decorated
