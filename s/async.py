@@ -25,7 +25,7 @@ def _log_exceptions(*ignore):
             if e not in _recent:
                 if not isinstance(e, (tornado.gen.Return,) + ignore):
                     _recent.append(e)
-                    logging.exception('exception in future: %s', future)
+                    logging.exception('exception in %s', future._name)
     return fn
 
 
@@ -42,6 +42,7 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
             else:
                 trace_fn = s.trace.mutable(fn)
             future = tornado.gen.coroutine(trace_fn)(*a, **kw)
+            future._name = s.func.name(fn)
             callback = _log_exceptions(*ignore_exceptions)
             ioloop().add_future(future, callback)
             return future
