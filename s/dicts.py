@@ -35,7 +35,7 @@ def _merge(k, a, b, concat, freeze):
     assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
     if k in a and k in b:
         if isinstance(a[k], dict) and isinstance(b[k], dict):
-            return merge(a[k], b[k], concat)
+            return merge(a[k], b[k], concat, freeze)
         elif concat and _concatable(a[k], b[k]):
             return a[k] + b[k]
         else:
