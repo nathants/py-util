@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import traceback
 import json
 import types
 import contextlib
@@ -138,7 +139,18 @@ with s.exceptions.ignore(ImportError):
     tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
 
-@s.async.coroutine(freeze=False)
+class Blowup(Exception):
+    def __init__(self, message, code, reason, body):
+        super().__init__(message)
+        self.code = code
+        self.reason = reason
+        self.body = _try_decode(body)
+
+    def __str__(self):
+        return '{}, code={}, reason={}\n{}'.format(self.args[0] if self.args else '', self.code, self.reason, self.body)
+
+
+@s.async.coroutine(Blowup, freeze=False)
 @s.schema.check(str, str, timeout=(':or', int, float), blowup=bool, body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
 def _fetch(method, url, **kw):
     timeout = kw.pop('timeout', 10)
@@ -161,7 +173,8 @@ def _fetch(method, url, **kw):
     if blowup and response.code != 200:
         raise Blowup('{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals()),
                      response.code,
-                     response.reason)
+                     response.reason,
+                     response.body)
     body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
@@ -169,13 +182,6 @@ def _fetch(method, url, **kw):
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
                           'body': body})
-
-
-class Blowup(Exception):
-    def __init__(self, message, code, reason):
-        super().__init__(message)
-        self.code = code
-        self.reason = reason
 
 
 @s.schema.check(str, _kwargs=dict)
@@ -199,3 +205,29 @@ post_sync = s.async.make_sync(post)
 
 class Timeout(Exception):
     pass
+
+
+@s.hacks.optionally_parameterized_decorator
+def validate(*args, **kwargs):
+    """
+    this is an alternative and superset to schema.check.
+    does the same thing as schema.check, asserts that there is
+    only one arg schema, that it is a superset of schemas.request,
+    and if the request does validate, returns a 403 with a meaningful
+    message, instead of blowing up on the client.
+    make sure to validate the return value and do blow up on the client
+    if that fails, just like schema.check.
+    """
+    def decorator(decoratee):
+        name = s.func.name(decoratee)
+        assert getattr(decoratee, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(name)
+        def decorated(request):
+            pass
+            # try:
+                # request = s.schema.validate(schemas.write, request)
+            # except s.schema.Error:
+                # return {'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc()}
+            # else:
+                # return (yield decoratee(request))
+        return decorated
+    return decorator
