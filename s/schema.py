@@ -294,7 +294,7 @@ def _prettify(x):
     return re.sub("\<\w+ \'([\w\.]+)\'\>", r'\1', str(x))
 
 
-def get_schemas(fn, args, kwargs):
+def _get_schemas(fn, args, kwargs):
     arg_schemas, kwarg_schemas = _read_annotations(fn, args, kwargs)
     schemas = {'yield': kwarg_schemas.pop('_yield', object),
                'send': kwarg_schemas.pop('_send', object),
@@ -426,7 +426,7 @@ def check(*args, **kwargs):
     def decorator(decoratee):
         freeze = kwargs.pop('_freeze', True)
         name = s.func.name(decoratee)
-        schemas = get_schemas(decoratee, args, kwargs)
+        schemas = _get_schemas(decoratee, args, kwargs)
         if inspect.isgeneratorfunction(decoratee):
             decorated = _gen_check(decoratee, name, freeze, schemas)
         else:
