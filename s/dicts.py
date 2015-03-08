@@ -80,8 +80,8 @@ def _concatable(*xs):
 
 
 def map(mapping_fn, obj):
-    def mapper(*x):
-        val = mapping_fn(*x)
+    def mapper(k, v):
+        val = mapping_fn(k, v)
         assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
         return val
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
