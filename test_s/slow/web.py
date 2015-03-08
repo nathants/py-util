@@ -175,7 +175,7 @@ def test_url_params():
                               'body': request['query']})
     app = s.web.app([('/', {'get': handler})])
     with s.web.test(app) as url:
-        resp = s.web.get_sync(url + '?asdf=123&foo=bar&foo=notbar&stuff')
+        resp = s.web.get_sync(url + '/?asdf=123&foo=bar&foo=notbar&stuff')
         assert resp['body'] == {'asdf': 123,
                                 'foo': ('bar', 'notbar'),
                                 'stuff': ''}
@@ -189,5 +189,5 @@ def test_url_args():
                               'body': {'foo': request['args']['foo']}})
     app = s.web.app([('/:foo/stuff', {'get': handler})])
     with s.web.test(app) as url:
-        resp = s.web.get_sync(url + 'something/stuff')
-        assert resp['body'] == {'foo': 'something'}
+        resp = s.web.get_sync(url + '/something/stuff')
+        assert resp['body'] == {'foo': 'something'}, resp

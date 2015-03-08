@@ -17,7 +17,7 @@ class schemas:
     json = (':or',) + s.data.json_types
 
     request = {'verb': str,
-               'uri': str,
+               'url': str,
                'path': str,
                'query': {str: (':or', str, [str]) + s.data.json_types},
                'body': json,
@@ -44,6 +44,7 @@ def _new_handler_method(fn):
         request = _request_to_dict(self.request, args)
         response = yield fn(request)
         _mutate_handler(response, self)
+    method.fn = fn
     return method
 
 
@@ -83,7 +84,7 @@ def _request_to_dict(obj, args):
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
     return {'verb': obj.method.lower(),
-            'uri': obj.uri,
+            'url': obj.uri,
             'path': obj.path,
             'query': _query_parse(obj.query),
             'body': body,
@@ -116,17 +117,22 @@ def wait_for_http(url):
             time.sleep(1e-6)
 
 
+# TODO this schema is particularly verbose...
 @contextlib.contextmanager
-@s.schema.check(tornado.web.Application, poll=bool)
-def test(app, poll=True):
+@s.schema.check((':or', lambda x: callable(x), tornado.web.Application), poll=(':or', bool, str), before_start=lambda x: callable(x), _freeze=False)
+def test(app, poll='/', before_start=lambda: None):
     port = s.net.free_port()
-    url = 'http://localhost:{}/'.format(port)
+    url = 'http://0.0.0.0:{}'.format(port)
     def run():
-        app.listen(port)
+        before_start()
+        if isinstance(app, tornado.web.Application):
+            app.listen(port)
+        else:
+            app().listen(port)
         s.async.ioloop().start()
     proc = s.proc.new(run)
     if poll:
-        wait_for_http(url)
+        wait_for_http(url + poll)
     try:
         yield url
     except:
@@ -150,18 +156,20 @@ class Blowup(Exception):
         return '{}, code={}, reason="{}"\n{}'.format(self.args[0] if self.args else '', self.code, self.reason, self.body)
 
 
+faux_app = None
+
+
 @s.async.coroutine(Blowup, freeze=False)
 @s.schema.check(str, str, timeout=(':or', int, float), blowup=bool, body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
-def _fetch(method, url, **kw):
-    timeout = kw.pop('timeout', 10)
-    if 'body' in kw and not s.schema.is_valid(str, kw['body']):
-        kw['body'] = json.dumps(kw['body'])
-    blowup = kw.pop('blowup', False)
-    if 'query' in kw:
-        assert '?' not in url, 'you cannot user keyword arg query and have ? already in the url: {url}'.format(**locals())
-        url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if s.schema.is_valid(str, v) else json.dumps(v)))
-                              for k, v in kw.pop('query').items())
-    request = tornado.httpclient.HTTPRequest(url, method=method, **kw)
+def _fetch(verb, url, **kw):
+    fetcher = _faux_fetch if faux_app else _real_fetch
+    raise s.async.Return((yield fetcher(verb, url, **kw)))
+
+
+@s.async.coroutine(Blowup, freeze=False)
+def _real_fetch(verb, url, **kw):
+    url, timeout, blowup, kw = _process_kwargs(url, kw)
+    request = tornado.httpclient.HTTPRequest(url, method=verb, **kw)
     future = s.async.Future()
     response = tornado.httpclient.AsyncHTTPClient().fetch(request, callback=lambda x: future.set_result(x))
     if timeout:
@@ -171,17 +179,51 @@ def _fetch(method, url, **kw):
         )
     response = yield future
     if blowup and response.code != 200:
-        raise Blowup('{method} {url} did not return 200, returned {code}'.format(code=response.code, **locals()),
+        raise Blowup('{verb} {url} did not return 200, returned {code}'.format(code=response.code, **locals()),
                      response.code,
                      response.reason,
                      response.body)
     body = _try_decode(response.body or b'')
     with s.exceptions.ignore(ValueError, TypeError):
         body = json.loads(body)
+    print(url)
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
                           'body': body})
+
+
+@s.async.coroutine
+def _faux_fetch(verb, url, **kw):
+    assert isinstance(faux_app, tornado.web.Application)
+    url, _, _, kw = _process_kwargs(url, kw)
+    dispatcher = tornado.web._RequestDispatcher(faux_app, None)
+    dispatcher.set_request(tornado.httputil.HTTPServerRequest(method=verb, uri=url, **kw))
+    args = dispatcher.path_kwargs
+    try:
+        handler = getattr(dispatcher.handler_class, verb.lower()).fn
+    except AttributeError:
+        raise Exception('no route matched: {verb} {url}'.format(**locals()))
+    request = {'verb': verb,
+               'url': url,
+               'path': '/' + url.split('://')[-1].split('/', 1)[-2],
+               'query': kw.get('query', {}),
+               'body': kw.get('body', ''),
+               'headers': kw.get('headers', {}),
+               'args': {k: _try_decode(v) for k, v in args.items()}}
+    raise s.async.Return((yield handler(request)))
+
+
+def _process_kwargs(url, kw):
+    timeout = kw.pop('timeout', 10)
+    if 'body' in kw and not s.schema.is_valid(str, kw['body']):
+        kw['body'] = json.dumps(kw['body'])
+    blowup = kw.pop('blowup', False)
+    if 'query' in kw:
+        assert '?' not in url, 'you cannot user keyword arg query and have ? already in the url: {url}'.format(**locals())
+        url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if s.schema.is_valid(str, v) else json.dumps(v)))
+                              for k, v in kw.pop('query').items())
+    return url, timeout, blowup, kw
 
 
 @s.schema.check(str, _kwargs=dict)
