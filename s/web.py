@@ -1,4 +1,6 @@
 from __future__ import absolute_import, print_function
+import mock
+import functools
 import traceback
 import json
 import types
@@ -119,17 +121,17 @@ def wait_for_http(url):
 
 # TODO this schema is particularly verbose...
 @contextlib.contextmanager
-@s.schema.check((':or', lambda x: callable(x), tornado.web.Application), poll=(':or', bool, str), before_start=lambda x: callable(x), _freeze=False)
-def test(app, poll='/', before_start=lambda: None):
+# @s.schema.check((':or', lambda x: callable(x), tornado.web.Application), poll=(':or', bool, str), before_start=lambda x: callable(x), _freeze=False)
+def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create=True)):
     port = s.net.free_port()
     url = 'http://0.0.0.0:{}'.format(port)
     def run():
-        before_start()
-        if isinstance(app, tornado.web.Application):
-            app.listen(port)
-        else:
-            app().listen(port)
-        s.async.ioloop().start()
+        with context():
+            if isinstance(app, tornado.web.Application):
+                app.listen(port)
+            else:
+                app().listen(port)
+            s.async.ioloop().start()
     proc = s.proc.new(run)
     if poll:
         wait_for_http(url + poll)
@@ -166,6 +168,13 @@ def _fetch(verb, url, **kw):
     raise s.async.Return((yield fetcher(verb, url, **kw)))
 
 
+def _parse_body(body):
+    body = _try_decode(body or b'')
+    with s.exceptions.ignore(ValueError, TypeError):
+        body = json.loads(body)
+    return body
+
+
 @s.async.coroutine(Blowup, freeze=False)
 def _real_fetch(verb, url, **kw):
     url, timeout, blowup, kw = _process_kwargs(url, kw)
@@ -183,20 +192,17 @@ def _real_fetch(verb, url, **kw):
                      response.code,
                      response.reason,
                      response.body)
-    body = _try_decode(response.body or b'')
-    with s.exceptions.ignore(ValueError, TypeError):
-        body = json.loads(body)
-    print(url)
     raise s.async.Return({'code': response.code,
                           'reason': response.reason,
                           'headers': {k.lower(): v for k, v in response.headers.items()},
-                          'body': body})
+                          'body': _parse_body(response.body or b'')})
 
 
-@s.async.coroutine
+@s.async.coroutine(Blowup)
 def _faux_fetch(verb, url, **kw):
     assert isinstance(faux_app, tornado.web.Application)
-    url, _, _, kw = _process_kwargs(url, kw)
+    query = kw.get('query', {})
+    url, _, blowup, kw = _process_kwargs(url, kw)
     dispatcher = tornado.web._RequestDispatcher(faux_app, None)
     dispatcher.set_request(tornado.httputil.HTTPServerRequest(method=verb, uri=url, **kw))
     args = dispatcher.path_kwargs
@@ -207,11 +213,17 @@ def _faux_fetch(verb, url, **kw):
     request = {'verb': verb,
                'url': url,
                'path': '/' + url.split('://')[-1].split('/', 1)[-2],
-               'query': kw.get('query', {}),
-               'body': kw.get('body', ''),
+               'query': query,
+               'body': _parse_body(kw.get('body', b'')),
                'headers': kw.get('headers', {}),
                'args': {k: _try_decode(v) for k, v in args.items()}}
-    raise s.async.Return((yield handler(request)))
+    response = (yield handler(request))
+    if blowup and response['code'] != 200:
+        raise Blowup('{verb} {url} did not return 200, returned {code}'.format(code=response['code'], **locals()),
+                     response['code'],
+                     response['reason'],
+                     response['body'])
+    raise s.async.Return(response)
 
 
 def _process_kwargs(url, kw):
@@ -256,12 +268,13 @@ def validate(*args, **kwargs):
         assert getattr(decoratee, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(name)
         request_schema = s.schema._get_schemas(decoratee, args, kwargs)['arg'][0]
         decoratee = s.schema.check(*args, **kwargs)(decoratee)
+        @functools.wraps(decoratee)
         @s.async.coroutine
         def decorated(request):
             try:
                 s.schema.validate(request_schema, request)
             except s.schema.Error:
-                raise s.async.Return({'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc()})
+                raise s.async.Return({'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc() + '\nvalidation failed for: {}'.format(name)})
             else:
                 raise s.async.Return((yield decoratee(request)))
         return decorated
