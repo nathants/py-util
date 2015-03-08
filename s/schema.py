@@ -31,7 +31,7 @@ def is_valid(schema, value, freeze=True):
 # think about schemaing the args to s.func.pipe()
 
 
-def validate(schema, value, freeze=True):
+def validate(schema, value, freeze=True, strict=True):
     """
     >>> import pytest
 
@@ -81,7 +81,7 @@ def validate(schema, value, freeze=True):
     >>> schema = {'name': float}
     >>> assert validate(schema, {'name': 3.14}) == {'name': 3.14}
     >>> with pytest.raises(AssertionError):
-    ...     validate(schema, {'alias': 3.14})
+    ...     validate(schema, {'name': 314})
 
     # dicts with complex validation
     >>> assert validate({'name': lambda x: x in ['john', 'jane']}, {'name': 'jane'}) == {'name': 'jane'}
@@ -136,8 +136,8 @@ def validate(schema, value, freeze=True):
                 return future
             elif isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
-                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
-                value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
+                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value, strict)
+                value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items, strict)
             else:
                 value = _check(schema, value)
             if freeze:
@@ -176,7 +176,7 @@ class Error(AssertionError):
     pass
 
 
-def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
+def _check_for_items_in_value_that_dont_satisfy_schema(schema, value, strict):
     validated_schema_items = []
     val = {}
     for k, v in value.items():
@@ -188,10 +188,13 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
             validated_schema_items.append((key, validator))
             with s.exceptions.update("key:\n  {}".format(k), AssertionError):
                 val[k] = _check(validator, v)
+        elif strict:
+            raise AssertionError('{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()])))
+
     return val, validated_schema_items
 
 
-def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items):
+def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items, strict):
     if value or not {type(x) for x in schema.keys()} == {type}: # if schema keys are all types, and value is empty, return
         for k, v in schema.items():
             if k not in value and (k, v) not in validated_schema_items: # only check schema items if they haven't already been satisfied
@@ -207,7 +210,7 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                     assert len(v) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(v)
                     _, schema, default_value = v
                     value = s.dicts.merge(value, {k: validate(schema, default_value)}, freeze=False)
-                else:
+                elif strict:
                     raise AssertionError('{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k)))
     return value
 
