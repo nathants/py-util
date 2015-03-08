@@ -10,7 +10,10 @@ _services = './docker/state/services.yml'
 
 
 @argh.arg('cmd', nargs='?', default=None)
-def run(action_name, cmd, tty=False, no_clean_before=False, no_clean_after=False):
+@argh.arg('-a', '--append-to-cmd')
+@argh.arg('-ncb', '--no-clean-before')
+@argh.arg('-nca', '--no-clean-after')
+def run(action_name, cmd, append_to_cmd=None, tty=False, no_clean_before=False, no_clean_after=False):
     """run an action"""
     build(action_name)
     tty = True if cmd == 'bash' else tty
@@ -21,7 +24,7 @@ def run(action_name, cmd, tty=False, no_clean_before=False, no_clean_after=False
         _start_deps(action)
         print('start main')
         try:
-            s.shell.run(_run_cmd(action['main'], tty=tty, cmd=cmd), interactive=True)
+            s.shell.run(_run_cmd(action['main'], tty, cmd, append_to_cmd), interactive=True)
         except:
             sys.exit(1)
     finally:
@@ -145,7 +148,8 @@ def _build_cmd(data, nocache, pull):
     ])
 
 
-def _run_cmd(data, tty=False, cmd=None, bg=False):
+def _run_cmd(data, tty=False, cmd=None, append_to_cmd=None, bg=False):
+    append_to_cmd = append_to_cmd or ''
     return ' '.join(
         ['sudo docker run',
          '--publish-all=true',
@@ -162,9 +166,9 @@ def _run_cmd(data, tty=False, cmd=None, bg=False):
          for y in [str(x).split(':')]
          for z in [([s.net.free_port()] + y)[-2:]]] +
         [data['tag']] +
-        ["bash -c '{}'".format(cmd)
+        ["bash -c '{} {}'".format(cmd, append_to_cmd)
          if cmd
-         else "bash -c '{cmd}'".format(**data)
+         else "bash -c '{} {}'".format(data['cmd'], append_to_cmd)
          if 'cmd' in data
          else '']
     )
