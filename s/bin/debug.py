@@ -58,13 +58,13 @@ def _visualize_flat(width, height, index, datas):
     datas = [[x.ljust(size) + y, data] for (x, y), data in datas]
     size = max(len(x) for x, _ in datas) + 1
     datas = [[x.ljust(size) + ('args=' + str(data['args'])
-                               if data.get('args') else
+                               if 'args' in data else
                                'value=' + str(data['value'])
-                               if data.get('value')
+                               if 'value' in data
                                else ''),
               data]
              for x, data in datas]
-    datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if data.get('kwargs') else ''),
+    datas = [[x + (' kwargs=' + str(data['kwargs'].items()) if 'kwargs' in data else ''),
               data]
              for x, data in datas]
     datas = [[x + (' traceback=' + data['traceback'].splitlines()[-1]

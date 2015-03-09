@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import time
 import pytest
 import json
 import s
@@ -78,8 +79,6 @@ def test_trace_web():
                               'body': 'ok'})
     app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app, poll=False) as url:
-        # TODO stop sleeping
-        import time
         time.sleep(.1)
         resp = requests.get(url)
         assert resp.text == 'ok'
