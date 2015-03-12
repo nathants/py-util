@@ -106,7 +106,7 @@ def test_select_timeout():
     def pusher(route, msg, seconds=0):
         yield s.async.sleep(seconds)
         yield s.sock.push(route, msg)
-    @s.async.coroutine
+    @s.async.coroutine(freeze=False)
     def main():
         pusher(route, 'msg1', .2)
         socks = {s.sock.bind('pull', route): 'p',
@@ -126,7 +126,7 @@ def test_select():
     def pusher(route, msg, seconds=0):
         yield s.async.sleep(seconds)
         yield s.sock.push(route, msg)
-    @s.async.coroutine
+    @s.async.coroutine(freeze=False)
     def main():
         pusher(r1, 'msg1')
         pusher(r2, 'msg2', .1)

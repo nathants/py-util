@@ -95,7 +95,7 @@ def test_trace_web():
 
 
 def test_trace():
-    @s.trace.glue
+    @s.trace.trace
     def fn(x):
         return x + 1
 
@@ -108,7 +108,7 @@ def test_trace():
 
 
 def test_trace_fn_returning_fn():
-    @s.trace.logic
+    @s.trace.trace
     def fn():
         return lambda: None
     with _capture_traces() as results:
@@ -120,77 +120,28 @@ def test_trace_fn_returning_reverseiterator():
     pass
 
 
-def test_freezes_logic():
-    @s.trace.logic
+def test_freezes_trace():
+    @s.trace.trace
     def fn(x):
         x[1] = 2
     with pytest.raises(ValueError):
         fn({})
 
 
-def test__stack():
-    start = s.trace._stack()
-    @s.trace.logic
-    def fn1():
-        assert s.trace._stack() == ('logic:{}:fn1'.format(__name__),)
-        return fn2()
-    @s.trace.logic
-    def fn2():
-        assert s.trace._stack() == ('logic:{}:fn1'.format(__name__),
-                                    'logic:{}:fn2'.format(__name__))
-        return True
-    fn1()
-    assert s.trace._stack() == start
-
-
-def test_flow_in_logic():
-    @s.trace.glue
-    def flow():
-        return True
-    @s.trace.logic
-    def logic():
-        flow()
-    with pytest.raises(AssertionError):
-        logic()
-
-
-def test_glue_in_logic():
-    @s.trace.io
-    def glue():
-        return True
-    @s.trace.logic
-    def logic():
-        return glue()
-    with pytest.raises(AssertionError):
-        logic()
-
-
-def test_logic_generator():
-    @s.trace.logic
-    def logic():
-        for x in range(3):
-            assert s.trace._stack() == ('logic:test_s.slow.trace:logic',)
-            yield x
-
-    for i, x in enumerate(logic()):
-        assert i == x, str([i, x])
-        assert s.trace._stack() == (), str(s.trace._stack(), ())
-
-
-def test_logic_raise():
-    @s.trace.logic
-    def logic():
+def test_trace_raise():
+    @s.trace.trace
+    def trace():
         1 / 0
     with pytest.raises(ZeroDivisionError):
-        logic()
+        trace()
 
 
-def test_logic_gen_raise():
-    @s.trace.logic
-    def logic():
+def test_trace_gen_raise():
+    @s.trace.trace
+    def trace():
         for x in range(3):
             yield x
         1 / 0
     with pytest.raises(ZeroDivisionError):
-        for i, x in enumerate(logic()):
+        for i, x in enumerate(trace()):
             assert i == x

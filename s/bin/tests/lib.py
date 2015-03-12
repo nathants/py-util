@@ -119,23 +119,18 @@ def _result(result, path, seconds):
 
 
 def _run_test(path, name, test, insight=True):
-    _bak = s.trace._state.get('_stack')
-    s.trace._state['_stack'] = None # stub out _stack, since its used *here* as well
-    try:
-        with s.time.timer() as t:
-            try:
-                test()
-                val = False
-            except:
-                val = traceback.format_exc()
-                if insight:
-                    try:
-                        val = _pytest_insight(path, name)
-                    except:
-                        val = val + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
-        return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
-    finally:
-        s.trace._state['_stack'] = _bak
+    with s.time.timer() as t:
+        try:
+            test()
+            val = False
+        except:
+            val = traceback.format_exc()
+            if insight:
+                try:
+                    val = _pytest_insight(path, name)
+                except:
+                    val = val + '\nFAILED to reproduce test failure in py.test, go investigate!' + traceback.format_exc()
+    return _result(val, '{}:{}()'.format(path, name), round(t['seconds'], 3))
 
 
 def _test(test_path, insight=True):

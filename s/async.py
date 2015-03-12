@@ -37,10 +37,8 @@ def coroutine(*ignore_exceptions, **coroutine_kw):
         def decorated(*a, **kw):
             if not coroutine_kw.get('trace', True):
                 trace_fn = fn
-            elif coroutine_kw.get('freeze', True):
-                trace_fn = s.trace.glue(fn)
             else:
-                trace_fn = s.trace.mutable(fn)
+                trace_fn = s.trace.trace(fn, coroutine_kw.get('freeze', True))
             future = tornado.gen.coroutine(trace_fn)(*a, **kw)
             future._name = s.func.name(fn)
             callback = _log_exceptions(*ignore_exceptions)
