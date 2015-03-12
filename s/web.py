@@ -61,11 +61,11 @@ def _verbs_to_handler(**verbs):
 
 @s.schema.check(schemas.response, tornado.web.RequestHandler)
 def _mutate_handler(response, handler):
-    body = response['body']
-    body = body if s.schema.is_valid(str, body) else json.dumps(body)
+    body = response.get('body', '')
+    body = body if isinstance(body, s.data.string_types) else json.dumps(body)
     handler.write(body)
-    handler.set_status(response['code'], response['reason'])
-    for header, value in response['headers'].items():
+    handler.set_status(response.get('code', 200), response.get('reason', ''))
+    for header, value in response.get('headers', {}).items():
         handler.set_header(header, value)
 
 
@@ -218,22 +218,22 @@ def _faux_fetch(verb, url, **kw):
                'headers': kw.get('headers', {}),
                'args': {k: _try_decode(v) for k, v in args.items()}}
     response = (yield handler(request))
-    if blowup and response['code'] != 200:
+    if blowup and response.get('code', 200) != 200:
         raise Blowup('{verb} {url} did not return 200, returned {code}'.format(code=response['code'], **locals()),
                      response['code'],
-                     response['reason'],
-                     response['body'])
+                     response.get('reason', ''),
+                     response.get('body', ''))
     raise s.async.Return(response)
 
 
 def _process_kwargs(url, kw):
     timeout = kw.pop('timeout', 10)
-    if 'body' in kw and not s.schema.is_valid(str, kw['body']):
+    if 'body' in kw and not isinstance(kw['body'], s.data.string_types):
         kw['body'] = json.dumps(kw['body'])
     blowup = kw.pop('blowup', False)
     if 'query' in kw:
         assert '?' not in url, 'you cannot user keyword arg query and have ? already in the url: {url}'.format(**locals())
-        url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if s.schema.is_valid(str, v) else json.dumps(v)))
+        url += '?' + '&'.join('{}={}'.format(k, tornado.escape.url_escape(v if isinstance(v, s.data.string_types) else json.dumps(v)))
                               for k, v in kw.pop('query').items())
     return url, timeout, blowup, kw
 
@@ -272,7 +272,7 @@ def validate(*args, **kwargs):
         @s.async.coroutine
         def decorated(request):
             try:
-                s.schema.validate(request_schema, request)
+                s.schema._validate(request_schema, request)
             except s.schema.Error:
                 raise s.async.Return({'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc() + '\nvalidation failed for: {}'.format(name)})
             else:
