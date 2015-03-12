@@ -35,21 +35,21 @@ def test_climb():
 def test_fast_test_files():
     s.shell.run('mkdir -p .git test_foo/fast foo')
     s.shell.run('touch test_foo/__init__.py test_foo/fast/__init__.py test_foo/fast/bar.py foo/bar.py foo/__init__.py')
-    assert s.bin.tests.lib.fast_test_files() == (os.path.abspath('test_foo/fast/__init__.py'),
-                                                 os.path.abspath('test_foo/fast/bar.py'))
+    assert s.bin.tests.lib.fast_test_files() == [os.path.abspath('test_foo/fast/__init__.py'),
+                                                 os.path.abspath('test_foo/fast/bar.py')]
 
 
 def test_code_files():
     s.shell.run('mkdir -p .git foo')
     s.shell.run('touch foo/bar.py foo/__init__.py')
-    assert s.bin.tests.lib.code_files() == (os.path.abspath('foo/__init__.py'),
-                                            os.path.abspath('foo/bar.py'))
+    assert s.bin.tests.lib.code_files() == [os.path.abspath('foo/__init__.py'),
+                                            os.path.abspath('foo/bar.py')]
 
 
 def test__python_packages():
     s.shell.run('mkdir -p .git foo')
     s.shell.run('touch foo/bar.py foo/__init__.py')
-    assert s.bin.tests.lib._python_packages(s.shell.walk()) == (os.path.abspath('foo'),)
+    assert s.bin.tests.lib._python_packages(s.shell.walk()) == [os.path.abspath('foo')]
 
 
 def test_one_result_per_test__test():

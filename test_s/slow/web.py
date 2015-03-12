@@ -177,7 +177,7 @@ def test_url_params():
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + '/?asdf=123&foo=bar&foo=notbar&stuff')
         assert resp['body'] == {'asdf': 123,
-                                'foo': ('bar', 'notbar'),
+                                'foo': ['bar', 'notbar'],
                                 'stuff': ''}
 
 

@@ -35,7 +35,7 @@ def test_clear_freeze():
 
 
 def test_append_freeze():
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
         s.data.freeze([]).append(1)
 
 
@@ -79,8 +79,8 @@ def test_dont_refreeze():
 
 
 def test_equality():
-    assert s.data.freeze([1, 2]) == (1, 2)
     assert s.data.freeze([1, 2]) == [1, 2]
+    assert s.data.freeze((1, 2)) == (1, 2)
     assert not s.data.freeze([1, 2]) == (x for x in range(1, 3))
 
 

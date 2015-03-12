@@ -11,7 +11,7 @@ def test_set():
 
 
 def test_merge_freezes():
-    assert s.dicts.merge({'a': 'b'}, {'a': ['c', 'd']}) == {'a': ('c', 'd')}
+    assert s.dicts.merge({'a': 'b'}, {'a': ['c', 'd']}) == {'a': ['c', 'd']}
 
 
 def test_merge():
@@ -72,9 +72,8 @@ def test_drop():
 
 
 def test__ks():
-    assert s.dicts._ks(['a', 'b']) == ('a', 'b')
-    assert s.dicts._ks(('a', 'b')) == ('a', 'b')
-    assert s.dicts._ks('a') == ('a',)
+    assert s.dicts._ks(['a', 'b']) == ['a', 'b']
+    assert s.dicts._ks('a') == ['a']
 
 
 def test_new():

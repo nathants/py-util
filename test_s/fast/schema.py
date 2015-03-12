@@ -133,12 +133,9 @@ def test_empty_dicts():
 
 
 def test_empty_seqs():
-    assert s.schema.validate([], []) == []
-    assert s.schema.validate([], ()) == ()
-    assert s.schema.validate((), ()) == ()
-    assert s.schema.validate((), []) == []
+    assert s.schema.validate(list, []) == []
+    assert s.schema.validate(tuple, ()) == ()
     assert s.schema.validate([str], []) == []
-    assert s.schema.validate([str], ()) == ()
     with pytest.raises(s.schema.Error):
         s.schema.validate([], [123])
     with pytest.raises(s.schema.Error):

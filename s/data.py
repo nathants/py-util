@@ -67,14 +67,31 @@ class _ImmutableDict(dict):
         locals()[k] = _raise_error
 
 
-class _ImmutableSeq(tuple):
-    def __eq__(self, other):
-        if isinstance(other, types.GeneratorType) or not hasattr(other, '__iter__'):
-            return False
-        return all(x == y for x, y in six.moves.zip_longest(self, other, fillvalue=None))
+class _ImmutableTuple(tuple):
+    pass
 
-    def __hash__(self):
-        return hash(tuple(self))
+
+_banned_attrs_list = [
+    '__add__',
+    '__iadd__',
+    'append',
+    'clear',
+    'extend',
+    'insert',
+    'pop',
+    'remove',
+    'reverse',
+    'sort',
+]
+
+
+class _ImmutableList(list):
+    def _raise_error(self, *a, **kw):
+        raise ValueError('this list is read-only')
+
+    for k in _banned_attrs_list:
+        locals()[k] = _raise_error
+
 
 
 class _ImmutableSet(frozenset):
@@ -95,7 +112,8 @@ immutable_types = (
     types.FunctionType,
     types.GeneratorType,
     _ImmutableDict,
-    _ImmutableSeq,
+    _ImmutableTuple,
+    _ImmutableList,
     _ImmutableSet,
 ) + string_types
 with s.exceptions.ignore():
@@ -118,8 +136,10 @@ def freeze(value):
         return value
     elif isinstance(value, dict):
         return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
-    elif isinstance(value, listy_types):
-        return _ImmutableSeq(freeze(x) for x in value)
+    elif isinstance(value, tuple):
+        return _ImmutableTuple(freeze(x) for x in value)
+    elif isinstance(value, list):
+        return _ImmutableList(freeze(x) for x in value)
     elif isinstance(value, set):
         return _ImmutableSet(freeze(x) for x in value)
     raise ValueError('not immutalizable: {} <{}>'.format(value, type(value)))

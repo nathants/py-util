@@ -101,8 +101,8 @@ def validate(schema, value, freeze=True, strict=True):
 
     # validate is recursive, so nest schemas freely
     >>> schema = {'users': [{'name': (str, str), 'id': int}]}
-    >>> obj = {'users': ({'name': ('jane', 'smith'), 'id': 85},
-    ...                  {'name': ('john', 'smith'), 'id': 93})}
+    >>> obj = {'users': [{'name': ['jane', 'smith'], 'id': 85},
+    ...                  {'name': ['john', 'smith'], 'id': 93}]}
     >>> assert validate(schema, obj) == obj
     >>> with pytest.raises(AssertionError):
     ...     validate(schema, {'users': [{'name': ('jane', 'e', 'smith'), 'id': 85}]})

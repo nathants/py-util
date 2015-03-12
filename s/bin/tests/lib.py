@@ -11,7 +11,6 @@ import itertools
 import six
 
 
-@s.trace.glue
 def code_file(test_file):
     assert os.path.isfile(test_file), 'no such test_file: {}'.format(test_file)
     test_file_rel_path = s.shell.rel_path(test_file)
@@ -21,7 +20,6 @@ def code_file(test_file):
     return path
 
 
-@s.trace.glue
 def test_file(code_file):
     assert os.path.isfile(code_file), 'no such code_file: {}'.format(code_file)
     code_file_rel_path = s.shell.rel_path(code_file)
@@ -31,7 +29,6 @@ def test_file(code_file):
     return path
 
 
-@s.trace.logic
 def _test_file(code_file):
     assert not code_file.startswith('/'), 'code_file is not relative path from project root: {}'.format(code_file)
     assert code_file.endswith('.py'), 'code_file does not end with .py: {}'.format(code_file)
@@ -42,7 +39,6 @@ def _test_file(code_file):
     return val
 
 
-@s.trace.logic
 def _code_file(test_file):
     assert not test_file.startswith('/'), 'test_file is not relative path from project root: {}'.format(test_file)
     assert test_file.endswith('.py'), 'test_file does not end with .py: {}'.format(test_file)
@@ -53,7 +49,6 @@ def _code_file(test_file):
     return val
 
 
-@s.trace.logic
 def _git_root(climb_data):
     climb_data = list(climb_data)
     val = [path for path, dirs, _ in climb_data if '.git' in dirs]
@@ -61,7 +56,6 @@ def _git_root(climb_data):
     return val[0]
 
 
-@s.trace.logic
 def _filter_test_files(walk_data):
     return [os.path.join(path, f)
             for path, _, files in walk_data
@@ -74,21 +68,18 @@ def _filter_test_files(walk_data):
             and path.split('/')[-2].startswith('test_')]
 
 
-@s.trace.logic
 def _filter_fast_test_files(paths):
     return [x for x in paths
             if 'fast' in x.split('/')
             or 'unit' in x.split('/')]
 
 
-@s.trace.logic
 def _filter_slow_test_files(paths):
     return [x for x in paths
             if 'slow' in x.split('/')
             or 'integration' in x.split('/')]
 
 
-@s.trace.logic
 def _filter_code_files(walk_datas):
     return [os.path.join(path, f)
             for data in walk_datas
@@ -101,7 +92,6 @@ def _filter_code_files(walk_datas):
             and not any(x.startswith('test_') for x in path.split('/'))]
 
 
-@s.trace.glue
 def python_packages():
     return s.func.pipe(
         s.shell.walk(),
@@ -109,7 +99,6 @@ def python_packages():
     )
 
 
-@s.trace.logic
 def _python_packages(walk_data):
     walk_data = list(walk_data)
     return [path
@@ -118,7 +107,6 @@ def _python_packages(walk_data):
             and '__init__.py' in files]
 
 
-@s.trace.io
 def _mapwalk(dirs):
     return [s.shell.walk(x) for x in dirs]
 
@@ -130,7 +118,6 @@ def _result(result, path, seconds):
     return s.dicts.new(locals(), 'result', 'path', 'seconds')
 
 
-@s.trace.io
 def _run_test(path, name, test, insight=True):
     _bak = s.trace._state.get('_stack')
     s.trace._state['_stack'] = None # stub out _stack, since its used *here* as well
@@ -151,7 +138,6 @@ def _run_test(path, name, test, insight=True):
         s.trace._state['_stack'] = _bak
 
 
-@s.trace.glue
 def _test(test_path, insight=True):
     assert test_path.endswith('.py'), 'test_path does not end with .py: {}'.format(test_path)
     assert os.path.isfile(test_path), 'no such file: {}'.format(test_path)
@@ -185,7 +171,6 @@ def _format_pytest_output(text):
     )
 
 
-@s.trace.glue
 def _pytest_insight(test_file, query):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     val = s.shell.run('py.test --tb native -qq -k', query, test_file, warn=True)
@@ -195,14 +180,12 @@ def _pytest_insight(test_file, query):
     return _format_pytest_output(val['output'])
 
 
-@s.trace.logic
 def _linenum(text):
     return [int(x.split(', line ')[-1].split(',')[0])
             for x in text.splitlines()
             if 'File "<string>"' in x][-1]
 
 
-@s.trace.glue
 def all_test_files():
     return s.func.pipe(
         s.shell.climb(),
@@ -213,7 +196,6 @@ def all_test_files():
     )
 
 
-@s.trace.glue
 def slow_test_files():
     return s.func.pipe(
         all_test_files(),
@@ -221,7 +203,6 @@ def slow_test_files():
     )
 
 
-@s.trace.glue
 def fast_test_files():
     return s.func.pipe(
         all_test_files(),
@@ -229,7 +210,6 @@ def fast_test_files():
     )
 
 
-@s.trace.glue
 def code_files():
     return s.func.pipe(
         s.shell.climb(),
@@ -304,7 +284,6 @@ def _modules_to_reload():
                                                        and '_flymake' not in f))]
 
 
-@s.trace.logic
 def _parse_coverage(module_name, text):
     regex = re.compile('(?P<name>[\w\/]+) +\d+ +\d+ +(?P<percent>\d+)% +(?P<missing>[\d\-\, ]+)')
     matches = map(regex.search, text.splitlines())
@@ -325,7 +304,6 @@ def _parse_coverage(module_name, text):
                             else [])}
 
 
-@s.trace.glue
 def _cover(test_file):
     assert os.path.isfile(test_file), 'no such file: {}'.format(test_file)
     try:
