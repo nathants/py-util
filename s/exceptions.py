@@ -16,6 +16,7 @@ def ignore(*exceptions):
 
 @contextlib.contextmanager
 def update(fn_or_str, *exceptions, **kw):
+    # TODO this is globally disableable
     try:
         yield
     except Exception as e:

@@ -11,6 +11,10 @@ import inspect
 import concurrent.futures
 
 
+# TODO helpful but expensive stuff is globally disableable
+# TODO all the exceptions.update calls here are horrendously expensive.
+
+
 _schema_commands = (':or',
                     ':fn',
                     ':optional',
@@ -19,8 +23,14 @@ _schema_commands = (':or',
 
 
 def is_valid(schema, value, freeze=True):
+    # TODO this is globally disableable
+    # TODO this cannot be disabled? there is no passthrough value?
+    return _is_valid(schema, value, freeze)
+
+
+def _is_valid(schema, value, freeze=True):
     try:
-        validate(schema, value, freeze=freeze)
+        _validate(schema, value, freeze=freeze)
         return True
     except AssertionError:
         return False
@@ -32,6 +42,11 @@ def is_valid(schema, value, freeze=True):
 
 
 def validate(schema, value, freeze=True, strict=True):
+    # TODO this is globally disableable
+    return _validate(schema, value, freeze, strict)
+
+
+def _validate(schema, value, freeze=True, strict=True):
     """
     >>> import pytest
 
@@ -130,7 +145,7 @@ def validate(schema, value, freeze=True, strict=True):
                 @value.add_done_callback
                 def fn(f):
                     try:
-                        future.set_result(validate(schema, f.result()))
+                        future.set_result(_validate(schema, f.result()))
                     except Exception as e:
                         future.set_exception(e)
                 return future
@@ -141,7 +156,7 @@ def validate(schema, value, freeze=True, strict=True):
             else:
                 value = _check(schema, value)
             if freeze:
-                if type(schema) is type:
+                if type(schema) is type: # could be some random object, ie not data
                     with s.exceptions.ignore(ValueError):
                         value = s.data.freeze(value)
                 else:
@@ -168,7 +183,8 @@ def _update_functions(schema):
 
 
 def _updater(schema, value):
-    schema = _update_functions(schema)
+    # TODO this is globally disableable
+    schema = _update_functions(schema) # super expensive debuggin option
     return lambda x: _prettify(x + '\nobj:\n{}\nschema:\n{}'.format(_formdent(value), _formdent(schema)))
 
 
@@ -201,15 +217,15 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                 if isinstance(k, type): # if a type key is missing, look for an item that satisfies it
                     for vk, vv in value.items():
                         with s.exceptions.ignore(AssertionError):
-                            validate(k, vk)
-                            validate(v, vv)
+                            _validate(k, vk)
+                            _validate(v, vv)
                             break
                     else:
                         raise AssertionError('{} <{}> is missing (key, value) pair: {} <{}>, {} <{}>'.format(value, type(value), k, type(k), v, type(v)))
                 elif isinstance(v, (list, tuple)) and v and v[0] == ':optional':
                     assert len(v) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(v)
                     _, schema, default_value = v
-                    value = s.dicts.merge(value, {k: validate(schema, default_value)}, freeze=False)
+                    value = s.dicts.merge(value, {k: _validate(schema, default_value)}, freeze=False)
                 elif strict:
                     raise AssertionError('{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k)))
     return value
@@ -234,7 +250,7 @@ def _check(validator, value):
                 if validator[0] == ':merge':
                     assert len(validator) == 3, ':merge schema should be (:merge, dict1, dict2), not: {}'.format(validator)
                     assert all(isinstance(x, dict) for x in validator[1:]), ':merge only works with two dicts, not: {}'.format(validator[1:])
-                    return validate(s.dicts.merge(*validator[1:], freeze=False), value)
+                    return _validate(s.dicts.merge(*validator[1:], freeze=False), value)
                 elif validator[0] == ':optional':
                     assert len(validator) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(validator)
                     return _check(validator[1], value)
@@ -276,7 +292,7 @@ def _check(validator, value):
                 return [_check(_validator, _val) for _validator, _val in zip(validator, value)]
         elif isinstance(validator, dict):
             assert isinstance(value, dict), '{} <{}> does not match schema {} <{}>'.format(value, type(value), validator, type(validator))
-            return validate(validator, value)
+            return _validate(validator, value)
         elif isinstance(validator, type):
             valid_str = isinstance(value, s.data.string_types) and validator in s.data.string_types
             assert valid_str or isinstance(value, validator), '{} <{}> is not a <{}>'.format(value, type(value), validator)
@@ -351,17 +367,17 @@ def _check_args(args, kwargs, name, freeze, schemas):
             _args = []
             for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
                 with s.exceptions.update('pos arg num:\n  {}'.format(i), AssertionError):
-                    _args.append(validate(schema, arg, freeze=freeze))
+                    _args.append(_validate(schema, arg, freeze=freeze))
             if schemas['args'] and args[len(schemas['arg']):]:
-                _args += validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
+                _args += _validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
             _kwargs = {}
             for k, v in kwargs.items():
                 if k in schemas['kwarg']:
                     with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
-                        _kwargs[k] = validate(schemas['kwarg'][k], v, freeze=freeze)
+                        _kwargs[k] = _validate(schemas['kwarg'][k], v, freeze=freeze)
                 elif schemas['kwargs']:
                     with s.exceptions.update('keyword args schema failed.', AssertionError):
-                        _kwargs[k] = validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
+                        _kwargs[k] = _validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
                 else:
                     raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
             return _args, _kwargs
@@ -381,7 +397,7 @@ def _fn_check(decoratee, name, freeze, schemas):
                 args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
         value = decoratee(*args, **kwargs)
         with s.exceptions.update('schema.check failed for return value of function:\n {}'.format(name), AssertionError):
-            output = validate(schemas['return'], value, freeze=freeze)
+            output = _validate(schemas['return'], value, freeze=freeze)
         return output
     return decorated
 
@@ -402,7 +418,7 @@ def _gen_check(decoratee, name, freeze, schemas):
         while True:
             if not first_send:
                 with s.exceptions.update('schema.check failed for send value of generator:\n {}'.format(name), AssertionError):
-                    to_send = validate(schemas['send'], to_send)
+                    to_send = _validate(schemas['send'], to_send)
             first_send = False
             try:
                 if send_exception:
@@ -411,10 +427,10 @@ def _gen_check(decoratee, name, freeze, schemas):
                 else:
                     to_yield = generator.send(to_send)
                 with s.exceptions.update('schema.check failed for yield value of generator:\n {}'.format(name), AssertionError):
-                    to_yield = validate(schemas['yield'], to_yield)
+                    to_yield = _validate(schemas['yield'], to_yield)
             except (s.async.Return, StopIteration) as e:
                 with s.exceptions.update('schema.check failed for return value of generator:\n {}'.format(name), AssertionError):
-                    e.value = validate(schemas['return'], getattr(e, 'value', None))
+                    e.value = _validate(schemas['return'], getattr(e, 'value', None))
                 raise
             try:
                 to_send = yield to_yield
@@ -425,8 +441,10 @@ def _gen_check(decoratee, name, freeze, schemas):
 
 @s.hacks.optionally_parameterized_decorator
 def check(*args, **kwargs):
+    # TODO this is globally disableable
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
+        # return decoratee
         freeze = kwargs.pop('_freeze', True)
         name = s.func.name(decoratee)
         schemas = _get_schemas(decoratee, args, kwargs)
