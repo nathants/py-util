@@ -9,7 +9,15 @@ import datetime
 import tornado.web
 import tornado.httputil
 import tornado.httpclient
-import s
+import s.func
+import s.async
+import s.proc
+import s.data
+import s.exceptions
+import s.log
+import s.schema
+import s.net
+import s.hacks
 import requests
 import time
 import six
@@ -40,8 +48,7 @@ def _try_decode(text):
 
 
 def _new_handler_method(fn):
-    assert getattr(fn, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(s.func.name(fn))
-    @s.async.coroutine(trace=False)
+    @tornado.gen.coroutine
     def method(self, **args):
         request = _request_to_dict(self.request, args)
         response = yield fn(request)
@@ -131,7 +138,7 @@ def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create
                 app.listen(port)
             else:
                 app().listen(port)
-            s.async.ioloop().start()
+            tornado.ioloop.IOLoop.current().start()
     proc = s.proc.new(run)
     if poll:
         wait_for_http(url + poll)
@@ -161,11 +168,11 @@ class Blowup(Exception):
 faux_app = None
 
 
-@s.async.coroutine(Blowup, freeze=False)
+@tornado.gen.coroutine
 @s.schema.check(str, str, timeout=(':or', int, float), blowup=bool, body=schemas.json, query=dict, _kwargs=dict, _return=schemas.response)
 def _fetch(verb, url, **kw):
     fetcher = _faux_fetch if faux_app else _real_fetch
-    raise s.async.Return((yield fetcher(verb, url, **kw)))
+    raise tornado.gen.Return((yield fetcher(verb, url, **kw)))
 
 
 def _parse_body(body):
@@ -175,14 +182,14 @@ def _parse_body(body):
     return body
 
 
-@s.async.coroutine(Blowup, freeze=False)
+@tornado.gen.coroutine
 def _real_fetch(verb, url, **kw):
     url, timeout, blowup, kw = _process_kwargs(url, kw)
     request = tornado.httpclient.HTTPRequest(url, method=verb, **kw)
-    future = s.async.Future()
+    future = tornado.concurrent.Future()
     response = tornado.httpclient.AsyncHTTPClient().fetch(request, callback=lambda x: future.set_result(x))
     if timeout:
-        s.async.ioloop().add_timeout(
+        tornado.ioloop.IOLoop.current().add_timeout(
             datetime.timedelta(seconds=timeout),
             lambda: not future.done() and future.set_exception(Timeout())
         )
@@ -192,13 +199,13 @@ def _real_fetch(verb, url, **kw):
                      response.code,
                      response.reason,
                      response.body)
-    raise s.async.Return({'code': response.code,
-                          'reason': response.reason,
-                          'headers': {k.lower(): v for k, v in response.headers.items()},
-                          'body': _parse_body(response.body or b'')})
+    raise tornado.gen.Return({'code': response.code,
+                              'reason': response.reason,
+                              'headers': {k.lower(): v for k, v in response.headers.items()},
+                              'body': _parse_body(response.body or b'')})
 
 
-@s.async.coroutine(Blowup)
+@tornado.gen.coroutine
 def _faux_fetch(verb, url, **kw):
     assert isinstance(faux_app, tornado.web.Application)
     query = kw.get('query', {})
@@ -223,7 +230,7 @@ def _faux_fetch(verb, url, **kw):
                      response['code'],
                      response.get('reason', ''),
                      response.get('body', ''))
-    raise s.async.Return(response)
+    raise tornado.gen.Return(response)
 
 
 def _process_kwargs(url, kw):
@@ -261,21 +268,20 @@ class Timeout(Exception):
     pass
 
 
-@s.hacks.optionally_parameterized_decorator
+@s.func.optionally_parameterized_decorator
 def validate(*args, **kwargs):
     def decorator(decoratee):
         name = s.func.name(decoratee)
-        assert getattr(decoratee, '_is_coroutine', False), '{} should be a s.async.coroutine'.format(name)
         request_schema = s.schema._get_schemas(decoratee, args, kwargs)['arg'][0]
         decoratee = s.schema.check(*args, **kwargs)(decoratee)
         @functools.wraps(decoratee)
-        @s.async.coroutine
+        @tornado.gen.coroutine
         def decorated(request):
             try:
                 s.schema._validate(request_schema, request)
             except s.schema.Error:
-                raise s.async.Return({'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc() + '\nvalidation failed for: {}'.format(name)})
+                raise tornado.gen.Return({'code': 403, 'reason': 'your request is not valid', 'body': traceback.format_exc() + '\nvalidation failed for: {}'.format(name)})
             else:
-                raise s.async.Return((yield decoratee(request)))
+                raise tornado.gen.Return((yield decoratee(request)))
         return decorated
     return decorator

@@ -1,6 +1,5 @@
 from __future__ import absolute_import, print_function
 import inspect
-import types
 import sys
 import six
 import collections
@@ -54,7 +53,7 @@ def decorate(val, _name_, decorator):
 
 
 def pformat_prep(val):
-    import s
+    import s.data
     if isinstance(val, tuple) and hasattr(val, '_fields'):
         return ['namedtuple'] + [{k: v} for k, v in zip(val._fields, val)]
     elif isinstance(val, collections.Counter):
@@ -66,25 +65,3 @@ def pformat_prep(val):
     elif isinstance(val, set):
         return {pformat_prep(x) for x in val}
     return val
-
-
-def optionally_parameterized_decorator(decoratee):
-    """
-    wont work if you decorator can be invoked with a single function argument,
-    which is the same signature as decorator usage.
-    """
-    def decorated(*a, **kw):
-        method = (len(a) == 2
-                  and inspect.ismethod(getattr(a[0], decoratee.__name__, None))
-                  and isinstance(a[1], types.FunctionType)
-                  and not kw)
-        function = (len(a) == 1
-                    and isinstance(a[0], types.FunctionType)
-                    and not kw)
-        if method:
-            return decoratee(a[0])(*a[1:], **kw)
-        elif function:
-            return decoratee()(*a, **kw)
-        else:
-            return decoratee(*a, **kw)
-    return decorated

@@ -1,4 +1,5 @@
-import s
+from __future__ import print_function, absolute_import
+import s.shell
 import os
 import sys
 import pytest

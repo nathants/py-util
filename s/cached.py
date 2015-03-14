@@ -2,7 +2,9 @@ from __future__ import absolute_import
 import inspect
 import collections
 import functools
-import s
+import s.exceptions
+import s.hacks
+import s.func
 import json
 import os
 
@@ -11,6 +13,7 @@ _attr = '_cached_value'
 
 
 def _disk_cache_path(fn):
+    import s.shell
     file_name = s.hacks.get_caller(3)['filename']
     module_name = s.shell.module_name(file_name)
     sha = s.shell.run('shasum', file_name, '| head -c7')
@@ -19,6 +22,7 @@ def _disk_cache_path(fn):
 
 
 def disk(fn):
+    import s.shell
     path = _disk_cache_path(fn)
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
@@ -52,7 +56,7 @@ def func(fn):
     return cached_fn
 
 
-@s.hacks.optionally_parameterized_decorator
+@s.func.optionally_parameterized_decorator
 def memoize(max_keys=10000):
     def decorator(fn):
         @functools.wraps(fn)

@@ -1,11 +1,14 @@
 from __future__ import print_function, absolute_import
-import s
+import s.actors
+import s.schema
+import s.async
+import tornado.gen
 from test_s.slow import flaky
 
 
 @flaky
 def test_actor_schema_matching():
-    @s.async.actor
+    @s.actors.actor
     def bob(self):
         while True:
             msg = yield self.recv()
@@ -16,7 +19,7 @@ def test_actor_schema_matching():
                 _, route, x = msg
                 yield s.sock.push(route, x + 1)
 
-    @s.async.actor
+    @s.actors.actor
     def joe(self, route):
         bob_route = bob()
         yield s.sock.push(bob_route, [':add_one', self(), 3])
@@ -25,7 +28,7 @@ def test_actor_schema_matching():
         msg2 = yield self.recv()
         yield s.sock.push(route, [msg1, msg2])
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         route = s.sock.route()
         joe(route)
@@ -38,13 +41,13 @@ def test_actor_schema_matching():
 
 @flaky
 def test_actor():
-    @s.async.actor
+    @s.actors.actor
     def bob(self, route):
         while True:
             msg = yield self.recv()
             yield s.sock.push(route, msg + '!')
 
-    @s.async.actor
+    @s.actors.actor
     def joe(self, route):
         bob_route = bob(self())
         for msg in ['hey', 'yo']:
@@ -52,7 +55,7 @@ def test_actor():
             msg = yield self.recv()
             yield s.sock.push(route, msg)
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         route = s.sock.route()
         joe(route)
@@ -67,7 +70,7 @@ def test_actor():
 
 @flaky
 def test_actor_selective_receive():
-    @s.async.actor(selective_receive=True)
+    @s.actors.actor(selective_receive=True)
     def bob(self):
         state = 0
         while True:
@@ -85,7 +88,7 @@ def test_actor_selective_receive():
                     break
             self.requeue()
 
-    @s.async.actor
+    @s.actors.actor
     def joe(self, route):
         bob_route = bob()
         yield s.sock.push(bob_route, [':second_thing', self()])
@@ -94,7 +97,7 @@ def test_actor_selective_receive():
         msg2 = yield self.recv()
         yield s.sock.push(route, [msg1, msg2])
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         route = s.sock.route()
         joe(route)

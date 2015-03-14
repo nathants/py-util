@@ -1,4 +1,4 @@
-import s
+import s.shell
 import os
 
 

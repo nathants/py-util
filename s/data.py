@@ -1,6 +1,5 @@
 from __future__ import absolute_import
-import six
-import s
+import s.exceptions
 import types
 import binascii
 
@@ -134,6 +133,15 @@ with s.exceptions.ignore():
 def freeze(value):
     if isinstance(value, immutable_types):
         return value
+    elif hasattr(value, 'add_done_callback'):
+        future = type(value)()
+        @value.add_done_callback
+        def fn(f):
+            try:
+                future.set_result(freeze(f.result()))
+            except Exception as e:
+                future.set_exception(e)
+        return future
     elif isinstance(value, dict):
         return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
     elif isinstance(value, tuple):
@@ -143,3 +151,16 @@ def freeze(value):
     elif isinstance(value, set):
         return _ImmutableSet(freeze(x) for x in value)
     raise ValueError('not immutalizable: {} <{}>'.format(value, type(value)))
+
+
+def thaw(value):
+    if isinstance(value, dict):
+        return {thaw(k): thaw(v) for k, v in value.items()}
+    elif isinstance(value, tuple):
+        return tuple(thaw(x) for x in value)
+    elif isinstance(value, list):
+        return [thaw(x) for x in value]
+    elif isinstance(value, set):
+        return {thaw(x) for x in value}
+    else:
+        return value

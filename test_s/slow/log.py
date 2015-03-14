@@ -1,5 +1,5 @@
 from __future__ import print_function, absolute_import
-import s
+import s.log
 import mock
 import logging.handlers
 

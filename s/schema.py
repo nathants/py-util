@@ -1,14 +1,26 @@
 from __future__ import print_function, absolute_import
+import tornado.concurrent
 import sys
 import traceback
 import six
 import functools
 import re
 import pprint
-import s
+import s.hacks
+import s.func
+import s.dicts
+import s.strings
+import s.exceptions
+import s.data
 import types
 import inspect
-import concurrent.futures
+import tornado.gen
+
+
+
+# TODO % is an order of mag faster than .format. so use %.
+
+# TODO how to provide to implementations, with assert messages and without. must duplicate the code?
 
 
 # TODO helpful but expensive stuff is globally disableable
@@ -22,15 +34,9 @@ _schema_commands = (':or',
                     ':merge')
 
 
-def is_valid(schema, value, freeze=True):
-    # TODO this is globally disableable
-    # TODO this cannot be disabled? there is no passthrough value?
-    return _is_valid(schema, value, freeze)
-
-
-def _is_valid(schema, value, freeze=True):
+def is_valid(schema, value):
     try:
-        _validate(schema, value, freeze=freeze)
+        _validate(schema, value)
         return True
     except AssertionError:
         return False
@@ -41,12 +47,12 @@ def _is_valid(schema, value, freeze=True):
 # think about schemaing the args to s.func.pipe()
 
 
-def validate(schema, value, freeze=True, strict=True):
+def validate(schema, value, strict=True):
     # TODO this is globally disableable
-    return _validate(schema, value, freeze, strict)
+    return _validate(schema, value, strict)
 
 
-def _validate(schema, value, freeze=True, strict=True):
+def _validate(schema, value, strict=True):
     """
     >>> import pytest
 
@@ -140,7 +146,8 @@ def _validate(schema, value, freeze=True, strict=True):
     try:
         with s.exceptions.update(_updater(schema, value), AssertionError):
             # TODO does this block belong in _check()? should validate and _check even be seperate?
-            if isinstance(value, (s.async.Future, concurrent.futures.Future)):
+            # if isinstance(value, (tornado.concurrent.Future, concurrent.futures.Future)):
+            if hasattr(value, 'add_done_callback'):
                 future = type(value)()
                 @value.add_done_callback
                 def fn(f):
@@ -155,12 +162,6 @@ def _validate(schema, value, freeze=True, strict=True):
                 value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items, strict)
             else:
                 value = _check(schema, value)
-            if freeze:
-                if type(schema) is type: # could be some random object, ie not data
-                    with s.exceptions.ignore(ValueError):
-                        value = s.data.freeze(value)
-                else:
-                    value = s.data.freeze(value)
             return value
     except AssertionError as e:
         raise Error(*e.args)
@@ -179,7 +180,7 @@ def _update_functions(schema):
                 filename, linenum = x.func_code.co_filename, x.func_code.co_firstlineno
             x = 'lambda:{filename}:{linenum}'.format(**locals())
         return x
-    return s.seqs.walk(fn, schema)
+    return fn
 
 
 def _updater(schema, value):
@@ -356,7 +357,7 @@ def _read_annotations(fn, arg_schemas, kwarg_schemas):
     return arg_schemas, kwarg_schemas
 
 
-def _check_args(args, kwargs, name, freeze, schemas):
+def _check_args(args, kwargs, name, schemas):
     try:
         with s.exceptions.update(_prettify, AssertionError):
             # TODO better to use inspect.getcallargs() for this? would change the semantics of pos arg checking. hmmn...
@@ -367,17 +368,17 @@ def _check_args(args, kwargs, name, freeze, schemas):
             _args = []
             for i, (schema, arg) in enumerate(zip(schemas['arg'], args)):
                 with s.exceptions.update('pos arg num:\n  {}'.format(i), AssertionError):
-                    _args.append(_validate(schema, arg, freeze=freeze))
+                    _args.append(_validate(schema, arg))
             if schemas['args'] and args[len(schemas['arg']):]:
-                _args += _validate(schemas['args'], args[len(schemas['arg']):], freeze=freeze)
+                _args += _validate(schemas['args'], args[len(schemas['arg']):])
             _kwargs = {}
             for k, v in kwargs.items():
                 if k in schemas['kwarg']:
                     with s.exceptions.update('keyword arg:\n  {}'.format(k), AssertionError):
-                        _kwargs[k] = _validate(schemas['kwarg'][k], v, freeze=freeze)
+                        _kwargs[k] = _validate(schemas['kwarg'][k], v)
                 elif schemas['kwargs']:
                     with s.exceptions.update('keyword args schema failed.', AssertionError):
-                        _kwargs[k] = _validate(schemas['kwargs'], {k: v}, freeze=freeze)[k]
+                        _kwargs[k] = _validate(schemas['kwargs'], {k: v})[k]
                 else:
                     raise AssertionError('cannot check {} for unknown key: {}={}'.format(name, k, v))
             return _args, _kwargs
@@ -385,32 +386,32 @@ def _check_args(args, kwargs, name, freeze, schemas):
         raise Error(*e.args)
 
 
-def _fn_check(decoratee, name, freeze, schemas):
+def _fn_check(decoratee, name, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
         with s.exceptions.update('schema.check failed for function:\n  {}'.format(name), AssertionError, when=lambda x: 'failed for ' not in x):
             # TODO dry this out with _gen_check()
             if args and inspect.ismethod(getattr(args[0], decoratee.__name__, None)):
-                a, kwargs = _check_args(args[1:], kwargs, name, freeze, schemas)
+                a, kwargs = _check_args(args[1:], kwargs, name, schemas)
                 args = [args[0]] + a
             else:
-                args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
+                args, kwargs = _check_args(args, kwargs, name, schemas)
         value = decoratee(*args, **kwargs)
         with s.exceptions.update('schema.check failed for return value of function:\n {}'.format(name), AssertionError):
-            output = _validate(schemas['return'], value, freeze=freeze)
+            output = _validate(schemas['return'], value)
         return output
     return decorated
 
 
-def _gen_check(decoratee, name, freeze, schemas):
+def _gen_check(decoratee, name, schemas):
     @functools.wraps(decoratee)
     def decorated(*args, **kwargs):
         with s.exceptions.update('schema.check failed for generator:\n  {}'.format(name), AssertionError, when=lambda x: 'failed for ' not in x):
             if args and inspect.ismethod(getattr(args[0], decoratee.__name__, None)):
-                a, kwargs = _check_args(args[1:], kwargs, name, freeze, schemas)
+                a, kwargs = _check_args(args[1:], kwargs, name, schemas)
                 args = [args[0]] + a
             else:
-                args, kwargs = _check_args(args, kwargs, name, freeze, schemas)
+                args, kwargs = _check_args(args, kwargs, name, schemas)
         generator = decoratee(*args, **kwargs)
         to_send = None
         first_send = True
@@ -428,7 +429,7 @@ def _gen_check(decoratee, name, freeze, schemas):
                     to_yield = generator.send(to_send)
                 with s.exceptions.update('schema.check failed for yield value of generator:\n {}'.format(name), AssertionError):
                     to_yield = _validate(schemas['yield'], to_yield)
-            except (s.async.Return, StopIteration) as e:
+            except (tornado.gen.Return, StopIteration) as e:
                 with s.exceptions.update('schema.check failed for return value of generator:\n {}'.format(name), AssertionError):
                     e.value = _validate(schemas['return'], getattr(e, 'value', None))
                 raise
@@ -439,19 +440,17 @@ def _gen_check(decoratee, name, freeze, schemas):
     return decorated
 
 
-@s.hacks.optionally_parameterized_decorator
+@s.func.optionally_parameterized_decorator
 def check(*args, **kwargs):
     # TODO this is globally disableable
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
-        # return decoratee
-        freeze = kwargs.pop('_freeze', True)
         name = s.func.name(decoratee)
         schemas = _get_schemas(decoratee, args, kwargs)
         if inspect.isgeneratorfunction(decoratee):
-            decorated = _gen_check(decoratee, name, freeze, schemas)
+            decorated = _gen_check(decoratee, name, schemas)
         else:
-            decorated = _fn_check(decoratee, name, freeze, schemas)
+            decorated = _fn_check(decoratee, name, schemas)
         decorated._schema = schemas['arg'], {k: v for k, v in list(schemas['kwarg'].items()) + [['_return', schemas['return']]]}
         return decorated
     return decorator

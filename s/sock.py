@@ -2,7 +2,9 @@ from __future__ import print_function, absolute_import
 import zmq.eventloop
 zmq.eventloop.ioloop.install()
 
-import s
+import s.cached
+import s.data
+import s.async
 import json
 import functools
 import zmq
@@ -11,17 +13,18 @@ import zmq.sugar
 import uuid
 import os
 import datetime
+import tornado.gen
 
 
 def timeout(seconds):
     r = route()
-    sock = s.sock.bind('pull', r, sockopts={'sndbuf': 1})
-    @s.async.coroutine(freeze=False)
+    sock = bind('pull', r, sockopts={'sndbuf': 1})
+    @tornado.gen.coroutine
     def fn():
-        with s.sock.connect('push', r) as sock:
+        with connect('push', r) as sock:
             yield sock.send(None, forbid_none=False)
         sock.close()
-    s.async.ioloop().add_timeout(datetime.timedelta(seconds=seconds), fn)
+    tornado.ioloop.IOLoop.current().add_timeout(datetime.timedelta(seconds=seconds), fn)
     return sock
 
 
@@ -29,6 +32,7 @@ def route():
     while True:
         route = '/tmp/{}'.format(uuid.uuid4())
         if not os.path.isfile(route):
+            # TODO we need to atomically create this file here. currently its a race.
             return 'ipc://' + route
 
 
@@ -100,9 +104,8 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
         return self.socket.type
 
     def recv(self, timeout=None):
-        assert s.async.ioloop().started, 'you are using async recv, but an ioloop hasnt been started'
         assert not self._recv_callback, 'there is already a recv callback registered'
-        future = s.async.Future()
+        future = tornado.concurrent.Future()
         future._action = 'recv()'
         def cb(msg):
             self.stop_on_recv()
@@ -125,17 +128,16 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
             def timeout_cb():
                 self.stop_on_recv()
                 future.set_exception(Timeout())
-            t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), timeout_cb)
-            future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
+            t = tornado.ioloop.IOLoop.current().add_timeout(datetime.timedelta(seconds=timeout), timeout_cb)
+            future.add_done_callback(lambda _: tornado.ioloop.IOLoop.current().remove_timeout(t))
         self.on_recv(cb)
         return future
 
     def send(self, msg, topic='', timeout=None, forbid_none=True):
         assert not topic or self.type() == zmq.PUB, 'you can only use kwarg topic with pub sockets'
-        assert s.async.ioloop().started, 'you are using async send, but an ioloop hasnt been started'
         if forbid_none:
             assert msg is not None, 'you cannot use None as a message'
-        future = s.async.Future()
+        future = tornado.concurrent.Future()
         future._action = 'send({}{})'.format(msg, ', topic={}'.format(topic) if topic else '')
         def fn(*_):
             self.stop_on_send()
@@ -163,8 +165,8 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
                     if val[0] != (msg if isinstance(msg, type) else [msg]):
                         q.put(val)
                 future.set_exception(Timeout())
-            t = s.async.ioloop().add_timeout(datetime.timedelta(seconds=timeout), cb)
-            future.add_done_callback(lambda _: s.async.ioloop().remove_timeout(t))
+            t = tornado.ioloop.IOLoop.current().add_timeout(datetime.timedelta(seconds=timeout), cb)
+            future.add_done_callback(lambda _: tornado.ioloop.IOLoop.current().remove_timeout(t))
         return future
 
 
@@ -174,7 +176,7 @@ class Timeout(Exception):
 
 # TODO schema check for s.sock._AsyncSock
 def select(*socks):
-    future = s.async.Future()
+    future = tornado.concurrent.Future()
     def fn(sock, msg):
         for x in socks:
             x.stop_on_recv()
@@ -192,7 +194,7 @@ def select(*socks):
     return future
 
 
-@s.async.coroutine(AssertionError)
+@tornado.gen.coroutine
 def open_use_close(kind, method, route, msg=None, subscriptions=None, timeout=None):
     kw = {'subscriptions': subscriptions} if subscriptions else {}
     with connect(kind, route, **kw) as sock:
@@ -202,7 +204,7 @@ def open_use_close(kind, method, route, msg=None, subscriptions=None, timeout=No
             val = yield sock.recv(timeout=timeout)
         else:
             raise AssertionError('bad method: {method}'.format(**locals()))
-    raise s.async.Return(val)
+    raise tornado.gen.Return(val)
 
 
 # fn(route, msg=None, subscriptions=None, timeout=None)

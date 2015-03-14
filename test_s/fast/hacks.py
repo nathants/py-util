@@ -1,5 +1,5 @@
 import sys
-import s
+import s.hacks
 
 
 foo = 1

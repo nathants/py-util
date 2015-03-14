@@ -1,6 +1,10 @@
 from __future__ import absolute_import, print_function
-import s
 import collections
+import s.data
+import s.seqs
+
+
+# TODO should these be freezing by default? or even at all?
 
 
 def new(scope, *names):
@@ -64,7 +68,6 @@ def drop(x, ks):
             if k not in ks}
 
 
-@s.schema.check((':or', object, [object]), _return=[object])
 def _ks(ks):
     if isinstance(ks, (list, tuple)):
         return tuple(ks)
@@ -107,7 +110,7 @@ def _no_dots(k, v):
 def to_dotted(obj):
     if not isinstance(obj, dict):
         return obj
-    s.dicts.map(_no_dots, obj)
+    map(_no_dots, obj)
     while any(isinstance(x, dict) for x in obj.values()):
         for k1, v2 in obj.items():
             if isinstance(v2, dict):

@@ -3,7 +3,12 @@ import os
 import pprint
 import logging
 import logging.handlers
-import s
+import s.func
+import s.cached
+import s.shell
+import s.strings
+import s.exceptions
+import s.hacks
 import s.bin.debug
 import time
 import contextlib

@@ -1,6 +1,6 @@
 from __future__ import print_function, absolute_import
 import re
-import s
+import s.colors
 
 
 _color = re.compile(r'\$(red|green|blue|cyan|yellow|magenta)\(')

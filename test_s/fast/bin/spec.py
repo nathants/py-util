@@ -1,5 +1,11 @@
+from __future__ import print_function, absolute_import
 import argh
-import s
+import tornado.gen
+import tornado.ioloop
+import s.net
+import s.log
+import s.web
+import s.shell
 import uuid
 import os
 
@@ -15,51 +21,51 @@ def test_spec():
 
 
 def main(port=8888):
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def root(request):
-        yield s.async.moment
-        raise s.async.Return({'body': 'asdf'})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'body': 'asdf'})
 
     _state = {}
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def set(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         _state[request['args']['key']] = request['body']
-        raise s.async.Return({'code': 200})
+        raise tornado.gen.Return({'code': 200})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def get(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         try:
-            raise s.async.Return({'body': _state[request['args']['key']]})
+            raise tornado.gen.Return({'body': _state[request['args']['key']]})
         except KeyError:
-            raise s.async.Return({'code': 404})
+            raise tornado.gen.Return({'code': 404})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def put(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         id = str(uuid.uuid4())
         _state[id] = request['body']
         if 'return_dict' in request['query']:
-            raise s.async.Return({'body': {'uuid': id}})
+            raise tornado.gen.Return({'body': {'uuid': id}})
         else:
-            raise s.async.Return({'body': id})
+            raise tornado.gen.Return({'body': id})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def fetch(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         try:
-            raise s.async.Return({'body': _state[request['args']['id']]})
+            raise tornado.gen.Return({'body': _state[request['args']['id']]})
         except KeyError:
-            raise s.async.Return({'code': 404})
+            raise tornado.gen.Return({'code': 404})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def reset(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         for k in _state:
             _state.pop(k)
-        raise s.async.Return({'code': 200})
+        raise tornado.gen.Return({'code': 200})
 
     s.log.setup()
     routes = [
@@ -71,7 +77,7 @@ def main(port=8888):
         ('/_reset', {'post': reset}),
     ]
     s.web.app(routes, debug=True).listen(port)
-    s.async.ioloop().start()
+    tornado.ioloop.IOLoop.current().start()
 
 
 if __name__ == '__main__':

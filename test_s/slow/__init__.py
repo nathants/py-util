@@ -1,10 +1,12 @@
 from __future__ import print_function, absolute_import
 import stopit
-import s
+import s.hacks
+import s.proc
+import s.func
 import functools
 
 
-@s.hacks.optionally_parameterized_decorator
+@s.func.optionally_parameterized_decorator
 def flaky(retries=3, timeout=2):
     def decorator(fn):
         @functools.wraps(fn)

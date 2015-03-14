@@ -1,6 +1,7 @@
 import tornado.web
 import tornado.websocket
-import s
+import s.exceptions
+import s.net
 
 
 _conns = []

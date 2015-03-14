@@ -1,5 +1,7 @@
 from __future__ import print_function, absolute_import
-import s
+import tornado.concurrent
+import s.schema
+import s.async
 import pytest
 import six
 
@@ -19,7 +21,7 @@ def test_merge():
 
 def test_future():
     schema = str
-    f1 = s.async.Future()
+    f1 = tornado.concurrent.Future()
     f2 = s.schema.validate(schema, f1)
     f1.set_result('asdf')
     assert f2.result() == 'asdf'
@@ -27,7 +29,7 @@ def test_future():
 
 def test_future_fail():
     schema = str
-    f1 = s.async.Future()
+    f1 = tornado.concurrent.Future()
     f2 = s.schema.validate(schema, f1)
     f1.set_result(1)
     with pytest.raises(s.schema.Error):
@@ -266,13 +268,13 @@ def test_check_generators():
 
 
 def test_check_coroutines():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     @s.schema.check(int, _return=float)
     def main(x):
-        yield s.async.moment
+        yield tornado.gen.moment
         if x > 0:
             x = float(x)
-        raise s.async.Return(x)
+        raise tornado.gen.Return(x)
     assert s.async.run_sync(lambda: main(1)) == 1.0
     with pytest.raises(s.schema.Error):
         s.async.run_sync(lambda: main(1.0))

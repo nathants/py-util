@@ -2,7 +2,12 @@ import yaml
 import itertools
 import sys
 import argh
-import s
+import s.shell
+import s.exceptions
+import s.colors
+import s.dicts
+import s.net
+import s.web
 import os
 
 

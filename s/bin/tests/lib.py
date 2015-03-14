@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import tornado.gen
 import time
 import subprocess
 import re
@@ -6,9 +7,14 @@ import sys
 import types
 import traceback
 import os
-import s
+import s.shell
 import itertools
 import six
+import s.async
+import s.sock
+import s.func
+import s.time
+import s.log
 
 
 def code_file(test_file):
@@ -226,9 +232,9 @@ def _run_slow_test(path, route):
 def _send_slow_result(result, socks):
     for proc, _ in socks.values():
         proc.terminate()
-    raise s.async.Return([[{'path': 'test_*/slow/*.py',
-                            'seconds': 0,
-                            'result': result}]])
+    raise tornado.gen.Return([[{'path': 'test_*/slow/*.py',
+                                'seconds': 0,
+                                'result': result}]])
 
 
 # TODO schema me
@@ -238,7 +244,7 @@ def _slow_socks():
             for route in [s.sock.route()]}
 
 
-@s.async.coroutine(freeze=False)
+@tornado.gen.coroutine
 def slow():
     socks = _slow_socks()
     start = time.time()
@@ -345,7 +351,7 @@ def one_auto(trigger_route, results_route):
                     s.sock.push_sync(results_route, ['one', [data]])
 
 
-@s.async.coroutine
+@tornado.gen.coroutine
 def run_tests_auto(output_route):
     trigger_route = s.sock.route()
     watch_route = s.sock.route()

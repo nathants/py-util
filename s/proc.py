@@ -2,7 +2,7 @@ from __future__ import absolute_import, print_function
 import multiprocessing
 import concurrent.futures
 import logging
-import s
+import s.cached
 
 
 _size = multiprocessing.cpu_count() + 2

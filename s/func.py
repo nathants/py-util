@@ -1,5 +1,8 @@
 from __future__ import absolute_import, print_function
-import s
+import functools
+import types
+import s.exceptions
+import inspect
 import sys
 
 
@@ -76,3 +79,27 @@ def module_name(fn):
                 module = '.'.join(__file__.split('.')[0].split('/')[x:])
                 if module in sys.modules:
                     return module
+
+
+def optionally_parameterized_decorator(decoratee):
+    """
+    wont work if you decorator can be invoked with a single function argument,
+    which is the same signature as decorator usage.
+    """
+    def decorated(*a, **kw):
+        method = (len(a) == 2
+                  and inspect.ismethod(getattr(a[0], decoratee.__name__, None))
+                  and isinstance(a[1], types.FunctionType)
+                  and not kw)
+        function = (len(a) == 1
+                    and isinstance(a[0], types.FunctionType)
+                    and not kw)
+        if method: # called without params
+            self, fn = a
+            return functools.wraps(fn)(decoratee(self)(fn))
+        elif function: # called without params
+            [fn] = a
+            return functools.wraps(fn)(decoratee()(fn))
+        else: # called with params
+            return decoratee(*a, **kw)
+    return decorated

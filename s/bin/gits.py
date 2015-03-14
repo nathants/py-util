@@ -1,6 +1,8 @@
 from __future__ import print_function, absolute_import
 import os
-import s
+import s.cached
+import s.strings
+import s.shell
 import argh
 import sys
 import six

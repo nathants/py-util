@@ -1,8 +1,11 @@
 from __future__ import print_function, absolute_import
+import tornado.gen
 import time
 import pytest
 import json
-import s
+import s.log
+import s.web
+import s.schema
 import logging
 import mock
 import contextlib
@@ -22,6 +25,7 @@ def _capture_traces():
 def _check_schema(schemas, results):
     for result in results[len(schemas):]:
         raise Exception('no schema provided for next item:', s.dicts.take(result, ['name', 'fntype']))
+    assert len(schemas) == len(results)
     for result, schema in zip(results, schemas):
         s.schema.validate(schema, (result['name'].split(':')[-1],
                                    result['fntype'],
@@ -29,12 +33,13 @@ def _check_schema(schemas, results):
 
 
 def test_trace_coroutine():
-    @s.async.coroutine
+    @tornado.gen.coroutine
+    @s.trace.trace
     def main():
-        future = s.async.Future()
+        future = tornado.concurrent.Future()
         future.set_result('asdf')
         val = yield future
-        raise s.async.Return(val + '!!')
+        raise tornado.gen.Return(val + '!!')
     with _capture_traces() as results:
         assert s.async.run_sync(main) == 'asdf!!'
     _check_schema([('main', 'gen', [object]),
@@ -44,15 +49,18 @@ def test_trace_coroutine():
                   results)
 
 
+
 def test_trace_coroutine_nested():
-    @s.async.coroutine
+    @tornado.gen.coroutine
+    @s.trace.trace
     def main():
         val = yield add_one(1)
-        raise s.async.Return(val)
-    @s.async.coroutine
+        raise tornado.gen.Return(val)
+    @tornado.gen.coroutine
+    @s.trace.trace
     def add_one(x):
-        yield s.async.moment
-        raise s.async.Return(x + 1)
+        yield tornado.gen.moment
+        raise tornado.gen.Return(x + 1)
     with _capture_traces() as results:
         assert s.async.run_sync(main) == 2
     _check_schema([('main', 'gen', [object]),            # call main
@@ -70,13 +78,14 @@ def test_trace_web():
     s.log.setup.clear_cache()
     s.log.setup()
     s.shell.run('rm', s.log._trace_path)
-    @s.async.coroutine
+    @tornado.gen.coroutine
+    @s.trace.trace
     def handler(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         assert request['verb'] == 'get'
-        raise s.async.Return({'headers': {'foo': 'bar'},
-                              'code': 200,
-                              'body': 'ok'})
+        raise tornado.gen.Return({'headers': {'foo': 'bar'},
+                                  'code': 200,
+                                  'body': 'ok'})
     app = s.web.app([('/', {'GET': handler})])
     with s.web.test(app, poll=False) as url:
         time.sleep(.1)

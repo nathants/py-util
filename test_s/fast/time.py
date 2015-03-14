@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import s
+import s.time
 import time
 
 

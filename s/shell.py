@@ -7,7 +7,11 @@ import yaml
 import subprocess
 import contextlib
 import os
-import s
+import s.sock
+import s.cached
+import s.colors
+import s.hacks
+import s.proc
 import random
 import string
 import argh
@@ -136,7 +140,7 @@ def climb_git_root(where='.'):
     with cd(where):
         while True:
             assert os.getcwd() != '/', 'didnt find .git climbing from: {}'.format(os.getcwd())
-            if '.git' in s.shell.dirs():
+            if '.git' in dirs():
                 break
             os.chdir('..')
         yield
@@ -226,9 +230,9 @@ def dispatch_commands(_globals, _name_):
 
 def climb(where='.'):
     val = []
-    with s.shell.cd(where):
+    with cd(where):
         while True:
-            val.append([os.getcwd(), s.shell.dirs(), s.shell.files()])
+            val.append([os.getcwd(), dirs(), files()])
             if os.getcwd() == '/':
                 break
             os.chdir('..')
@@ -236,7 +240,7 @@ def climb(where='.'):
 
 
 def walk(where='.'):
-    with s.shell.cd(where):
+    with cd(where):
         return [(os.path.abspath(path), dirs, files)
                 for path, dirs, files in os.walk('.')]
 
@@ -305,20 +309,18 @@ def abspand(path):
 
 
 def watch_files(route):
-    @s.trace.glue
     def watcher():
-        s.async.ioloop_clear()
         try:
-            with s.shell.climb_git_root():
+            with climb_git_root():
                 while True:
                     # TODO use tornado subprocess
                     fifo = '/tmp/{}'.format(uuid.uuid4())
                     cmd = ("(find -name '*.py' | entr -d +{fifo} &) &&"
                            "sleep 1 &&" # TODO this should probably be smarter
                            "while read F; do echo $F; done < {fifo}".format(**locals()))
-                    s.shell.run(cmd, callback=lambda x: s.sock.push_sync(route, x))
+                    run(cmd, callback=lambda x: s.sock.push_sync(route, x))
         except KeyboardInterrupt:
-            s.shell.run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
+            run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
     s.proc.new(watcher)
     return True
 
@@ -334,7 +336,7 @@ def override(flag):
 
 def less(text):
     if text:
-        with s.shell.tempdir():
+        with tempdir():
             with open('_', 'w') as f:
                 f.write(text + '\n\n')
-            s.shell.run('less -cR _', interactive=True)
+            run('less -cR _', interactive=True)

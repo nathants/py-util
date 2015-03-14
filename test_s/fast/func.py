@@ -1,5 +1,5 @@
 from __future__ import print_function, absolute_import
-import s
+import s.func
 
 
 def _plus_one(x):

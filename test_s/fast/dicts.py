@@ -1,4 +1,4 @@
-import s
+import s.dicts
 import pytest
 
 
@@ -72,8 +72,8 @@ def test_drop():
 
 
 def test__ks():
-    assert s.dicts._ks(['a', 'b']) == ['a', 'b']
-    assert s.dicts._ks('a') == ['a']
+    assert s.dicts._ks(['a', 'b']) == ('a', 'b')
+    assert s.dicts._ks('a') == ('a',)
 
 
 def test_new():

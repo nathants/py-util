@@ -1,13 +1,16 @@
 from __future__ import print_function, absolute_import
+import tornado.gen
 import pytest
-import s
+import s.time
+import s.async
+import s.net
 import s.sock # init zmq
 from test_s.slow import flaky
 
 
 @flaky
 def test_cannot_use_none_as_message():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         yield s.sock.push(s.sock.route(), None)
     with pytest.raises(AssertionError):
@@ -18,13 +21,13 @@ def test_cannot_use_none_as_message():
 def test_pub_sub():
     route = s.sock.route()
     state = {'send': True}
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pubber():
         with s.sock.bind('pub', route) as pub:
             while state['send']:
                 yield pub.send('asdf')
-                yield s.async.sleep(.001)
-    @s.async.coroutine
+                yield tornado.gen.sleep(.001)
+    @tornado.gen.coroutine
     def subber():
         pubber()
         with s.sock.connect('sub', route) as sock:
@@ -37,11 +40,11 @@ def test_pub_sub():
 @flaky
 def test_push_pull_reversed_connect_bind():
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher():
         with s.sock.bind('push', route) as sock:
             yield sock.send('asdf')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def puller():
         pusher()
         msg = yield s.sock.pull(route)
@@ -52,10 +55,10 @@ def test_push_pull_reversed_connect_bind():
 @flaky
 def test_push_pull_tcp():
     route = 'tcp://0.0.0.0:{}'.format(s.net.free_port())
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher():
         yield s.sock.push(route, 'asdf')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def puller():
         pusher()
         with s.sock.bind('pull', route) as sock:
@@ -67,10 +70,10 @@ def test_push_pull_tcp():
 @flaky
 def test_push_pull():
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher():
         yield s.sock.push(route, 'asdf')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def puller():
         pusher()
         with s.sock.bind('pull', route) as sock:
@@ -80,17 +83,8 @@ def test_push_pull():
 
 
 @flaky
-def test_async_methods_error_when_no_ioloop():
-    s.async.ioloop().started = False
-    with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.route()).recv()
-    with pytest.raises(AssertionError):
-        s.sock.bind('pull', s.sock.route()).send('')
-
-
-@flaky
 def test_timeout():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.time.timer() as t:
             with s.sock.timeout(.1) as sock:
@@ -102,11 +96,11 @@ def test_timeout():
 @flaky
 def test_select_timeout():
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher(route, msg, seconds=0):
-        yield s.async.sleep(seconds)
+        yield tornado.gen.sleep(seconds)
         yield s.sock.push(route, msg)
-    @s.async.coroutine(freeze=False)
+    @tornado.gen.coroutine
     def main():
         pusher(route, 'msg1', .2)
         socks = {s.sock.bind('pull', route): 'p',
@@ -122,11 +116,11 @@ def test_select_timeout():
 def test_select():
     r1 = s.sock.route()
     r2 = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher(route, msg, seconds=0):
-        yield s.async.sleep(seconds)
+        yield tornado.gen.sleep(seconds)
         yield s.sock.push(route, msg)
-    @s.async.coroutine(freeze=False)
+    @tornado.gen.coroutine
     def main():
         pusher(r1, 'msg1')
         pusher(r2, 'msg2', .1)
@@ -144,15 +138,15 @@ def test_select():
 def test_push_pull_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher():
         yield s.sock.push(r1, 'job1')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def streamer():
         with s.sock.bind('pull', r1) as puller, s.sock.bind('push', r2) as pusher:
             msg = yield puller.recv()
             yield pusher.send(msg + ' [streamer]')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         pusher()
         streamer()
@@ -164,11 +158,11 @@ def test_push_pull_device_middleware():
 @flaky
 def test_push_pull_data():
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher():
         with s.sock.bind('push', route) as sock:
             yield sock.send({'a': '123'})
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def puller():
         pusher()
         msg = yield s.sock.pull(route)
@@ -179,13 +173,13 @@ def test_push_pull_data():
 @flaky
 def test_req_rep():
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def requestor():
         with s.sock.bind('req', route) as req:
             yield req.send('asdf')
             msg = yield req.recv()
             assert msg == 'asdf!!'
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def replier():
         requestor()
         with s.sock.connect('rep', route) as rep:
@@ -198,15 +192,15 @@ def test_req_rep():
 def test_pub_sub_subscriptions():
     route = s.sock.route()
     state = {'send': True}
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pubber():
-        yield s.async.sleep(.01)
+        yield tornado.gen.sleep(.01)
         with s.sock.bind('pub', route) as pub:
             while state['send']:
                 yield pub.send('asdf', topic='a')
                 yield pub.send('123', topic='b')
-                yield s.async.sleep(.001)
-    @s.async.coroutine
+                yield tornado.gen.sleep(.001)
+    @tornado.gen.coroutine
     def subber():
         pubber()
         with s.sock.connect('sub', route) as sock1:
@@ -229,12 +223,12 @@ def test_pub_sub_subscriptions():
 def test_req_rep_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def replier(x):
         with s.sock.connect('rep', r2) as rep:
             msg = yield rep.recv()
             yield rep.send('thanks for: {msg}, from rep{x}'.format(**locals()))
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         replier(1)
         replier(2)
@@ -255,23 +249,23 @@ def test_req_rep_device():
 def test_req_rep_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def replier():
         with s.sock.connect('rep', r2) as rep:
             msg = yield rep.recv()
             yield rep.send('thanks for: ' + msg)
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def queue():
-        yield s.async.moment
+        yield tornado.gen.moment
         router = s.sock.bind('router', r1).__enter__()
         dealer = s.sock.bind('dealer', r2).__enter__()
-        @s.async.coroutine
+        @tornado.gen.coroutine
         def route():
             while True:
                 msg = yield router.recv()
                 msg = msg[:-1] + (msg[-1] + ' [routed]',)
                 dealer.send(msg)
-        @s.async.coroutine
+        @tornado.gen.coroutine
         def deal():
             while True:
                 msg = yield dealer.recv()
@@ -279,7 +273,7 @@ def test_req_rep_device_middleware():
                 router.send(msg)
         route()
         deal()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         queue()
         replier()
@@ -295,13 +289,13 @@ def test_pub_sub_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
     state = {'send': True}
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pubber(x):
         with s.sock.connect('pub', r1) as pub:
             while state['send']:
                 yield pub.send('asdf', topic='topic{}'.format(x))
-                yield s.async.sleep(.01)
-    @s.async.coroutine
+                yield tornado.gen.sleep(.01)
+    @tornado.gen.coroutine
     def main():
         pubber(1)
         pubber(2)
@@ -323,20 +317,20 @@ def test_pub_sub_device_middleware():
     r1 = s.sock.route()
     r2 = s.sock.route()
     state = {'send': True}
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pubber():
         with s.sock.connect('pub', r1) as pub:
             while state['send']:
                 yield pub.send('asdf', topic='topic1')
-                yield s.async.sleep(.01)
-    @s.async.coroutine
+                yield tornado.gen.sleep(.01)
+    @tornado.gen.coroutine
     def forwarder():
         with s.sock.bind('sub', r1) as sub, s.sock.bind('pub', r2) as pub:
             while True:
                 topic, msg = yield sub.recv()
                 msg += ' [sub.on_recv]'
                 yield pub.send(msg, topic=topic)
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         pubber()
         forwarder()
@@ -351,10 +345,10 @@ def test_pub_sub_device_middleware():
 def test_push_pull_device():
     r1 = s.sock.route()
     r2 = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def pusher(x):
         yield s.sock.push(r1, 'job{}'.format(x))
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         pusher(1)
         pusher(2)
@@ -373,11 +367,11 @@ def test_sub_sync():
     route = s.sock.route()
     def fn():
         assert s.sock.sub_sync(route) == ('', 'asdf')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('pub', route) as sock:
             for _ in range(100):
-                yield s.async.sleep(.001)
+                yield tornado.gen.sleep(.001)
                 yield sock.send('asdf')
     proc = s.proc.new(fn)
     s.async.run_sync(main)
@@ -397,7 +391,7 @@ def test_sub_sync_subscriptions():
         for _ in range(100):
             data.add(s.sock.sub_sync(route, subscriptions=['b']))
         assert data == {('b', 'asdf2')}
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('pub', route) as sock:
             for _ in range(1000):
@@ -420,7 +414,7 @@ def test_sub_sync_subscriptions():
 def test_push_sync():
     route = s.sock.route()
     s.proc.new(s.sock.push_sync, route, 'asdf')
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('pull', route) as sock:
             msg = yield sock.recv()
@@ -433,7 +427,7 @@ def test_pull_sync():
     route = s.sock.route()
     def fn():
         assert s.sock.pull_sync(route) == 'asdf'
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('push', route) as sock:
             yield sock.send('asdf')
@@ -445,7 +439,7 @@ def test_pull_sync():
 
 @flaky
 def test_push_timeout():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('push', s.sock.route()) as sock:
             yield sock.send('', timeout=.001)
@@ -455,7 +449,7 @@ def test_push_timeout():
 
 @flaky
 def test_pull_timeout():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         with s.sock.bind('pull', s.sock.route()) as sock:
             yield sock.send('', timeout=.001)

@@ -1,6 +1,6 @@
 from __future__ import absolute_import, print_function
 import threading
-import s
+import s.cached
 import logging
 import concurrent.futures
 

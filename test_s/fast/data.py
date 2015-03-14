@@ -1,7 +1,19 @@
-import s
+from __future__ import print_function, absolute_import
+import s.func
+import s.data
 import json
 import pytest
 import mock
+import tornado.concurrent
+
+
+def test_future():
+    f = tornado.concurrent.Future()
+    f2 = s.data.freeze(f)
+    val = [1, 2]
+    f.set_result(val)
+    val.append(3)
+    assert f2.result() == [1, 2]
 
 
 def test_unicode_synonymous_with_str():

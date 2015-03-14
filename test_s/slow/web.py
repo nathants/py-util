@@ -1,12 +1,15 @@
 from __future__ import print_function, absolute_import
 import pytest
-import s
+import s.web
+import s.net
+import tornado.gen
+import tornado.ioloop
 
 
 def test_non_2XX_codes():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         1 / 0
 
     app = s.web.app([('/', {'get': handler})])
@@ -17,25 +20,25 @@ def test_non_2XX_codes():
 
 
 def test_normal_app():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'body': 'asdf'})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'body': 'asdf'})
     port = s.net.free_port()
     s.web.app([('/', {'get': handler})]).listen(port)
-    proc = s.proc.new(s.async.ioloop().start)
+    proc = s.proc.new(tornado.ioloop.IOLoop.current().start)
     url = 'http://0.0.0.0:{port}'.format(**locals())
     assert s.web.get_sync(url)['body'] == 'asdf'
     proc.terminate()
 
 
 def test_get_timeout():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.sleep(1)
-        raise s.async.Return({})
+        yield tornado.gen.sleep(1)
+        raise tornado.gen.Return({})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         yield s.web.get(url, timeout=.001)
 
@@ -46,14 +49,14 @@ def test_get_timeout():
 
 
 def test_get():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'body': 'ok',
-                              'code': 200,
-                              'headers': {'foo': 'bar'}})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'body': 'ok',
+                                  'code': 200,
+                                  'headers': {'foo': 'bar'}})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         resp = yield s.web.get(url)
         assert resp['body'] == 'ok'
@@ -66,12 +69,12 @@ def test_get():
 
 
 def test_get_params_json():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'body': request['query']})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'body': request['query']})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         resp = yield s.web.get(url, query={'data': [1, 2, 3]})
         assert resp['body'] == {'data': [1, 2, 3]}
@@ -82,12 +85,12 @@ def test_get_params_json():
 
 
 def test_get_params():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'body': request['query']})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'body': request['query']})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         resp = yield s.web.get(url, query={'foo': 'bar'})
         assert resp['body'] == {'foo': 'bar'}
@@ -98,12 +101,12 @@ def test_get_params():
 
 
 def test_post():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'code': request['body']['num'] + 1})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'code': request['body']['num'] + 1})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         resp = yield s.web.post(url, {'num': 200})
         assert resp['code'] == 201
@@ -114,12 +117,12 @@ def test_post():
 
 
 def test_post_timeout():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.sleep(1)
-        raise s.async.Return({'code': 200})
+        yield tornado.gen.sleep(1)
+        raise tornado.gen.Return({'code': 200})
 
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main(url):
         resp = yield s.web.post(url, '', timeout=.001)
         assert resp['code'] == 201
@@ -131,13 +134,13 @@ def test_post_timeout():
 
 
 def test_basic():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
+        yield tornado.gen.moment
         assert request['verb'] == 'get'
-        raise s.async.Return({'headers': {'foo': 'bar'},
-                              'code': 200,
-                              'body': 'ok'})
+        raise tornado.gen.Return({'headers': {'foo': 'bar'},
+                                  'code': 200,
+                                  'body': 'ok'})
     app = s.web.app([('/', {'get': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url)
@@ -147,20 +150,20 @@ def test_basic():
 
 def test_middleware():
     def middleware(old_handler):
-        @s.async.coroutine
+        @tornado.gen.coroutine
         def new_handler(request):
             request = s.dicts.merge(request, {'headers': {'asdf': ' [mod req]'}})
             response = yield old_handler(request)
             response = s.dicts.merge(response, {'body': response['body'] + ' [mod resp]'})
-            raise s.async.Return(response)
+            raise tornado.gen.Return(response)
         return new_handler
     @middleware
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'headers': {'foo': 'bar'},
-                              'code': 200,
-                              'body': 'ok' + request['headers']['asdf']})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'headers': {'foo': 'bar'},
+                                  'code': 200,
+                                  'body': 'ok' + request['headers']['asdf']})
     app = s.web.app([('/', {'get': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url)
@@ -168,11 +171,11 @@ def test_middleware():
 
 
 def test_url_params():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'code': 200,
-                              'body': request['query']})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'code': 200,
+                                  'body': request['query']})
     app = s.web.app([('/', {'get': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + '/?asdf=123&foo=bar&foo=notbar&stuff')
@@ -182,11 +185,11 @@ def test_url_params():
 
 
 def test_url_args():
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def handler(request):
-        yield s.async.moment
-        raise s.async.Return({'code': 200,
-                              'body': {'foo': request['args']['foo']}})
+        yield tornado.gen.moment
+        raise tornado.gen.Return({'code': 200,
+                                  'body': {'foo': request['args']['foo']}})
     app = s.web.app([('/:foo/stuff', {'get': handler})])
     with s.web.test(app) as url:
         resp = s.web.get_sync(url + '/something/stuff')

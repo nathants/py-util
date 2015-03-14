@@ -1,23 +1,29 @@
 from __future__ import print_function, absolute_import
 import sys
-import os
 import inspect
-import pprint
 import functools
 import traceback
 import json
-import contextlib
 import logging
 import time
-import s
+import s.data
+import s.func
+import s.exceptions
 import tornado.concurrent
 import concurrent.futures
 
 
-def trace(fn, freeze=True):
-    if inspect.isgeneratorfunction(fn):
-        return _gen_type(fn, freeze)
-    return _fn_type(fn, freeze)
+@s.func.optionally_parameterized_decorator
+def trace(freeze=True):
+    def decorator(decoratee):
+        if not getattr(decoratee, '_traced', False):
+            if inspect.isgeneratorfunction(decoratee):
+                decoratee = _gen_type(decoratee, freeze)
+            else:
+                decoratee = _fn_type(decoratee, freeze)
+            decoratee._traced = True
+        return decoratee
+    return decorator
 
 
 _future_types = (tornado.concurrent.Future,
@@ -56,18 +62,18 @@ def _trace_out(name, fntype, val=None, traceback=None):
 
 
 def _fn_type(decoratee, freeze):
-    name = '{}:{}'.format(s.func.module_name(decoratee), decoratee.__name__)
+    name = s.func.name(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         _trace_in(name, 'fn', *a, **kw)
         try:
             if freeze:
-                with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
-                    a, kw = s.data.freeze(a), s.data.freeze(kw)
+                # with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+                a, kw = s.data.freeze(a), s.data.freeze(kw)
             val = decoratee(*a, **kw)
             if freeze:
-                with s.exceptions.update('trying to return value from: {name}'.format(**locals())):
-                    val = s.data.freeze(val)
+                # with s.exceptions.update('trying to return value from: {name}'.format(**locals())):
+                val = s.data.freeze(val)
         except:
             _trace_out(name, 'fn', traceback=traceback.format_exc())
             raise
@@ -77,13 +83,13 @@ def _fn_type(decoratee, freeze):
 
 
 def _gen_type(decoratee, freeze):
-    name = '{}:{}'.format(s.func.module_name(decoratee), decoratee.__name__)
+    name = s.func.name(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
         _trace_in(name, 'gen', *a, **kw)
         if freeze:
-            with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
-                a, kw = s.data.freeze(a), s.data.freeze(kw)
+            # with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+            a, kw = s.data.freeze(a), s.data.freeze(kw)
         generator = decoratee(*a, **kw)
         to_send = None
         first_send = True
@@ -91,8 +97,8 @@ def _gen_type(decoratee, freeze):
         while True:
                 try:
                     if freeze:
-                        with s.exceptions.update('trying to freeze send value to: {name}'.format(**locals())):
-                            to_send = s.data.freeze(to_send)
+                        # with s.exceptions.update('trying to freeze send value to: {name}'.format(**locals())):
+                        to_send = s.data.freeze(to_send)
                     if not first_send:
                         _trace_in(name, 'gen.send', to_send)
                     first_send = False
@@ -102,9 +108,9 @@ def _gen_type(decoratee, freeze):
                     else:
                         to_yield = generator.send(to_send)
                     if freeze and not _is_futury(to_yield):
-                        with s.exceptions.update('trying to freeze yield value from: {name}'.format(**locals())):
-                            to_yield = s.data.freeze(to_yield)
-                except (s.async.Return, StopIteration) as e:
+                        # with s.exceptions.update('trying to freeze yield value from: {name}'.format(**locals())):
+                        to_yield = s.data.freeze(to_yield)
+                except (tornado.gen.Return, StopIteration) as e:
                     # TODO should we be freezing this?
                     _trace_out(name, 'gen', val=getattr(e, 'value', None))
                     raise e

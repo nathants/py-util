@@ -1,6 +1,12 @@
 from __future__ import absolute_import, print_function
+import tornado.gen
 import blessed
-import s
+import s.seqs
+import s.log
+import s.strings
+import s.async
+import s.dicts
+import s.colors
 import s.sock # init zmq
 import s.bin.tests.server
 import s.bin.tests.lib
@@ -69,7 +75,7 @@ def _when_dict_set_result_to_false(data):
 
 def _app(terminal, pytest):
     route = s.sock.route()
-    @s.async.coroutine
+    @tornado.gen.coroutine
     def main():
         state = {}
         s.bin.tests.server.start()
@@ -80,7 +86,7 @@ def _app(terminal, pytest):
                 state[name] = data
                 if 'fast' in state and _one_and_all_passed(name, data):
                     state['fast'] = s.seqs.walk(_when_dict_set_result_to_false(data), state['fast'])
-                all_data = sum(state.values(), ())
+                all_data = sum(state.values(), [])
                 text = '\n'.join(map(_view, all_data)) or s.colors.green('tests passed')
                 _print(terminal, text)
                 s.bin.tests.server.send(all_data)

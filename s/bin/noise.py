@@ -1,6 +1,8 @@
 from __future__ import print_function, absolute_import
 import argh
-import s
+import s.colors
+import s.schema
+import s.shell
 import re
 import os
 

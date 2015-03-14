@@ -1,6 +1,6 @@
 from __future__ import print_function, absolute_import
 import yaml
-import s
+import s.exceptions
 
 
 def service(name, services_yml='/state/services.yml', default=None):

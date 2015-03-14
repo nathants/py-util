@@ -1,4 +1,6 @@
-import s
+from __future__ import print_function, absolute_import
+import s.cached
+import s.shell
 import requests
 import os
 import yaml

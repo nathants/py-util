@@ -1,5 +1,7 @@
 from __future__ import print_function, absolute_import
-import s
+import s.colors
+import s.func
+import s.shell
 import types
 import argh
 import s.bin.tests.lib

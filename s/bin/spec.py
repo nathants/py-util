@@ -1,6 +1,11 @@
 from __future__ import print_function, absolute_import
 import yaml
-import s
+import s.schema
+import s.dicts
+import s.web
+import s.colors
+import s.strings
+import s.exceptions
 import os
 import json
 import argh

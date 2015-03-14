@@ -4,7 +4,12 @@ import re
 import os
 import argh
 import pager
-import s
+import s.schema
+import s.shell
+import s.colors
+import s.dicts
+import s.func
+import s.strings
 import json
 import pprint
 import blessed
