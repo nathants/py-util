@@ -48,6 +48,7 @@ def is_valid(schema, value):
 
 
 def validate(schema, value, strict=True):
+    return value
     # TODO this is globally disableable
     return _validate(schema, value, strict)
 
@@ -445,6 +446,7 @@ def check(*args, **kwargs):
     # TODO this is globally disableable
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
+        return decoratee
         name = s.func.name(decoratee)
         schemas = _get_schemas(decoratee, args, kwargs)
         if inspect.isgeneratorfunction(decoratee):

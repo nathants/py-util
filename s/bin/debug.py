@@ -16,19 +16,16 @@ import blessed
 
 
 def _header(data, highlight=False):
-    try:
-        val = '-' * (1 + len(data['stack']))
-    except:
-        print('data:', data)
-        raise
     if data['direction'] == 'out':
-        val = val[1:] + '<'
+        val = '<-'
+    elif data['direction'] == 'in':
+        val = '->'
+    elif data['fntype'] == 'gen.yield':
+        val = '<<'
+    elif data['fntype'] == 'gen.send':
+        val = '>>'
     else:
-        val += '>'
-    if data['fntype'] in ['gen.send', 'gen.yield']:
-        val = val + val[-1]
-    if data['fntype'] == 'gen.send':
-        val = val[1:]
+        raise Exception
     name = data['name']
     if highlight:
         val = s.colors.green(val)

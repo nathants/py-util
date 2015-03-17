@@ -14,19 +14,19 @@ def test_actor_schema_matching():
             msg = yield self.recv()
             if s.schema.is_valid((':say_goodbye_to', str, str), msg):
                 _, route, name = msg
-                yield s.sock.push(route, 'good bye: ' + name)
+                yield self.send(route, 'good bye: ' + name)
             elif s.schema.is_valid((':add_one', str, int), msg):
                 _, route, x = msg
-                yield s.sock.push(route, x + 1)
+                yield self.send(route, x + 1)
 
     @s.actors.actor
     def joe(self, route):
         bob_route = bob()
-        yield s.sock.push(bob_route, [':add_one', self(), 3])
-        yield s.sock.push(bob_route, [':say_goodbye_to', self(), 'joe'])
+        yield self.send(bob_route, [':add_one', self(), 3])
+        yield self.send(bob_route, [':say_goodbye_to', self(), 'joe'])
         msg1 = yield self.recv()
         msg2 = yield self.recv()
-        yield s.sock.push(route, [msg1, msg2])
+        yield self.send(route, [msg1, msg2])
 
     @tornado.gen.coroutine
     def main():
@@ -45,15 +45,15 @@ def test_actor():
     def bob(self, route):
         while True:
             msg = yield self.recv()
-            yield s.sock.push(route, msg + '!')
+            yield self.send(route, msg + '!')
 
     @s.actors.actor
     def joe(self, route):
         bob_route = bob(self())
         for msg in ['hey', 'yo']:
-            yield s.sock.push(bob_route, msg)
+            yield self.send(bob_route, msg)
             msg = yield self.recv()
-            yield s.sock.push(route, msg)
+            yield self.send(route, msg)
 
     @tornado.gen.coroutine
     def main():
@@ -78,24 +78,24 @@ def test_actor_selective_receive():
             if state == 0:
                 if s.schema.is_valid((':first_thing', str), msg):
                     _, route = msg
-                    yield s.sock.push(route, 'first')
+                    yield self.send(route, 'first')
                     state = 1
                     continue
             elif state == 1:
                 if s.schema.is_valid((':second_thing', str), msg):
                     _, route = msg
-                    yield s.sock.push(route, 'second')
+                    yield self.send(route, 'second')
                     break
             self.requeue()
 
     @s.actors.actor
     def joe(self, route):
         bob_route = bob()
-        yield s.sock.push(bob_route, [':second_thing', self()])
-        yield s.sock.push(bob_route, [':first_thing', self()])
+        yield self.send(bob_route, [':second_thing', self()])
+        yield self.send(bob_route, [':first_thing', self()])
         msg1 = yield self.recv()
         msg2 = yield self.recv()
-        yield s.sock.push(route, [msg1, msg2])
+        yield self.send(route, [msg1, msg2])
 
     @tornado.gen.coroutine
     def main():

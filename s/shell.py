@@ -7,7 +7,6 @@ import yaml
 import subprocess
 import contextlib
 import os
-import s.sock
 import s.cached
 import s.colors
 import s.hacks
@@ -308,21 +307,21 @@ def abspand(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
-def watch_files(route):
-    def watcher():
-        try:
-            with climb_git_root():
-                while True:
-                    # TODO use tornado subprocess
-                    fifo = '/tmp/{}'.format(uuid.uuid4())
-                    cmd = ("(find -name '*.py' | entr -d +{fifo} &) &&"
-                           "sleep 1 &&" # TODO this should probably be smarter
-                           "while read F; do echo $F; done < {fifo}".format(**locals()))
-                    run(cmd, callback=lambda x: s.sock.push_sync(route, x))
-        except KeyboardInterrupt:
-            run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
-    s.proc.new(watcher)
-    return True
+# def watch_files(route):
+#     def watcher():
+#         try:
+#             with climb_git_root():
+#                 while True:
+#                     # TODO use tornado subprocess
+#                     fifo = '/tmp/{}'.format(uuid.uuid4())
+#                     cmd = ("(find -name '*.py' | entr -d +{fifo} &) &&"
+#                            "sleep 1 &&" # TODO this should probably be smarter
+#                            "while read F; do echo $F; done < {fifo}".format(**locals()))
+#                     run(cmd, callback=lambda x: s.sock.push_sync(route, x))
+#         except KeyboardInterrupt:
+#             run("ps -eo pid,cmd|grep 'entr -d echo'|awk '{print $1}'|xargs kill")
+#     s.proc.new(watcher)
+#     return True
 
 
 def override(flag):

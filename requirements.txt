@@ -4,7 +4,7 @@ futures==2.2.0
 pager==3.3
 pyaml==14.12.10
 pytest==2.6.4
-pyzmq==14.4.1
+pyzmq==14.5.0
 requests==2.5.0
 six==1.8.0
 stopit==1.1.0

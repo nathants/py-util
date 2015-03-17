@@ -131,6 +131,7 @@ with s.exceptions.ignore():
 
 
 def freeze(value):
+    return value
     if isinstance(value, immutable_types):
         return value
     elif hasattr(value, 'add_done_callback'):
