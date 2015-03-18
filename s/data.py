@@ -29,14 +29,10 @@ def jsonify(value):
     elif isinstance(value, json_types):
         return value
     else:
-        if hasattr(value, '_action'):
-            action = '={}'.format(value._action)
-        else:
-            action = ''
         value = str(value)
         if ' at 0x' in value:
             value = value.split()[0].split('.')[-1]
-        return '<{}{}>'.format(value.strip('<>'), action)
+        return '<{}>'.format(value.strip('<>'))
 
 
 def a2b(x):

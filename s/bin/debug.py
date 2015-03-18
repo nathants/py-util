@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import msgpack
 import sys
 import re
 import os
@@ -10,7 +11,7 @@ import s.colors
 import s.dicts
 import s.func
 import s.strings
-import json
+# import json
 import pprint
 import blessed
 
@@ -154,7 +155,7 @@ def _print(t, text, wait=False):
 
 def _app(t, path):
     with open(path) as f:
-        datas = [json.loads(x) for x in f.read().splitlines()]
+        datas = [msgpack.loads(x) for x in f.read().splitlines()]
 
     pair = False
     pretty = True

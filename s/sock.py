@@ -106,7 +106,6 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
     def recv(self, timeout=None):
         assert not self._recv_callback, 'there is already a recv callback registered'
         future = tornado.concurrent.Future()
-        future._action = 'recv()'
         def cb(msg):
             self.stop_on_recv()
             if self.type() == zmq.SUB:
@@ -138,7 +137,6 @@ class _AsyncSock(zmq.eventloop.zmqstream.ZMQStream):
         if forbid_none:
             assert msg is not None, 'you cannot use None as a message'
         future = tornado.concurrent.Future()
-        future._action = 'send({}{})'.format(msg, ', topic={}'.format(topic) if topic else '')
         def fn(*_):
             self.stop_on_send()
             future.set_result(None)

@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-import os
 import pprint
 import logging
 import logging.handlers
@@ -10,9 +9,7 @@ import s.strings
 import s.exceptions
 import s.hacks
 import s.bin.debug
-import time
 import contextlib
-import json
 
 
 _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
@@ -39,28 +36,9 @@ def _get_format(format, short):
             else _standard_format)
 
 
-def _add_trace_level(debug=False):
-    logging.root.manager.emittedNoHandlerWarning = 1
-    logging.TRACE = 9
-    logging.addLevelName(logging.TRACE, "TRACE")
-    def fn(msg):
-        if debug:
-            val = s.bin.debug._visualize_flat(200, 10, 0, [json.loads(msg)])
-            logging.info(s.strings.rm_color(val))
-        logging.root._log(logging.TRACE, msg, [])
-    logging.trace = fn
-    logging.root.setLevel('TRACE')
-
-
-def _trace_file_handler(name):
-    path = _get_trace_path(name)
-    handler = logging.handlers.WatchedFileHandler(path)
-    return _make_handler(handler, 'trace', '%(message)s', False, _TraceOnly)
-
-
 def _stream_handler(level, format):
     level = 'debug' if s.shell.override('--debug') else level
-    return _make_handler(logging.StreamHandler(), level, format, pprint, _NotTrace)
+    return _make_handler(logging.StreamHandler(), level, format, pprint)
 
 
 @s.cached.func
@@ -68,24 +46,9 @@ def setup(name=None, level='info', short=False, pprint=False, format=None, debug
     # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
     if debug:
         format = '%(message)s'
-    _add_trace_level(debug)
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
-    logging.root.addHandler(_trace_file_handler(name))
     logging.root.addHandler(_stream_handler(level, _get_format(format, short)))
-
-
-def _get_trace_path(name):
-    caller = s.hacks.get_caller(5)
-    funcname = caller['funcname'] if caller['funcname'] != '<module>' else '__main__'
-    modname = s.shell.module_name(caller['filename'])
-    when = time.time()
-    val = '{modname}:{funcname}:{when}'.format(**locals())
-    if name:
-        val = '{name}:{val}'.format(**locals())
-    val = os.path.join('/tmp', '{val}:trace.log'.format(**locals()))
-    globals()['_trace_path'] = val
-    return val
 
 
 def _better_pathname(record):
@@ -102,23 +65,10 @@ def _short_levelname(record):
     return record
 
 
-class _TraceOnly(logging.Filter):
-    def filter(self, record):
-        return record.levelno == logging.TRACE
-
-
-class _NotTrace(logging.Filter):
-    def filter(self, record):
-        return record.levelno != logging.TRACE
-
-
 def _process_record(record):
     if not hasattr(record, '_processed'):
-        record = s.func.pipe(
-            record,
-            _better_pathname,
-            _short_levelname,
-        )
+        record = _better_pathname(record)
+        record = _short_levelname(record)
         record._processed = True
     return record
 

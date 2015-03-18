@@ -86,6 +86,7 @@ def optionally_parameterized_decorator(decoratee):
     wont work if you decorator can be invoked with a single function argument,
     which is the same signature as decorator usage.
     """
+    @functools.wraps(decoratee)
     def decorated(*a, **kw):
         method = (len(a) == 2
                   and inspect.ismethod(getattr(a[0], decoratee.__name__, None))
@@ -96,10 +97,10 @@ def optionally_parameterized_decorator(decoratee):
                     and not kw)
         if method: # called without params
             self, fn = a
-            return functools.wraps(fn)(decoratee(self)(fn))
+            return decoratee(self)(fn)
         elif function: # called without params
             [fn] = a
-            return functools.wraps(fn)(decoratee()(fn))
+            return decoratee()(fn)
         else: # called with params
             return decoratee(*a, **kw)
     return decorated
