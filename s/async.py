@@ -1,12 +1,7 @@
 from __future__ import print_function, absolute_import
-
-import s.cached
-import s.trace
-
 import tornado
 import tornado.gen
 import tornado.ioloop
-import tornado.concurrent
 
 
 # TODO is this behavior needed? callback poping?

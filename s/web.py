@@ -52,7 +52,7 @@ def _new_handler_method(fn):
     def method(self, **args):
         request = _request_to_dict(self.request, args)
         response = yield fn(request)
-        _mutate_handler(response, self)
+        _set_handler_response(response, self)
     method.fn = fn
     return method
 
@@ -67,9 +67,9 @@ def _verbs_to_handler(**verbs):
 
 
 @s.schema.check(schemas.response, tornado.web.RequestHandler)
-def _mutate_handler(response, handler):
+def _set_handler_response(response, handler):
     body = response.get('body', '')
-    body = body if isinstance(body, s.data.string_types) else json.dumps(body)
+    body = body if isinstance(body, s.data.string_types + (bytes,)) else json.dumps(body)
     handler.write(body)
     handler.set_status(response.get('code', 200), response.get('reason', ''))
     for header, value in response.get('headers', {}).items():
@@ -165,6 +165,7 @@ class Blowup(Exception):
         return '{}, code={}, reason="{}"\n{}'.format(self.args[0] if self.args else '', self.code, self.reason, self.body)
 
 
+# TODO this should probably be an argument to something
 faux_app = None
 
 
@@ -235,7 +236,7 @@ def _faux_fetch(verb, url, **kw):
 
 def _process_kwargs(url, kw):
     timeout = kw.pop('timeout', 10)
-    if 'body' in kw and not isinstance(kw['body'], s.data.string_types):
+    if 'body' in kw and not isinstance(kw['body'], s.data.string_types + (bytes,)):
         kw['body'] = json.dumps(kw['body'])
     blowup = kw.pop('blowup', False)
     if 'query' in kw:
