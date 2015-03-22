@@ -48,7 +48,6 @@ def logs(action_name, container_name=None):
     action = _get_action(action_name)
     if container_name:
         1/0 # FIXME
-        print(_exposed_ports(action[container_name]['tag']))
     else:
         procs = []
         for container_name, data in action.items():
@@ -62,11 +61,13 @@ def ports(action_name, container_name=None):
     action = _get_action(action_name)
     if container_name:
         1/0 # FIXME
-        print(_exposed_ports(action[container_name]['tag']))
     else:
         for container_name, data in action.items():
-            ports = _exposed_ports(data['tag'])
-            if ports:
+            try:
+                ports = _exposed_ports(data['tag'])
+            except:
+                continue
+            else:
                 print("")
                 print(container_name)
                 for port in sorted(ports, key=lambda x: x['internal']):
@@ -136,7 +137,7 @@ def _start_deps(action):
                 started.append(container_name)
                 ports = _exposed_ports(data['tag'])
                 if len(ports) == 1:
-                    data = {'port': ports[0],
+                    data = {'port': ports[0]['external'],
                             'host': _host_ip()}
                     with open(_services, 'a') as f:
                         f.write(yaml.dump({container_name: data}))
@@ -148,7 +149,7 @@ def _start_deps(action):
                 # s.web.wait_for_http('http://{host}:{port}'.format(**data))
             else:
                 to_start.append([container_name, data])
-            assert i < 5, 'never resolved dependency order. remaining: {}'.format(to_start)
+            assert i < 1000, 'never resolved dependency order. remaining: {}'.format(to_start)
             if not to_start:
                 return
 
@@ -185,14 +186,11 @@ def _build_cmd(data, nocache, pull):
 
 
 def _read_env(name):
-    print('readenv', name)
     if not isinstance(name, str) or not name.startswith('$services.'):
         return name
     with open(_services) as f:
         keys = [int(x) if x.isdigit() else x
                 for x in name.split('$services.')[-1].split('.')]
-
-        print("wtf?", name, keys)
         return s.dicts.get(yaml.safe_load(f), keys)
 
 
