@@ -1,4 +1,6 @@
 from __future__ import print_function, absolute_import
+import contextlib
+import statsd
 import uuid
 import sys
 import inspect
@@ -9,12 +11,22 @@ import s.data
 import s.func
 import s.exceptions
 import s.cached
+import s.conf
 import tornado.concurrent
 import concurrent.futures
 import msgpack
 
 
-disabled = False
+stats = statsd.StatsClient(**s.conf.service('statsite', default={'host': '0.0.0.0', 'port': 8125}))
+
+
+disable_log = False
+disable_stats = False
+
+
+@contextlib.contextmanager
+def noop():
+    yield
 
 
 @s.func.optionally_parameterized_decorator
@@ -61,7 +73,7 @@ def _trace(val):
 
 
 def _trace_in(uuid, yield_uuid, name, fntype, *a, **kw):
-    if not disabled:
+    if not disable_log:
         _trace({'uuid': uuid,
                 'yield_uuid': yield_uuid,
                 'name': name,
@@ -73,7 +85,10 @@ def _trace_in(uuid, yield_uuid, name, fntype, *a, **kw):
 
 
 def _trace_out(uuid, yield_uuid, name, fntype, val=None, traceback=None):
-    if not disabled:
+    if not disable_stats:
+        if fntype in ['fn', 'gen']:
+            stats.incr(('failure.' if traceback else 'success.') + name)
+    if not disable_log:
         _trace({'uuid': uuid,
                 'yield_uuid': yield_uuid,
                 'name': name,
@@ -88,21 +103,23 @@ def _fn_type(decoratee, freeze):
     name = s.func.name(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
-        uid = str(uuid.uuid4())
-        _trace_in(uid, None, name, 'fn', *a, **kw)
-        try:
-            if freeze:
-                # with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
-                a, kw = s.data.freeze(a), s.data.freeze(kw)
-            val = decoratee(*a, **kw)
-            if freeze:
-                # with s.exceptions.update('trying to return value from: {name}'.format(**locals())):
-                val = s.data.freeze(val)
-        except:
-            _trace_out(uid, None, name, 'fn', traceback=traceback.format_exc())
-            raise
-        _trace_out(uid, None, name, 'fn', val=val)
-        return val
+        with (noop() if disable_stats else stats.timer(name)):
+            uid = str(uuid.uuid4())
+            _trace_in(uid, None, name, 'fn', *a, **kw)
+            try:
+                if freeze:
+                    with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+                        a, kw = s.data.freeze(a), s.data.freeze(kw)
+                val = decoratee(*a, **kw)
+                if freeze:
+                    with s.exceptions.update('trying to return value from: {name}'.format(**locals())):
+                        val = s.data.freeze(val)
+            except:
+                _trace_out(uid, None, name, 'fn', traceback=traceback.format_exc())
+                raise
+            else:
+                _trace_out(uid, None, name, 'fn', val=val)
+                return val
     return decorated
 
 
@@ -110,21 +127,22 @@ def _gen_type(decoratee, freeze):
     name = s.func.name(decoratee)
     @functools.wraps(decoratee)
     def decorated(*a, **kw):
-        uid = str(uuid.uuid4())
-        yield_uid = None
-        to_send = None
-        first_send = True
-        send_exception = False
-        _trace_in(uid, yield_uid, name, 'gen', *a, **kw)
-        if freeze:
-            # with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
-            a, kw = s.data.freeze(a), s.data.freeze(kw)
-        generator = decoratee(*a, **kw)
-        while True:
+        with (noop() if disable_stats else stats.timer(name)):
+            uid = str(uuid.uuid4())
+            yield_uid = None
+            to_send = None
+            first_send = True
+            send_exception = False
+            _trace_in(uid, yield_uid, name, 'gen', *a, **kw)
+            if freeze:
+                with s.exceptions.update('trying to freeze args to: {name}'.format(**locals())):
+                    a, kw = s.data.freeze(a), s.data.freeze(kw)
+            generator = decoratee(*a, **kw)
+            while True:
                 try:
                     if freeze:
-                        # with s.exceptions.update('trying to freeze send value to: {name}'.format(**locals())):
-                        to_send = s.data.freeze(to_send)
+                        with s.exceptions.update('trying to freeze send value to: {name}'.format(**locals())):
+                            to_send = s.data.freeze(to_send)
                     if not first_send:
                         _trace_in(uid, yield_uid, name, 'gen.send', to_send)
                     first_send = False
@@ -134,8 +152,8 @@ def _gen_type(decoratee, freeze):
                     else:
                         to_yield = generator.send(to_send)
                     if freeze and not _is_futury(to_yield):
-                        # with s.exceptions.update('trying to freeze yield value from: {name}'.format(**locals())):
-                        to_yield = s.data.freeze(to_yield)
+                        with s.exceptions.update('trying to freeze yield value from: {name}'.format(**locals())):
+                            to_yield = s.data.freeze(to_yield)
                 except (tornado.gen.Return, StopIteration) as e:
                     # TODO should we be freezing this?
                     _trace_out(uid, None, name, 'gen', val=getattr(e, 'value', None))

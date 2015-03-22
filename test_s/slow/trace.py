@@ -6,6 +6,7 @@ import json
 import s.log
 import s.web
 import s.schema
+import s.trace
 import logging
 import mock
 import contextlib
@@ -47,7 +48,6 @@ def test_trace_coroutine():
                    ('main', 'gen.send', ['asdf']),
                    ('main', 'gen', 'asdf!!')],
                   results)
-
 
 
 def test_trace_coroutine_nested():
