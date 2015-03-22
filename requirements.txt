@@ -12,3 +12,4 @@ tornado==4.1
 boto==2.36.0
 mock==1.0.1
 msgpack-python==0.4.6
+statsd==3.1
