@@ -70,6 +70,8 @@ def _process_lines(proc, log, callback=None):
 def _get_log_or_print(should_log):
     def fn(x):
         if should_log:
+            # TODO this is dumb
+            import s.log
             if s.cached.is_cached(s.log.setup):
                 logging.info(x)
             else:
