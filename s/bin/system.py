@@ -68,10 +68,11 @@ def ports(action_name, container_name=None):
             except:
                 continue
             else:
-                print("")
+                print('')
                 print(container_name)
                 for port in sorted(ports, key=lambda x: x['internal']):
                     print(' http://localhost:%(external)s -> docker:%(internal)s' % port)
+                print('')
 
 
 def stop(action_name):

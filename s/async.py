@@ -7,7 +7,8 @@ import tornado.ioloop
 # TODO is this behavior needed? callback poping?
 def run_sync(fn, *a, **kw):
     timeout = kw.pop('timeout', None)
-    io = tornado.ioloop.IOLoop.current()
+    tornado.ioloop.IOLoop.clear_instance()
+    io = tornado.ioloop.IOLoop.instance()
     val = io.run_sync(lambda: fn(*a, **kw), timeout=timeout)
     while io._callbacks:
         io._callbacks.pop()

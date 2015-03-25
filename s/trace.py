@@ -32,7 +32,6 @@ def noop():
 @s.func.optionally_parameterized_decorator
 def trace(freeze=True):
     def decorator(decoratee):
-        # return decoratee
         if not getattr(decoratee, '_traced', False):
             if inspect.isgeneratorfunction(decoratee):
                 decoratee = _gen_type(decoratee, freeze)
@@ -56,8 +55,8 @@ def _pretty_objects(x):
 
 def _trace_path():
     when = time.time()
-    entry_point = '.'.join(sys.argv[0].split('.')[0].split('/')[-2:])
-    args = '.'.join(x for x in sys.argv[1:] if not x.startswith('-'))
+    entry_point = '.'.join(sys.argv[0].split('.')[0].split('/')[-2:]).replace('/', '.')
+    args = '.'.join(x for x in sys.argv[1:] if not x.startswith('-')).replace('/', '.')
     args = ':' + args if args else ''
     return '/tmp/{entry_point}{args}:{when}:trace.log'.format(**locals())
 
@@ -66,7 +65,6 @@ trace_path = _trace_path()
 
 
 def _trace(val):
-    return
     val = msgpack.dumps(val, default=_pretty_objects)
     with open(trace_path, 'ab') as f:
         f.write(val + b'\r\n')
