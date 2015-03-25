@@ -6,14 +6,6 @@ import pytest
 import six
 
 
-def test_non_strict():
-    schema = {'a': int, 'b': float}
-    assert s.schema.validate(schema, {'a': 1}, strict=False) == {'a': 1}
-    assert s.schema.validate(schema, {'c': 3}, strict=False) == {}
-    with pytest.raises(s.schema.Error):
-        s.schema.validate(schema, {'a': 1.0}, strict=False)
-
-
 def test_merge():
     schema = (':merge', {'a': str, 'b': str}, {'b': int})
     s.schema.validate(schema, {'a': 'a', 'b': 1})

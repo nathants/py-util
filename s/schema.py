@@ -17,6 +17,8 @@ import inspect
 import tornado.gen
 
 
+disabled = False
+
 
 # TODO % is an order of mag faster than .format. so use %.
 
@@ -47,12 +49,13 @@ def is_valid(schema, value):
 # think about schemaing the args to s.func.pipe()
 
 
-def validate(schema, value, strict=True):
-    # TODO this is globally disableable
-    return _validate(schema, value, strict)
+def validate(schema, value):
+    if disabled:
+        return value
+    return _validate(schema, value)
 
 
-def _validate(schema, value, strict=True):
+def _validate(schema, value):
     """
     >>> import pytest
 
@@ -158,8 +161,8 @@ def _validate(schema, value, strict=True):
                 return future
             elif isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
-                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value, strict)
-                value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items, strict)
+                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
+                value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
             else:
                 value = _check(schema, value)
             return value
@@ -193,7 +196,7 @@ class Error(AssertionError):
     pass
 
 
-def _check_for_items_in_value_that_dont_satisfy_schema(schema, value, strict):
+def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
     validated_schema_items = []
     val = {}
     for k, v in value.items():
@@ -205,13 +208,13 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value, strict):
             validated_schema_items.append((key, validator))
             with s.exceptions.update("key:\n  {}".format(k), AssertionError):
                 val[k] = _check(validator, v)
-        elif strict:
+        else:
             raise AssertionError('{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()])))
 
     return val, validated_schema_items
 
 
-def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items, strict):
+def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items):
     if value or not {type(x) for x in schema.keys()} == {type}: # if schema keys are all types, and value is empty, return
         for k, v in schema.items():
             if k not in value and (k, v) not in validated_schema_items: # only check schema items if they haven't already been satisfied
@@ -227,7 +230,7 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                     assert len(v) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(v)
                     _, schema, default_value = v
                     value = s.dicts.merge(value, {k: _validate(schema, default_value)}, freeze=False)
-                elif strict:
+                else:
                     raise AssertionError('{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k)))
     return value
 
@@ -445,6 +448,8 @@ def check(*args, **kwargs):
     # TODO this is globally disableable
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
+        if disabled:
+            return decoratee
         name = s.func.name(decoratee)
         schemas = _get_schemas(decoratee, args, kwargs)
         if inspect.isgeneratorfunction(decoratee):
