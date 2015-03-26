@@ -26,7 +26,7 @@ def _divide(x, y):
 
 
 def test_name():
-    assert s.func.name(test_name) == 'test_s.fast.func:test_name'
+    assert s.func.name(test_name) == 'test_s.fast.func.test_name'
 
 
 def test_pipe_first():

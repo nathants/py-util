@@ -4,6 +4,9 @@ import types
 import binascii
 
 
+disabled = False
+
+
 json_types = (list,
               str,
               dict,
@@ -127,7 +130,8 @@ with s.exceptions.ignore():
 
 
 def freeze(value):
-    return value
+    if disabled:
+        return value
     if isinstance(value, immutable_types):
         return value
     elif hasattr(value, 'add_done_callback'):

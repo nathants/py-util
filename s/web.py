@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import s.thread
 import mock
 import functools
 import traceback
@@ -129,7 +130,7 @@ def wait_for_http(url):
 # TODO this schema is particularly verbose...
 @contextlib.contextmanager
 # @s.schema.check((':or', lambda x: callable(x), tornado.web.Application), poll=(':or', bool, str), before_start=lambda x: callable(x), _freeze=False)
-def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create=True)):
+def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create=True), use_thread=False):
     port = s.net.free_port()
     url = 'http://0.0.0.0:{}'.format(port)
     def run():
@@ -138,8 +139,9 @@ def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create
                 app.listen(port)
             else:
                 app().listen(port)
-            tornado.ioloop.IOLoop.current().start()
-    proc = s.proc.new(run)
+            if not use_thread:
+                tornado.ioloop.IOLoop.current().start()
+    proc = (s.thread.new if use_thread else s.proc.new)(run)
     if poll:
         wait_for_http(url + poll)
     try:
@@ -147,7 +149,8 @@ def test(app, poll='/', context=lambda: mock.patch.object(mock, '_fake_', create
     except:
         raise
     finally:
-        proc.terminate()
+        if not use_thread:
+            proc.terminate()
 
 
 with s.exceptions.ignore(ImportError):

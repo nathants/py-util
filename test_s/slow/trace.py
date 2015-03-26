@@ -1,4 +1,7 @@
 from __future__ import print_function, absolute_import
+import tornado.ioloop
+import msgpack
+import six
 import tornado.gen
 import time
 import pytest
@@ -18,8 +21,8 @@ def _capture_traces():
     s.log.setup.clear_cache()
     s.log.setup()
     results = []
-    trace = lambda x: results.append(json.loads(x))
-    with mock.patch.object(logging, 'trace', trace):
+    trace = lambda x: results.append(msgpack.loads(msgpack.dumps(x, default=s.trace._pretty_objects), encoding='utf-8'))
+    with mock.patch.object(s.trace, '_trace', trace):
         yield results
 
 
@@ -28,7 +31,7 @@ def _check_schema(schemas, results):
         raise Exception('no schema provided for next item:', s.dicts.take(result, ['name', 'fntype']))
     assert len(schemas) == len(results)
     for result, schema in zip(results, schemas):
-        s.schema.validate(schema, (result['name'].split(':')[-1],
+        s.schema.validate(schema, (result['name'].split('.')[-1],
                                    result['fntype'],
                                    result['value'] if 'value' in result else result['args']))
 
@@ -75,9 +78,6 @@ def test_trace_coroutine_nested():
 
 
 def test_trace_web():
-    s.log.setup.clear_cache()
-    s.log.setup()
-    s.shell.run('rm', s.log._trace_path)
     @tornado.gen.coroutine
     @s.trace.trace
     def handler(request):
@@ -87,13 +87,17 @@ def test_trace_web():
                                   'code': 200,
                                   'body': 'ok'})
     app = s.web.app([('/', {'GET': handler})])
-    with s.web.test(app, poll=False) as url:
-        time.sleep(.1)
-        resp = requests.get(url)
-        assert resp.text == 'ok'
-        assert resp.headers['foo'] == 'bar'
-    with open(s.log._trace_path) as f:
-        results = [json.loads(x) for x in f.read().splitlines()]
+    with s.web.test(app, poll=False, use_thread=True) as url:
+        @tornado.gen.coroutine
+        def main():
+            yield tornado.gen.sleep(.1) # TODO this should be evented s.web.wait_for_http
+            with _capture_traces() as results:
+                resp = yield s.web.get(url)
+            assert resp['body'] == 'ok'
+            assert resp['headers']['foo'] == 'bar'
+            tornado.ioloop.IOLoop.instance().stop()
+            raise tornado.gen.Return(results)
+        results = s.async.run_sync(main)
     _check_schema([('handler', 'gen', [object]),
                    ('handler', 'gen.yield', '<Future>'),
                    ('handler', 'gen.send', [None]),

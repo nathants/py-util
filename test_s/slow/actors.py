@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import s.sock
 import s.actors
 import s.schema
 import s.async

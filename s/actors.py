@@ -1,8 +1,8 @@
 from __future__ import print_function, absolute_import
-# import zmq.eventloop
-# zmq.eventloop.ioloop.install()
+import zmq.eventloop
+zmq.eventloop.ioloop.install()
 
-# import s.sock
+import s.sock
 import s.hacks
 import s.func
 
@@ -15,20 +15,19 @@ import toro
 
 
 class _Self(object):
-    pass
-    # def __init__(self):
-    #     self._route = s.sock.route()
-    #     self._sock = s.sock.bind('pull', self._route)
-    #     self._sock.__enter__()
+    def __init__(self):
+        self._route = s.sock.route()
+        self._sock = s.sock.bind('pull', self._route)
+        self._sock.__enter__()
 
-    # def __call__(self):
-    #     return self._route
+    def __call__(self):
+        return self._route
 
-    # def recv(self):
-    #     return self._sock.recv()
+    def recv(self):
+        return self._sock.recv()
 
-    # def send(self, route, msg):
-    #     return s.sock.push(route, msg)
+    def send(self, route, msg):
+        return s.sock.push(route, msg)
 
 
 class _QueueSelf(object):
