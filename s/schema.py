@@ -49,13 +49,13 @@ def is_valid(schema, value):
 # think about schemaing the args to s.func.pipe()
 
 
-def validate(schema, value):
+def validate(schema, value, exact_match=False):
     if disabled:
         return value
-    return _validate(schema, value)
+    return _validate(schema, value, exact_match)
 
 
-def _validate(schema, value):
+def _validate(schema, value, exact_match=False):
     """
     >>> import pytest
 
@@ -161,7 +161,7 @@ def _validate(schema, value):
                 return future
             elif isinstance(schema, dict):
                 assert isinstance(value, dict), 'value {} <{}> should be a dict for schema: {} <{}>'.format(value, type(value), schema, type(schema))
-                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value)
+                value, validated_schema_items = _check_for_items_in_value_that_dont_satisfy_schema(schema, value, exact_match)
                 value = _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_items)
             else:
                 value = _check(schema, value)
@@ -196,7 +196,7 @@ class Error(AssertionError):
     pass
 
 
-def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
+def _check_for_items_in_value_that_dont_satisfy_schema(schema, value, exact_match):
     validated_schema_items = []
     val = {}
     for k, v in value.items():
@@ -208,7 +208,7 @@ def _check_for_items_in_value_that_dont_satisfy_schema(schema, value):
             validated_schema_items.append((key, validator))
             with s.exceptions.update("key:\n  {}".format(k), AssertionError):
                 val[k] = _check(validator, v)
-        else:
+        elif exact_match:
             raise AssertionError('{} <{}> does not match schema keys: {}'.format(k, type(k), ', '.join(['{} <{}>'.format(x, type(x)) for x in schema.keys()])))
 
     return val, validated_schema_items
@@ -230,7 +230,7 @@ def _check_for_items_in_schema_missing_in_value(schema, value, validated_schema_
                     assert len(v) == 3, ':optional schema should be (:optional, schema, default-value), not: {}'.format(v)
                     _, schema, default_value = v
                     value = s.dicts.merge(value, {k: _validate(schema, default_value)}, freeze=False)
-                else:
+                else: # TODO is it useful to optionally ignore missing keys in the value?
                     raise AssertionError('{} <{}> is missing required key: {} <{}>'.format(value, type(value), k, type(k)))
     return value
 
@@ -445,7 +445,6 @@ def _gen_check(decoratee, name, schemas):
 
 @s.func.optionally_parameterized_decorator
 def check(*args, **kwargs):
-    # TODO this is globally disableable
     # TODO add doctest with :fn and args/kwargs
     def decorator(decoratee):
         if disabled:

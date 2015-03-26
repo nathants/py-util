@@ -6,6 +6,30 @@ import pytest
 import six
 
 
+def test_new_schema_old_data():
+    schema = {'a': int, 'b': (':optional', int, 2)}
+    assert s.schema.validate(schema, {'a': 1}) == {'a': 1, 'b': 2}
+
+
+def test_old_schema_new_data():
+    schema = {'a': int}
+    assert s.schema.validate(schema, {'a': 1, 'b': 2}) == {'a': 1}
+
+
+def test_exact_match():
+    schema = {'a': 1}
+    with pytest.raises(s.schema.Error):
+        s.schema.validate(schema, {'a': 1, 'b': 2}, True)
+
+
+def test_missing_keys_in_value_are_never_allowed():
+    schema = {'a': int, 'b': int}
+    with pytest.raises(s.schema.Error):
+        s.schema.validate(schema, {'a': 1}, True)
+    with pytest.raises(s.schema.Error):
+        s.schema.validate(schema, {'a': 1})
+
+
 def test_merge():
     schema = (':merge', {'a': str, 'b': str}, {'b': int})
     s.schema.validate(schema, {'a': 'a', 'b': 1})
@@ -122,8 +146,11 @@ def test_sets_are_illegal():
 def test_empty_dicts():
     assert s.schema.validate({}, {}) == {}
     assert s.schema.validate({str: str}, {}) == {}
+
+
+def test_empty_dicts_exact_match():
     with pytest.raises(s.schema.Error):
-        assert s.schema.validate({}, {'1': 2})
+        assert s.schema.validate({}, {'1': 2}, True)
 
 
 def test_empty_seqs():
@@ -302,8 +329,12 @@ def test_object_type():
     schema = {str: object}
     s.schema.validate(schema, {'a': 'apple'})
     s.schema.validate(schema, {'b': 123})
+
+
+def test_object_type_exact_match():
+    schema = {str: object}
     with pytest.raises(s.schema.Error):
-        s.schema.validate(schema, {1: 'apple'})
+        s.schema.validate(schema, {1: 'apple'}, True)
 
 
 def test_type_to_lambda():
