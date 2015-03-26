@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-import pprint
 import logging
 import logging.handlers
 import s.func
@@ -22,11 +21,7 @@ for _name in ['debug', 'info', 'warn', 'warning', 'error', 'exception']:
     locals()[_name] = getattr(logging, _name)
 
 
-def _make_handler(handler, level, format, pprint, filter=None):
-    handler.setLevel(level.upper())
-    if filter:
-        handler.addFilter(filter())
-    handler.setFormatter(_Formatter(format, pprint))
+def _make_handler(handler, level, format):
     return handler
 
 
@@ -37,18 +32,23 @@ def _get_format(format, short):
 
 
 def _stream_handler(level, format):
-    level = 'debug' if s.shell.override('--debug') else level
-    return _make_handler(logging.StreamHandler(), level, format, pprint)
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(_Formatter(format))
+    return handler
 
 
 @s.cached.func
-def setup(name=None, level='info', short=False, pprint=False, format=None, debug=False):
+def setup(name=None, level='info', short=False, format=None, debug=False):
     # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
+    level = ('debug' if s.shell.override('--debug') else level).upper()
     if debug:
         format = '%(message)s'
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
-    logging.root.addHandler(_stream_handler(level, _get_format(format, short)))
+    handler = _stream_handler(level, _get_format(format, short))
+    logging.root.addHandler(handler)
+    logging.root.setLevel(level)
 
 
 def _better_pathname(record):
@@ -74,12 +74,7 @@ def _process_record(record):
 
 
 class _Formatter(logging.Formatter):
-    def __init__(self, fmt, pprint=False):
-        self.pprint = pprint
-        logging.Formatter.__init__(self, fmt=fmt)
-
     def format(self, record):
-        record._pprint = self.pprint
         record = _process_record(record)
         return logging.Formatter.format(self, record)
 
