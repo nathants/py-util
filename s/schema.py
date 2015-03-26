@@ -187,9 +187,51 @@ def _update_functions(schema):
 
 
 def _updater(schema, value):
-    # TODO this is globally disableable
-    schema = _update_functions(schema) # super expensive debuggin option
-    return lambda x: _prettify(x + '\nobj:\n{}\nschema:\n{}'.format(_formdent(value), _formdent(schema)))
+    return lambda x: _prettify(x + _helpful_message(schema, value))
+
+
+def _helpful_message(schema, value):
+    for fn in [x for x in s.seqs.flatten(schema) if isinstance(x, (types.FunctionType, types.LambdaType))]:
+        try:
+            if six.PY2:
+                filename, linenum = fn.func_code.co_filename, fn.func_code.co_firstlineno
+            else:
+                filename, linenum = fn.__code__.co_filename, fn.__code__.co_firstlineno
+            with open(filename) as f:
+                lines = f.read().splitlines()
+            start = end = None
+            for i in reversed(range(linenum)):
+                if not lines[i].strip() or 'def ' in lines[i] or 'class ' in lines[i]:
+                    break
+                elif ' = ' in lines[i]:
+                    start = i
+                    break
+            if start is None:
+                if six.PY3:
+                    filename, linenum = fn.__code__.co_filename, fn.__code__.co_firstlineno
+                else:
+                    filename, linenum = fn.func_code.co_filename, fn.func_code.co_firstlineno
+                schema = 'function:{filename}:{linenum}'.format(**locals())
+            else:
+                if any(x in lines[start] for x in ['{', '(', '[']):
+                    for i in range(linenum, len(lines) + 1):
+                        text = '\n'.join(lines[start:i])
+                        if all(text.count(x) == text.count(y) for x, y in [('{', '}'), ('[', ']'), ('(', ')')]):
+                            end = i
+                            break
+                if end is not None:
+                    schema = '\n'.join(lines[start:end])
+                    size = len(lines[start]) - len(lines[start].lstrip())
+                    schema = s.strings.unindent(schema, size)
+            break
+        except:
+            continue
+    else:
+        schema = pprint.pformat(schema, width=1)
+    return '\n\nobj:\n{}\nschema:\n{}'.format(
+        s.strings.indent(pprint.pformat(value, width=1), 2),
+        s.strings.indent(schema, 2),
+    )
 
 
 class Error(AssertionError):
