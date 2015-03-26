@@ -69,7 +69,7 @@ def _get_log_or_print(should_log):
         if should_log:
             # TODO this is dumb
             import s.log
-            if hasattr(s.log.setup, ''):
+            if hasattr(s.log.setup, '_cached_value'):
                 logging.info(x)
             else:
                 print(x)
