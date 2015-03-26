@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function
+import logging
 import s.thread
 import mock
 import functools
@@ -49,10 +50,15 @@ def _try_decode(text):
 
 
 def _new_handler_method(fn):
+    name = s.func.name(fn)
     @tornado.gen.coroutine
     def method(self, **args):
         request = _request_to_dict(self.request, args)
-        response = yield fn(request)
+        try:
+            response = yield fn(request)
+        except:
+            logging.exception('uncaught exception in: %s', name)
+            response = {'code': 500}
         _set_handler_response(response, self)
     method.fn = fn
     return method
