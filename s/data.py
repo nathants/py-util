@@ -91,7 +91,6 @@ class _ImmutableList(list):
         locals()[k] = _raise_error
 
 
-
 class _ImmutableSet(frozenset):
     pass
 

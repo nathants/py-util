@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-import uuid
 import sys
 import logging
 import six
@@ -7,7 +6,6 @@ import yaml
 import subprocess
 import contextlib
 import os
-import s.cached
 import s.colors
 import s.hacks
 import s.proc
@@ -20,7 +18,6 @@ import types
 # TODO use https://pypi.python.org/pypi/subprocess32/ on python2.7
 
 
-@s.cached.func
 def _sudo():
     try:
         run('sudo whoami')
@@ -72,7 +69,7 @@ def _get_log_or_print(should_log):
         if should_log:
             # TODO this is dumb
             import s.log
-            if s.cached.is_cached(s.log.setup):
+            if hasattr(s.log.setup, ''):
                 logging.info(x)
             else:
                 print(x)

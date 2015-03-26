@@ -1,19 +1,14 @@
 from __future__ import print_function, absolute_import
 import tornado.ioloop
 import msgpack
-import six
 import tornado.gen
-import time
 import pytest
-import json
 import s.log
 import s.web
 import s.schema
 import s.trace
-import logging
 import mock
 import contextlib
-import requests
 
 
 @contextlib.contextmanager

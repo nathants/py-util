@@ -55,8 +55,8 @@ def _pretty_objects(x):
 
 def _trace_path():
     when = time.time()
-    entry_point = '.'.join(sys.argv[0].split('.')[0].split('/')[-2:]).replace('/', '.')
-    args = '.'.join(x for x in sys.argv[1:] if not x.startswith('-')).replace('/', '.')
+    entry_point = '.'.join(sys.argv[0].split('.')[0].split('/')[-2:]).replace('/', '.')[:200]
+    args = '.'.join(x for x in sys.argv[1:] if not x.startswith('-')).replace('/', '.')[:200]
     args = ':' + args if args else ''
     return '/tmp/{entry_point}{args}:{when}:trace.log'.format(**locals())
 
@@ -71,6 +71,8 @@ def _trace(val):
 
 
 def _trace_in(uuid, yield_uuid, name, fntype, *a, **kw):
+    if not disable_stats and fntype in ['fn', 'gen']:
+        stats.incr('running.' + name)
     if not disable_log:
         _trace({'uuid': uuid,
                 'yield_uuid': yield_uuid,
@@ -84,6 +86,8 @@ def _trace_in(uuid, yield_uuid, name, fntype, *a, **kw):
 
 def _trace_out(uuid, yield_uuid, name, fntype, val=None, traceback=None):
     if not disable_stats:
+        if fntype in ['fn', 'gen']:
+            stats.decr('running.' + name)
         if fntype in ['fn', 'gen']:
             stats.incr(('failure.' if traceback else 'success.') + name)
     if not disable_log:

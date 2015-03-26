@@ -13,6 +13,7 @@ _attr = '_cached_value'
 
 
 def _disk_cache_path(fn):
+    # TODO circular import
     import s.shell
     file_name = s.hacks.get_caller(3)['filename']
     module_name = s.shell.module_name(file_name)
@@ -22,6 +23,7 @@ def _disk_cache_path(fn):
 
 
 def disk(fn):
+    # TODO circular import
     import s.shell
     path = _disk_cache_path(fn)
     @functools.wraps(fn)
