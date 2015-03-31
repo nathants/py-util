@@ -8,6 +8,5 @@ setuptools.setup(
     author='nathan todd-stone',
     author_email='me@nathants.com',
     url='http://github.com/nathants/s',
-    install_requires=open('requirements.txt').readlines(),
     packages=setuptools.find_packages(),
 )

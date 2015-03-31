@@ -2,7 +2,6 @@ from __future__ import absolute_import, print_function
 import os
 import inspect
 import sys
-import six
 
 
 def get_caller(offset=0):
@@ -20,7 +19,7 @@ def stringify(x):
     """
     py3k compat, for when you never ever want bytes.
     """
-    if six.PY2:
+    if sys.version < '3':
         return x
     if isinstance(x, bytes):
         return x.decode('utf-8')
