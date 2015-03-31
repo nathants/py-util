@@ -1,49 +1,9 @@
-from __future__ import absolute_import
-import s.exceptions
+from __future__ import absolute_import, print_function
 import types
-import binascii
+import s.types
 
 
 disabled = False
-
-
-json_types = (list,
-              str,
-              dict,
-              int,
-              float,
-              tuple,
-              bool,
-              type(None))
-with s.exceptions.ignore():
-    json_types += (unicode,) # noqa
-
-
-def jsonify(value):
-    if isinstance(value, dict):
-        return {jsonify(k): jsonify(v) for k, v in value.items()}
-    elif isinstance(value, (list, tuple, set)):
-        return [jsonify(x) for x in value]
-    elif isinstance(value, bytes):
-        try:
-            return value.decode('utf-8')
-        except UnicodeDecodeError:
-            return b2a(value)
-    elif isinstance(value, json_types):
-        return value
-    else:
-        value = str(value)
-        if ' at 0x' in value:
-            value = value.split()[0].split('.')[-1]
-        return '<{}>'.format(value.strip('<>'))
-
-
-def a2b(x):
-    return binascii.a2b_base64(x.split('<b2a_base64=')[-1][:-1])
-
-
-def b2a(x):
-    return '<b2a_base64={}>'.format(binascii.b2a_base64(x).decode('utf-8').strip())
 
 
 _banned_attrs_dict = [
@@ -94,12 +54,6 @@ class _ImmutableList(list):
 class _ImmutableSet(frozenset):
     pass
 
-
-string_types = (str,)
-with s.exceptions.ignore():
-    string_types += (unicode,) # noqa
-
-
 immutable_types = (
     bytes,
     int,
@@ -112,26 +66,11 @@ immutable_types = (
     _ImmutableTuple,
     _ImmutableList,
     _ImmutableSet,
-) + string_types
-with s.exceptions.ignore():
-    import bson.objectid
-    immutable_types += (bson.objectid.ObjectId,)
-
-listy_types = (list,
-               tuple,
-               types.GeneratorType)
-
-
-with s.exceptions.ignore():
-    listy_types += (type({}.items()),
-                    type({}.keys()),
-                    type({}.values()))
+) + s.types.string_types
 
 
 def freeze(value):
-    if disabled:
-        return value
-    if isinstance(value, immutable_types):
+    if disabled or isinstance(value, immutable_types):
         return value
     elif hasattr(value, 'add_done_callback'):
         future = type(value)()
@@ -148,19 +87,21 @@ def freeze(value):
         return _ImmutableTuple(freeze(x) for x in value)
     elif isinstance(value, list):
         return _ImmutableList(freeze(x) for x in value)
-    elif isinstance(value, set):
+    elif isinstance(value, (set, frozenset)):
         return _ImmutableSet(freeze(x) for x in value)
-    raise ValueError('not immutalizable: {} <{}>'.format(value, type(value)))
+    raise ValueError('not freezable: {} <{}>'.format(value, type(value)))
 
 
 def thaw(value):
-    if isinstance(value, dict):
+    if disabled:
+        return value
+    elif isinstance(value, dict):
         return {thaw(k): thaw(v) for k, v in value.items()}
     elif isinstance(value, tuple):
         return tuple(thaw(x) for x in value)
     elif isinstance(value, list):
         return [thaw(x) for x in value]
-    elif isinstance(value, set):
+    elif isinstance(value, (set, frozenset)):
         return {thaw(x) for x in value}
     else:
         return value

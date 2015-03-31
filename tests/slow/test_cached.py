@@ -1,6 +1,6 @@
 from __future__ import print_function, absolute_import
 import pytest
-import s
+import s.cached
 
 
 def test_methods_are_illegal():

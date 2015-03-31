@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import subprocess
 import inspect
 import collections
 import functools
@@ -13,18 +14,13 @@ _attr = '_cached_value'
 
 
 def _disk_cache_path(fn):
-    # TODO circular import
-    import s.shell
-    file_name = s.hacks.get_caller(3)['filename']
-    module_name = s.shell.module_name(file_name)
-    sha = s.shell.run('shasum', file_name, '| head -c7')
-    func_name = fn.__name__
-    return '/tmp/cache.{module_name}.{func_name}.{sha}'.format(**locals())
+    file_name = s.hacks.get_caller(3)['filename'].strip()
+    sha = s.hacks.stringify(subprocess.check_output(['shasum', file_name])[:7])
+    name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
+    return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
 
 def disk(fn):
-    # TODO circular import
-    import s.shell
     path = _disk_cache_path(fn)
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
@@ -34,7 +30,7 @@ def disk(fn):
                 json.dump(fn(*a, **kw), f)
         with open(path) as f:
             return json.load(f)
-    cached_fn.clear_cache = lambda: s.shell.run('rm -f', path)
+    cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
     with s.exceptions.ignore(AttributeError):
         cached_fn = functools.wraps(callable)(cached_fn)
     return cached_fn

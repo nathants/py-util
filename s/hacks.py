@@ -1,25 +1,25 @@
 from __future__ import absolute_import, print_function
+import os
 import inspect
 import sys
 import six
-import collections
 
 
 def get_caller(offset=0):
+    """
+    lookup the caller of the current function from the stack,
+    with optional offset to climb higher up the stack.
+    """
     _, filename, linenum, funcname, _, _ = inspect.stack()[offset]
     return {'filename': filename,
             'linenum': linenum,
             'funcname': funcname}
 
 
-def string_type():
-    try:
-        return basestring # noqa
-    except:
-        return str
-
-
 def stringify(x):
+    """
+    py3k compat, for when you never ever want bytes.
+    """
     if six.PY2:
         return x
     if isinstance(x, bytes):
@@ -27,6 +27,17 @@ def stringify(x):
 
 
 class ModuleRedirector(object):
+    """
+    intercept attribute lookup on a module and call a function instead.
+    can optionally be triggered on all lookups, not just missing attributes.
+
+    # simple lookup
+    >>> # ModuleRedirector(__name__, lambda x: {'you tried to access': x})
+
+    # rediculous import magic. so you can import blah, and access blah.foo, blah.bar, etc
+    >>> # ModuleRedirector(__name__, lambda x: __import__('{}.{}'.format(__name__, x), fromlist='*'))
+
+    """
     def __init__(self, name, decoratee, redirect_everything=False):
         self._orig_module_ = sys.modules[name]
         sys.modules[name] = self
@@ -43,25 +54,24 @@ class ModuleRedirector(object):
 
 
 def decorate(val, _name_, decorator):
-    assert isinstance(val, dict)
-    assert isinstance(_name_, string_type())
-    assert callable(decorator)
+    """
+    decorate all functions in a module
+    >>> # decorate(locals(), __name__, lambda x: x)
+    """
     for k, v in list(val.items()):
         if callable(v) and v.__module__ == _name_:
-            decoratee = decorator(v)
-            val[k] = decoratee
+            val[k] = decorator(v)
 
 
-def pformat_prep(val):
-    import s.data
-    if isinstance(val, tuple) and hasattr(val, '_fields'):
-        return ['namedtuple'] + [{k: v} for k, v in zip(val._fields, val)]
-    elif isinstance(val, collections.Counter):
-        return ['counter'] + [{k: v} for k, v in sorted(val.items(), key=lambda x: x[1], reverse=True)]
-    elif isinstance(val, dict):
-        return {k: pformat_prep(v) for k, v in val.items()}
-    elif isinstance(val, s.data._listy_types):
-        return [pformat_prep(x) for x in val]
-    elif isinstance(val, set):
-        return {pformat_prep(x) for x in val}
-    return val
+def override(flag):
+    """
+    special flags that get popped out of sys.argv, so they can be used upstream from argparse.
+    >>> # do_stuff = override('--do-stuff')
+    $ python myscript.py --do-stuff
+    """
+    var = '_override_{}'.format(flag.strip('-'))
+    if var in os.environ or flag in sys.argv:
+        if flag in sys.argv:
+            sys.argv.remove(flag)
+        os.environ[var] = ''
+        return True

@@ -25,10 +25,6 @@ def _divide(x, y):
         return None
 
 
-def test_name():
-    assert s.func.name(test_name) == 'test_s.fast.func.test_name'
-
-
 def test_pipe_first():
     assert s.func.pipe(1, [_subtract, 3], _plus_one) == -1
 
@@ -45,5 +41,9 @@ def test_pipe_some_last():
     assert s.func.pipe_some_last(0, [_divide, 1]) is None
 
 
+def test_name():
+    assert s.func.name(test_name) == 'fast.test_func.test_name'
+
+
 def test_module_name():
-    assert s.func.module_name(test_module_name) == 'test_s.fast.func'
+    assert s.func.module_name(test_module_name) == 'fast.test_func'

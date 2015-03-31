@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 import s.func
 import s.data
-import json
 import pytest
 import mock
 import tornado.concurrent
@@ -94,12 +93,3 @@ def test_equality():
     assert s.data.freeze([1, 2]) == [1, 2]
     assert s.data.freeze((1, 2)) == (1, 2)
     assert not s.data.freeze([1, 2]) == (x for x in range(1, 3))
-
-
-def test_prod_failure_binary_that_cant_decode_utf8():
-    x = b'\x00d\x0f\x9c\r'
-    assert x == s.func.pipe(x,
-                            s.data.jsonify,
-                            json.dumps,
-                            json.loads,
-                            s.data.a2b)

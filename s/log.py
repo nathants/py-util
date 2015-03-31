@@ -3,7 +3,6 @@ import logging
 import logging.handlers
 import s.func
 import s.cached
-import s.shell
 import s.strings
 import s.exceptions
 import s.hacks
@@ -17,36 +16,20 @@ _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(me
 _short_format = '[%(levelname)s] %(message)s'
 
 
-for _name in ['debug', 'info', 'warn', 'warning', 'error', 'exception']:
-    locals()[_name] = getattr(logging, _name)
-
-
-def _make_handler(handler, level, format):
-    return handler
-
-
 def _get_format(format, short):
     return (format if format
-            else _short_format if s.shell.override('--short') or short
+            else _short_format if s.hacks.override('--short') or short
             else _standard_format)
 
 
-def _stream_handler(level, format):
-    handler = logging.StreamHandler()
-    handler.setLevel(level)
-    handler.setFormatter(_Formatter(format))
-    return handler
-
-
 @s.cached.func
-def setup(name=None, level='info', short=False, format=None, debug=False):
-    # TODO how to make logging config immutable? no one should be able to manipulate logging after this call
+def setup(name=None, level='info', short=False, format=None):
     level = ('debug' if s.shell.override('--debug') else level).upper()
-    if debug:
-        format = '%(message)s'
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
-    handler = _stream_handler(level, _get_format(format, short))
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(_Formatter(_get_format(format, short)))
     logging.root.addHandler(handler)
     logging.root.setLevel(level)
 

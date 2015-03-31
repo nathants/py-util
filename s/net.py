@@ -4,7 +4,7 @@ import socket
 import re
 
 
-def port_free(port):
+def is_port_free(port):
     return ':{} '.format(port) not in s.shell.run('netstat -pna')
 
 
