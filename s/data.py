@@ -1,9 +1,35 @@
 from __future__ import absolute_import, print_function
 import types
-import s.types
 
 
 disabled = False
+
+
+json_types = (
+    list,
+    str,
+    dict,
+    int,
+    float,
+    tuple,
+    bool,
+    type(None),
+)
+
+
+try:
+    json_types += (unicode,) # noqa
+except:
+    pass
+
+
+string_types = (str,)
+
+
+try:
+    string_types += (unicode,) # noqa
+except:
+    pass
 
 
 _banned_attrs_dict = [
@@ -66,7 +92,7 @@ immutable_types = (
     _ImmutableTuple,
     _ImmutableList,
     _ImmutableSet,
-) + s.types.string_types
+) + string_types
 
 
 def freeze(value):

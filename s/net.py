@@ -1,11 +1,14 @@
 from __future__ import print_function, absolute_import
-import s.shell
-import socket
 import re
+import socket
+import subprocess
+
+import s.hacks
 
 
 def is_port_free(port):
-    return ':{} '.format(port) not in s.shell.run('netstat -pna')
+    val = subprocess.check_output(['netstat', '-pna'])
+    return ':{} '.format(port) not in s.hacks.stringify(val)
 
 
 def free_port():
@@ -17,5 +20,5 @@ def free_port():
 
 
 def eth0_address():
-    text = s.shell.run('ifconfig eth0 | grep "inet addr"')
+    text = subprocess.check_output('ifconfig eth0 | grep "inet addr"', shell=True)
     return re.search('inet addr:([\d\.]+) ', text).group(1)

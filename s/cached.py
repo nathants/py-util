@@ -14,7 +14,10 @@ _attr = '_cached_value'
 
 
 def _disk_cache_path(fn):
-    file_name = s.hacks.get_caller(3)['filename'].strip()
+    try:
+        file_name = s.hacks.get_caller(3)['filename'].strip()
+    except IndexError:
+        file_name = s.hacks.get_caller(2)['filename'].strip()
     sha = s.hacks.stringify(subprocess.check_output(['shasum', file_name])[:7])
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
