@@ -95,7 +95,7 @@ immutable_types = (
 ) + string_types
 
 
-def freeze(value):
+def freeze(value, data_only=False):
     if disabled or isinstance(value, immutable_types):
         return value
     elif hasattr(value, 'add_done_callback'):
@@ -103,19 +103,23 @@ def freeze(value):
         @value.add_done_callback
         def fn(f):
             try:
-                future.set_result(freeze(f.result()))
+                future.set_result(freeze(f.result(), data_only))
             except Exception as e:
                 future.set_exception(e)
         return future
     elif isinstance(value, dict):
-        return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
+        return _ImmutableDict({freeze(k, data_only): freeze(v, data_only)
+                               for k, v in value.items()})
     elif isinstance(value, tuple):
-        return _ImmutableTuple(freeze(x) for x in value)
+        return _ImmutableTuple(freeze(x, data_only) for x in value)
     elif isinstance(value, list):
-        return _ImmutableList(freeze(x) for x in value)
+        return _ImmutableList(freeze(x, data_only) for x in value)
     elif isinstance(value, (set, frozenset)):
-        return _ImmutableSet(freeze(x) for x in value)
-    raise ValueError('not freezable: {} <{}>'.format(value, type(value)))
+        return _ImmutableSet(freeze(x, data_only) for x in value)
+    elif data_only:
+        return value
+    else:
+        raise ValueError('not freezable: {} <{}>'.format(value, type(value)))
 
 
 def thaw(value):
