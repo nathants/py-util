@@ -6,7 +6,6 @@ import s.cached
 import s.strings
 import s.exceptions
 import s.hacks
-import s.bin.debug
 import contextlib
 
 
