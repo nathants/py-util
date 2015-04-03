@@ -31,6 +31,7 @@ def setup(name=None, level='info', short=False, format=None):
     handler.setFormatter(_Formatter(_get_format(format, short)))
     logging.root.addHandler(handler)
     logging.root.setLevel(level)
+    logging.root._ready = True
 
 
 def _better_pathname(record):
