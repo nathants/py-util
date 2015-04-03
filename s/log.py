@@ -23,7 +23,7 @@ def _get_format(format, short):
 
 @s.cached.func
 def setup(name=None, level='info', short=False, format=None):
-    level = ('debug' if s.shell.override('--debug') else level).upper()
+    level = ('debug' if s.hacks.override('--debug') else level).upper()
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
     handler = logging.StreamHandler()
