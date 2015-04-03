@@ -19,7 +19,7 @@ def stringify(x):
     """
     py3k compat, for when you never ever want bytes.
     """
-    if sys.version < '3':
+    if sys.version_info.major == 2:
         return x
     if isinstance(x, bytes):
         return x.decode('utf-8')
