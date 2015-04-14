@@ -7,6 +7,11 @@ import s.seqs
 # TODO should these be freezing by default? or even at all?
 
 
+def update_in(x, ks, fn, *a, **kw):
+    val = fn(get(x, ks), *a, **kw)
+    return set(x, ks, val)
+
+
 def new(scope, *names):
     return {name: scope[name]
             for name in names}

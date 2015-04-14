@@ -1,5 +1,11 @@
 import s.dicts
 import pytest
+import operator
+
+
+def test_update_in():
+    assert s.dicts.update_in({'a': {'b': 'c'}}, ['a', 'b'], operator.add, '!') == {'a': {'b': 'c!'}}
+    assert s.dicts.update_in({'a': {'b': 'c'}}, 'a', str) == {'a': "{'b': 'c'}"}
 
 
 def test_get():
