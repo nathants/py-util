@@ -30,7 +30,7 @@ def set(x, ks, v):
     val = {ks[-1]: v}
     for k in reversed(ks[:-1]):
         val = {k: val}
-    return merge(x, val)
+    return merge(drop(x, ks), val)
 
 
 def merge(a, b, concat=False, freeze=True):

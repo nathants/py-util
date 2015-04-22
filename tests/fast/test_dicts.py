@@ -16,6 +16,10 @@ def test_set():
     assert s.dicts.set({}, ['a', 'b'], 'c') == {'a': {'b': 'c'}}
 
 
+def test_set_subset():
+    assert s.dicts.set({'a': {'b': 'c', 'd': 'e'}}, 'a', {'b': 'c'}) == {'a': {'b': 'c'}}
+
+
 def test_merge_freezes():
     assert s.dicts.merge({'a': 'b'}, {'a': ['c', 'd']}) == {'a': ['c', 'd']}
 
