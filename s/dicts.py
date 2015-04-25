@@ -4,9 +4,6 @@ import s.data
 import s.seqs
 
 
-# TODO should these be freezing by default? or even at all?
-
-
 def update_in(x, ks, fn, *a, **kw):
     val = fn(get(x, ks), *a, **kw)
     return set(x, ks, val)
