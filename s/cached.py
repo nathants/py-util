@@ -46,7 +46,7 @@ def is_cached(fn):
 def func(fn):
     @functools.wraps(fn)
     def cached_fn(*a, **kw):
-        assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
+        assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.func does not work with methods'
         if not hasattr(cached_fn, _attr):
             cached_fn.clear_cache = lambda: hasattr(cached_fn, _attr) and delattr(cached_fn, _attr)
             setattr(cached_fn, _attr, fn(*a, **kw))
