@@ -2,12 +2,9 @@ import itertools
 import six
 
 
-def groupby(val, key, realize=True):
+def groupby(val, key):
     val = sorted(val, key=key)
-    if realize:
-        return [(k, list(v)) for k, v in itertools.groupby(val, key=key)]
-    else:
-        return itertools.groupby(val, key=key)
+    return [(k, list(v)) for k, v in itertools.groupby(val, key=key)]
 
 
 def nwise(val, n):
