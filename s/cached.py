@@ -23,20 +23,25 @@ def _disk_cache_path(fn):
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
 
-def disk(fn):
-    path = _disk_cache_path(fn)
-    @functools.wraps(fn)
-    def cached_fn(*a, **kw):
-        assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
-        if not os.path.isfile(path):
-            with open(path, 'w') as f:
-                json.dump(fn(*a, **kw), f)
-        with open(path) as f:
-            return json.load(f)
-    cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
-    with s.exceptions.ignore(AttributeError):
-        cached_fn = functools.wraps(callable)(cached_fn)
-    return cached_fn
+@s.func.optionally_parameterized_decorator
+def disk(invalidate_on_source_hash=True):
+    def decorator(fn):
+        path = _disk_cache_path(fn)
+        if not invalidate_on_source_hash:
+            path = '.'.join(path.split('.')[:-1])
+        @functools.wraps(fn)
+        def cached_fn(*a, **kw):
+            assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
+            if not os.path.isfile(path):
+                with open(path, 'w') as f:
+                    json.dump(fn(*a, **kw), f)
+            with open(path) as f:
+                return json.load(f)
+        cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
+        with s.exceptions.ignore(AttributeError):
+            cached_fn = functools.wraps(callable)(cached_fn)
+        return cached_fn
+    return decorator
 
 
 def is_cached(fn):
