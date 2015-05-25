@@ -5,13 +5,18 @@ import types
 
 @contextlib.contextmanager
 def ignore(*exceptions):
-    exceptions = exceptions or Exception
-    try:
-        yield
-    except exceptions:
-        pass
-    except:
-        raise
+    if exceptions:
+        try:
+            yield
+        except exceptions:
+            pass
+        except:
+            raise
+    else:
+        try:
+            yield
+        except:
+            pass
 
 
 @contextlib.contextmanager

@@ -17,9 +17,9 @@ def timer():
 
 
 @contextlib.contextmanager
-def timeout(seconds=1):
+def timeout(seconds=1, message='timeout'):
     def fn(*_):
-        raise Exception('timeout after %s seconds' % seconds)
+        raise Exception('%s after %s seconds' % (message, seconds))
     signal.signal(signal.SIGALRM, fn)
     signal.alarm(seconds)
     try:
