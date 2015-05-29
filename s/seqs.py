@@ -1,13 +1,21 @@
 from __future__ import print_function, absolute_import
 import itertools
+import collections
+
+
+def _type(x):
+    if isinstance(x, collections.defaultdict):
+        return dict
+    else:
+        return type(x)
 
 
 def walk(fn, seq):
     seq = fn(seq)
     if isinstance(seq, (list, tuple, set)):
-        return type(seq)(walk(fn, x) for x in seq)
+        return _type(seq)(walk(fn, x) for x in seq)
     elif isinstance(seq, dict):
-        return type(seq)(walk(fn, x) for x in seq.items())
+        return _type(seq)(walk(fn, x) for x in seq.items())
     else:
         return seq
 
@@ -18,7 +26,7 @@ def concat(*seqs):
         if isinstance(seq, (list, tuple, set)):
             val += tuple(seq)
         else:
-            raise Exception('cannot concat: {} <{}>'.format(seq, type(seq).__name__))
+            raise Exception('cannot concat: {} <{}>'.format(seq, _type(seq).__name__))
     return val
 
 
