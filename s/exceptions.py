@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import logging
 import contextlib
 import types
 
@@ -34,4 +35,13 @@ def update(fn_or_str, *exceptions, **kw):
                     e.args = (fn_or_str(msg),) + e.args[1:]
                 else:
                     e.args = (msg + '\n' + fn_or_str,) + e.args[1:]
+        raise
+
+
+@contextlib.contextmanager
+def log():
+    try:
+        yield
+    except:
+        logging.exception('')
         raise
