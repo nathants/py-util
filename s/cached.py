@@ -38,8 +38,6 @@ def disk(invalidate_on_source_hash=True):
             with open(path) as f:
                 return json.load(f)
         cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
-        with s.exceptions.ignore(AttributeError):
-            cached_fn = functools.wraps(callable)(cached_fn)
         return cached_fn
     return decorator
 
@@ -57,8 +55,6 @@ def func(fn):
             setattr(cached_fn, _attr, fn(*a, **kw))
         return getattr(cached_fn, _attr)
     cached_fn.clear_cache = lambda: None
-    with s.exceptions.ignore(AttributeError):
-        cached_fn = functools.wraps(callable)(cached_fn)
     return cached_fn
 
 
