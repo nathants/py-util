@@ -1,5 +1,4 @@
 import itertools
-import six
 
 
 def groupby(val, key):
@@ -8,7 +7,7 @@ def groupby(val, key):
 
 
 def nwise(val, n):
-    return six.moves.zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
+    return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
 
 def chunk(val, n, drop_extra=False):

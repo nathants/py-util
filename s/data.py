@@ -6,33 +6,6 @@ import s.async
 disabled = False
 
 
-json_types = (
-    list,
-    str,
-    dict,
-    int,
-    float,
-    tuple,
-    bool,
-    type(None),
-)
-
-
-try:
-    json_types += (unicode,) # noqa
-except:
-    pass
-
-
-string_types = (str,)
-
-
-try:
-    string_types += (unicode,) # noqa
-except:
-    pass
-
-
 _banned_attrs_dict = [
     '__setitem__',
     '__setattr__',
@@ -81,8 +54,10 @@ class _ImmutableList(list):
 class _ImmutableSet(frozenset):
     pass
 
+
 immutable_types = (
     bytes,
+    str,
     int,
     float,
     type(None),
@@ -93,7 +68,7 @@ immutable_types = (
     _ImmutableTuple,
     _ImmutableList,
     _ImmutableSet,
-) + string_types
+)
 
 
 def freeze(value):
@@ -109,8 +84,7 @@ def freeze(value):
                 future.set_exception(e)
         return future
     elif isinstance(value, dict):
-        return _ImmutableDict({freeze(k): freeze(v)
-                               for k, v in value.items()})
+        return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
     elif isinstance(value, tuple):
         return _ImmutableTuple(freeze(x) for x in value)
     elif isinstance(value, list):
