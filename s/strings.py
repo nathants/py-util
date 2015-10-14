@@ -40,3 +40,10 @@ def abbrev(text, max_len):
     if len(text) > max_len:
         text = text[:max_len] + ' ...'
     return text
+
+
+def align(text, sep=None):
+    rows = list(map(lambda x: x.split(sep), text.splitlines()))
+    sizes = [max(map(len, row)) for row in zip(*rows)]
+    rows = [[col.ljust(size) for size, col in zip(sizes, cols)] for cols in rows]
+    return '\n'.join(map(' '.join, rows))

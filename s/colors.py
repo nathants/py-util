@@ -1,8 +1,10 @@
 import functools
 
 
-_pairs = zip(['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-             range(31, 38))
+_colors =['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+
+
+_pairs = zip(_colors, range(31, 38))
 
 
 def _make_color(code, text):

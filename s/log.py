@@ -1,4 +1,5 @@
 import logging
+import sys
 import logging.handlers
 import s.func
 import s.cached
@@ -21,11 +22,11 @@ def _get_format(format, short):
 
 
 @s.cached.func
-def setup(name=None, level='info', short=False, format=None):
+def setup(name=None, level='info', short=False, format=None, stdout=False):
     level = ('debug' if s.hacks.override('--debug') else level).upper()
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler(sys.stdout if stdout else sys.stderr)
     handler.setLevel(level)
     handler.setFormatter(_Formatter(_get_format(format, short)))
     logging.root.addHandler(handler)
