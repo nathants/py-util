@@ -1,11 +1,30 @@
-import s.cached
+import util.cached
 import pytest
 import collections
 
 
 def test_methods_are_illegal():
     class Foo(object):
-        @s.cached.func
+        @util.cached.disk
+        def fn():
+            pass
+    with pytest.raises(AssertionError):
+        Foo().fn()
+
+
+def test_disk():
+    state = {'val': 0}
+    @util.cached.disk
+    def fn():
+        state['val'] += 1
+    fn.clear_cache()
+    fn(), fn(), fn()
+    assert state['val'] == 1
+
+
+def test_methods_are_illegal():
+    class Foo(object):
+        @util.cached.func
         def fn(self):
             pass
     with pytest.raises(AssertionError):
@@ -14,7 +33,7 @@ def test_methods_are_illegal():
 
 def test_func():
     state = {'val': 0}
-    @s.cached.func
+    @util.cached.func
     def fn():
         state['val'] += 1
     fn(), fn(), fn()
@@ -23,17 +42,17 @@ def test_func():
 
 def test_is_cached():
     state = {'val': 0}
-    @s.cached.func
+    @util.cached.func
     def fn():
         state['val'] += 1
-    assert not s.cached.is_cached(fn)
+    assert not util.cached.is_cached(fn)
     fn()
-    assert s.cached.is_cached(fn)
+    assert util.cached.is_cached(fn)
 
 
 def test_clear_func():
     state = {'val': 0}
-    @s.cached.func
+    @util.cached.func
     def fn():
         state['val'] += 1
     fn(), fn(), fn()
@@ -45,7 +64,7 @@ def test_clear_func():
 
 def test_memoize():
     state = collections.Counter()
-    @s.cached.memoize(2)
+    @util.cached.memoize(2)
     def fn(arg):
         state[arg] += 1
     fn('a'), fn('a'), fn('b'), fn('b')
@@ -54,7 +73,7 @@ def test_memoize():
 
 def test_without_optional_args_memoize():
     state = collections.Counter()
-    @s.cached.memoize
+    @util.cached.memoize
     def fn(arg):
         state[arg] += 1
     fn('a'), fn('a'), fn('b'), fn('b')
@@ -63,13 +82,13 @@ def test_without_optional_args_memoize():
 
 def test_lru_is_correct_memoize():
     state = collections.Counter()
-    @s.cached.memoize(2)
+    @util.cached.memoize(2)
     def fn(arg):
         state[arg] += 1
         return arg
     fn('a')
-    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), frozenset()), 'a')]
+    assert list(getattr(fn, util.cached._attr).items()) == [((('a',), frozenset()), 'a')]
     fn('b'),
-    assert list(getattr(fn, s.cached._attr).items()) == [((('a',), frozenset()), 'a'), ((('b',), frozenset()), 'b')]
+    assert list(getattr(fn, util.cached._attr).items()) == [((('a',), frozenset()), 'a'), ((('b',), frozenset()), 'b')]
     fn('c')
-    assert list(getattr(fn, s.cached._attr).items()) == [((('b',), frozenset()), 'b'), ((('c',), frozenset()), 'c')]
+    assert list(getattr(fn, util.cached._attr).items()) == [((('b',), frozenset()), 'b'), ((('c',), frozenset()), 'c')]

@@ -2,9 +2,9 @@ import subprocess
 import inspect
 import collections
 import functools
-import s.exceptions
-import s.hacks
-import s.func
+import util.exceptions
+import util.hacks
+import util.func
 import json
 import os
 
@@ -14,15 +14,15 @@ _attr = '_cached_value'
 
 def _disk_cache_path(fn):
     try:
-        file_name = s.hacks.get_caller(3)['filename'].strip()
+        file_name = util.hacks.get_caller(3)['filename'].strip()
     except IndexError:
-        file_name = s.hacks.get_caller(2)['filename'].strip()
-    sha = s.hacks.stringify(subprocess.check_output(['shasum', file_name])[:7])
+        file_name = util.hacks.get_caller(2)['filename'].strip()
+    sha = util.hacks.stringify(subprocess.check_output(['shasum', file_name])[:7])
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
 
-@s.func.optionally_parameterized_decorator
+@util.func.optionally_parameterized_decorator
 def disk(invalidate_on_source_hash=True):
     def decorator(fn):
         path = _disk_cache_path(fn)
@@ -57,7 +57,7 @@ def func(fn):
     return cached_fn
 
 
-@s.func.optionally_parameterized_decorator
+@util.func.optionally_parameterized_decorator
 def memoize(max_keys=10000):
     def decorator(fn):
         @functools.wraps(fn)

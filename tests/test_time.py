@@ -1,8 +1,8 @@
-import s.time
+import util.time
 import time
 
 
 def test_timer():
-    with s.time.timer() as t:
+    with util.time.timer() as t:
         time.sleep(1e-6)
     assert t['seconds'] > 0

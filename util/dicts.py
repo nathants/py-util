@@ -1,6 +1,6 @@
 import collections
-import s.data
-import s.seqs
+import util.data
+import util.seqs
 
 
 def update_in(x, ks, fn, *a, **kw):
@@ -87,7 +87,7 @@ def map(mapping_fn, obj):
         assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
         return val
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
-    return s.seqs.walk(fn, obj)
+    return util.seqs.walk(fn, obj)
 
 
 def tree():

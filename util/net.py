@@ -2,12 +2,12 @@ import re
 import socket
 import subprocess
 
-import s.hacks
+import util.hacks
 
 
 def is_port_free(port):
     val = subprocess.check_output(['netstat', '-pna'])
-    return ':{} '.format(port) not in s.hacks.stringify(val)
+    return ':{} '.format(port) not in util.hacks.stringify(val)
 
 
 def free_port():

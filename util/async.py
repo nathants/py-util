@@ -1,4 +1,4 @@
-import s.exceptions
+import util.exceptions
 import os
 import signal
 import functools
@@ -6,7 +6,7 @@ import logging
 
 
 def is_future(obj):
-    with s.exceptions.ignore(AttributeError):
+    with util.exceptions.ignore(AttributeError):
         object.__getattribute__(obj, 'add_done_callback')
         return True
 

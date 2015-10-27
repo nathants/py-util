@@ -1,5 +1,5 @@
 import types
-import s.async
+import util.async
 
 
 disabled = False
@@ -73,7 +73,7 @@ immutable_types = (
 def freeze(value):
     if disabled or isinstance(value, immutable_types):
         return value
-    elif s.async.is_future(value):
+    elif util.async.is_future(value):
         future = type(value)()
         @value.add_done_callback
         def fn(f):

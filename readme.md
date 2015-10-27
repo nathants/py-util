@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/nathants/s.svg?branch=master)](https://travis-ci.org/nathants/s)
+[![Build Status](https://travis-ci.org/nathants/py-util.svg?branch=master)](https://travis-ci.org/nathants/py-util)
 
-[s]hared code and utilities.
+utilities.
 
 readme coming soon, until then read the tests.

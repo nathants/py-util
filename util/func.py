@@ -1,6 +1,6 @@
 import functools
 import types
-import s.exceptions
+import util.exceptions
 import inspect
 import sys
 
@@ -50,11 +50,11 @@ def pipe_some(value, *args):
 
 
 def name(fn):
-    with s.exceptions.ignore():
+    with util.exceptions.ignore():
         return '{}.{}'.format(fn.__module__, fn.__name__)
-    with s.exceptions.ignore():
+    with util.exceptions.ignore():
         return fn.__name__
-    with s.exceptions.ignore():
+    with util.exceptions.ignore():
         return str(fn)
     return fn
 
@@ -73,7 +73,7 @@ def module_name(fn):
     if fn.__module__ != '__main__':
         return fn.__module__
     else:
-        with s.exceptions.ignore():
+        with util.exceptions.ignore():
             for x in range(20):
                 module = '.'.join(__file__.split('.')[0].split('/')[x:])
                 if module in sys.modules:
