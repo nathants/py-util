@@ -1,4 +1,5 @@
 import sys
+import base64
 import re
 import util.colors
 
@@ -51,3 +52,7 @@ def align(text, sep=None):
         return '\n'.join(map(' '.join, rows))
     else:
         return text
+
+
+def b64_encode(x):
+    return base64.b64encode(bytes(x, 'utf-8')).decode('utf-8')

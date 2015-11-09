@@ -64,6 +64,7 @@ def decorate(val, _name_, decorator):
 def override(flag):
     """
     special flags that get popped out of sys.argv, so they can be used upstream from argparse.
+    records state in an env variable so child processes don't get the override again.
     >>> # do_stuff = override('--do-stuff')
     $ python myscript.py --do-stuff
     """
