@@ -26,8 +26,8 @@ def test_merge_freezes():
 
 def test_merge():
     assert util.dicts.merge({'a': {'b': 'c'}},
-                         {'a': {'d': 'e'}}) == {'a': {'b': 'c',
-                                                'd': 'e'}}
+                            {'a': {'d': 'e'}}) == {'a': {'b': 'c',
+                                                   'd': 'e'}}
 
 
 def test_merge_dict_with_nondict():
@@ -48,17 +48,17 @@ def test_mutability_merge_b():
 
 def test_simple_merge():
     assert util.dicts.merge({'a': 'b'},
-                         {'a': 'c', 'b': 'd'}) == {'a': 'c', 'b': 'd'}
+                            {'a': 'c', 'b': 'd'}) == {'a': 'c', 'b': 'd'}
 
 
 def test_iterables_concatted():
     assert util.dicts.merge({'a': ('a', 'b')},
-                         {'a': ('c', 'd')}, concat=True) == {'a': ('a', 'b', 'c', 'd')}
+                            {'a': ('c', 'd')}, concat=True) == {'a': ('a', 'b', 'c', 'd')}
 
 
 def test_iterables_not_concatted():
     assert util.dicts.merge({'a': ('a', 'b')},
-                         {'a': ('c', 'd')}) == {'a': ('c', 'd')}
+                            {'a': ('c', 'd')}) == {'a': ('c', 'd')}
 
 
 def test__concatable():

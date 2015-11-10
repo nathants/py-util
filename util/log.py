@@ -1,5 +1,4 @@
 import logging
-import sys
 import logging.handlers
 import util.func
 import util.cached

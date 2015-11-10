@@ -2,7 +2,7 @@ import functools
 import sys
 
 
-_colors =['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+_colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
 
 
 _pairs = zip(_colors, range(31, 38))
