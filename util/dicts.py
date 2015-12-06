@@ -31,7 +31,7 @@ def set(x, ks, v):
 
 def merge(a, b, concat=False):
     return {k: _merge(k, a, b, concat)
-            for k in {x for x in list(a.keys()) + list(b.keys())}}
+            for k in {x for x in list(a) + list(b)}}
 
 
 def _merge(k, a, b, concat):
