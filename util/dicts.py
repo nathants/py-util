@@ -3,21 +3,22 @@ import util.data
 import util.seqs
 
 
-def update_in(x, ks, fn, *a, **kw):
-    val = fn(get(x, ks), *a, **kw)
-    return set(x, ks, val)
-
-
 def new(scope, *names):
     return {name: scope[name]
             for name in names}
 
 
-def get(x, ks):
+def get(x, ks, **kw):
     ks = _ks(ks)
-    x = x[ks[0]]
+    if 'default' in kw:
+        x = x.get(ks[0], kw['default'])
+    else:
+        x = x[ks[0]]
     for k in ks[1:]:
-        x = x[k]
+        if 'default' in kw:
+            x = x.get(k, kw['default'])
+        else:
+            x = x[k]
     return x
 
 
@@ -26,7 +27,7 @@ def set(x, ks, v):
     val = {ks[-1]: v}
     for k in reversed(ks[:-1]):
         val = {k: val}
-    return merge(drop(x, ks), val)
+    return merge(drop_in(x, ks), val)
 
 
 def merge(a, b, concat=False):
@@ -50,6 +51,10 @@ def _merge(k, a, b, concat):
             return b[k]
 
 
+def update_in(x, ks, fn, *a, **kw):
+    return set(x, ks, fn(get(x, ks), *a, **kw))
+
+
 def take(x, ks, **kw):
     ks = _ks(ks)
     val = {k: x[k]
@@ -65,6 +70,15 @@ def drop(x, ks):
     return {k: v
             for k, v in x.items()
             if k not in ks}
+
+
+def drop_in(x, ks):
+    if len(ks) == 1:
+        return drop(x, ks)
+    elif get(x, ks[:-1], default=None):
+        return update_in(x, ks[:-1], lambda y: drop(y, ks[-1]))
+    else:
+        return x
 
 
 def _ks(ks):

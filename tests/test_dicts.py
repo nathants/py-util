@@ -4,8 +4,10 @@ import operator
 
 
 def test_update_in():
-    assert util.dicts.update_in({'a': {'b': 'c'}}, ['a', 'b'], operator.add, '!') == {'a': {'b': 'c!'}}
+    assert util.dicts.update_in({'a': {'b': 'c', 'd': 'e'}}, ['a', 'b'], operator.add, '!') == {'a': {'b': 'c!', 'd': 'e'}}
     assert util.dicts.update_in({'a': {'b': 'c'}}, 'a', str) == {'a': "{'b': 'c'}"}
+    with pytest.raises(KeyError):
+        util.dicts.update_in({}, 'a', str)
 
 
 def test_get():
@@ -13,7 +15,8 @@ def test_get():
 
 
 def test_set():
-    assert util.dicts.set({}, ['a', 'b'], 'c') == {'a': {'b': 'c'}}
+    assert util.dicts.set({'e': 'f'}, ['a', 'b'], 'c') == {'a': {'b': 'c'}, 'e': 'f'}
+    assert util.dicts.set({'a': {'d': 'e', 'b': 'c'}}, ['a', 'b'], 'c!') == {'a': {'d': 'e', 'b': 'c!'}}
 
 
 def test_set_subset():
@@ -79,6 +82,12 @@ def test_padded_only():
 def test_drop():
     assert util.dicts.drop({'a': 'a', 'b': 'b'}, 'a') == {'b': 'b'}
     assert util.dicts.drop({'a': 'a', 'b': 'b'}, ['a', 'b']) == {}
+
+
+def test_drop_in():
+    assert util.dicts.drop_in({'a': 'b'}, ['c', 'd']) == {'a': 'b'}
+    assert util.dicts.drop_in({'a': {'b': 'c', 'd': 'e'}}, ['a']) == {}
+    assert util.dicts.drop_in({'a': {'b': 'c', 'd': 'e'}}, ['a', 'b']) == {'a': {'d': 'e'}}
 
 
 def test__ks():
