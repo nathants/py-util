@@ -1,8 +1,8 @@
 import util.func
 import util.data
 import pytest
-import mock
 import tornado.concurrent
+from unittest import mock
 
 
 def test_future():
