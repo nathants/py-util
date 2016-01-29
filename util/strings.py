@@ -58,3 +58,7 @@ def align(text, sep=None):
 
 def b64_encode(x):
     return base64.b64encode(bytes(x, 'utf-8')).decode('utf-8')
+
+
+def b64_decode(x):
+    return base64.b64decode(bytes(x, 'utf-8')).decode('utf-8')
