@@ -11,7 +11,7 @@ import contextlib
 _standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
 
 
-_short_format = '[%(levelname)s] %(message)s'
+_short_format = '[%(levelname)s] [%(pathname)s] %(message)s'
 
 
 def _get_format(format, short):
