@@ -1,6 +1,7 @@
 import itertools
 import collections
 
+# TODO merge seq and iter?
 
 def _type(x):
     if isinstance(x, collections.defaultdict):
