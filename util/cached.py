@@ -40,6 +40,26 @@ def disk(invalidate_on_source_hash=True):
         return cached_fn
     return decorator
 
+@util.func.optionally_parameterized_decorator
+def disk_memoize(invalidate_on_source_hash=True):
+    def decorator(fn):
+        path = _disk_cache_path(fn)
+        if not invalidate_on_source_hash:
+            path = '.'.join(path.split('.')[:-1])
+        @functools.wraps(fn)
+        def cached_fn(*a, **kw):
+            assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
+            key = a, kw.items()
+            key = tuple(a), frozenset(kw.items())
+            _path = '%s_%s' % (path, hash(key))
+            if not os.path.isfile(_path):
+                with open(_path, 'w') as f:
+                    json.dump(fn(*a, **kw), f)
+            with open(_path) as f:
+                return json.load(f)
+        cached_fn.clear_cache = lambda: subprocess.check_call('rm -rf %s*' % path, shell=True)
+        return cached_fn
+    return decorator
 
 def is_cached(fn):
     return hasattr(fn, _attr)

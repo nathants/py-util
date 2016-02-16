@@ -17,9 +17,21 @@ def test_disk():
     @util.cached.disk
     def fn():
         state['val'] += 1
+        return 'foo'
     fn.clear_cache()
-    fn(), fn(), fn()
+    assert [fn(), fn(), fn()] == ['foo', 'foo', 'foo']
     assert state['val'] == 1
+
+
+def test_disk_memoize():
+    state = {'args': []}
+    @util.cached.disk_memoize
+    def fn(a):
+        state['args'].append(a)
+        return a
+    fn.clear_cache()
+    assert [fn(1), fn(2), fn(1), fn(2)] == [1, 2, 1, 2]
+    assert state['args'] == [1, 2]
 
 
 def test_methods_are_illegal():
