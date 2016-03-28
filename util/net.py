@@ -6,8 +6,8 @@ import util.hacks
 
 
 def is_port_free(port):
-    val = subprocess.check_output(['netstat', '-pna'])
-    return ':{} '.format(port) not in util.hacks.stringify(val)
+    val = subprocess.check_output(['netstat', '-pna']).decode('utf-8')
+    return ':{} '.format(port) not in val
 
 
 def free_port():

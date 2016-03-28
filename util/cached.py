@@ -17,7 +17,7 @@ def _disk_cache_path(fn):
         file_name = util.hacks.get_caller(3)['filename'].strip()
     except IndexError:
         file_name = util.hacks.get_caller(2)['filename'].strip()
-    sha = util.hacks.stringify(subprocess.check_output(['shasum', file_name])[:7])
+    sha = subprocess.check_output(['shasum', file_name])[:7].decode('utf-8')
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
