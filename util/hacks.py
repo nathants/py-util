@@ -14,16 +14,6 @@ def get_caller(offset=0):
             'funcname': funcname}
 
 
-def stringify(x):
-    """
-    py3k compat, for when you never ever want bytes.
-    """
-    if sys.version_info.major == 2:
-        return x
-    if isinstance(x, bytes):
-        return x.decode('utf-8')
-
-
 class ModuleRedirector(object):
     """
     intercept attribute lookup on a module and call a function instead.
