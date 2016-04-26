@@ -1,4 +1,5 @@
 import itertools
+import math
 
 # TODO merge seq and iter?
 
@@ -11,15 +12,20 @@ def nwise(val, n):
     return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
 
-def chunk(val, n, drop_extra=False):
+def chunk(val, chunk_size, drop_extra=False):
     res = ()
     for x in val:
         res += (x,)
-        if len(res) == n:
+        if len(res) == chunk_size:
             yield res
             res = ()
     if res and not drop_extra:
         yield res
+
+def chunks(val, num_chunks):
+    size = len(val)
+    step = math.ceil(size / num_chunks)
+    return (tuple(val[step * i:step * (i + 1)]) for i in range(num_chunks))
 
 
 def histogram(xs, size, exp=False):
