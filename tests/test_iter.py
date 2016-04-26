@@ -21,3 +21,4 @@ def test_chunks():
     assert [(0, 1, 2), (3, 4)] == list(util.iter.chunks(range(5), 2))
     assert [(0, 1), (2, 3)] == list(util.iter.chunks(range(4), 2))
     assert [(0,), (1,)] == list(util.iter.chunks(range(2), 2))
+    assert [(0,), (1,)] == list(util.iter.chunks(range(2), 3))

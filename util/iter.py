@@ -22,10 +22,14 @@ def chunk(val, chunk_size, drop_extra=False):
     if res and not drop_extra:
         yield res
 
+
 def chunks(val, num_chunks):
     size = len(val)
     step = math.ceil(size / num_chunks)
-    return (tuple(val[step * i:step * (i + 1)]) for i in range(num_chunks))
+    return (t
+            for i in range(num_chunks)
+            for t in [tuple(val[step * i:step * (i + 1)])]
+            if t)
 
 
 def histogram(xs, size, exp=False):
