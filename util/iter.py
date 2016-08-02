@@ -12,14 +12,33 @@ def nwise(val, n):
     return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
 
-def chunk(val, chunk_size, drop_extra=False):
+def ichunk(val, chunk_size, drop_extra=False):
+    """note: you must fully consume each chunk before advancing to the next"""
+    def f(xs):
+        i = 0
+        while i < chunk_size:
+            try:
+                yield next(xs)
+            except StopIteration:
+                break
+            i += 1
+    while True:
+        try:
+            head = next(val)
+        except StopIteration:
+            break
+        else:
+            yield f(itertools.chain([head], val))
+
+
+def chunk(val, chunk_size):
     res = ()
     for x in val:
         res += (x,)
         if len(res) == chunk_size:
             yield res
             res = ()
-    if res and not drop_extra:
+    if res:
         yield res
 
 
