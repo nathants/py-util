@@ -17,9 +17,9 @@ def test_ichunk():
 
 
 def test_chunk():
-    assert [(0, 1), (2, 3), (4,)] == list(util.iter.chunk(range(5), 2))
-    assert [(0, 1, 2), (3, 4)] == list(util.iter.chunk(range(5), 3))
-    assert [(0,)] == list(util.iter.chunk(range(1), 3))
+    assert [[0, 1], [2, 3], [4]] == list(util.iter.chunk(range(5), 2))
+    assert [[0, 1, 2], [3, 4]] == list(util.iter.chunk(range(5), 3))
+    assert [[0]] == list(util.iter.chunk(range(1), 3))
 
 
 def test_chunks():
