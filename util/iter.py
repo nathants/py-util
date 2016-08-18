@@ -11,18 +11,34 @@ def groupby(val, key):
 def nwise(val, n):
     return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
+class _empty():
+    pass
+
+def partition_by(val, pred):
+    """note: you must fully consume each partition before advancing to the next"""
+    val = iter(val)
+    def f():
+        nonlocal val
+        last = _empty
+        while True:
+            now = next(val)
+            if last is _empty or pred(last) == pred(now):
+                yield now
+                last = now
+            else:
+                val = itertools.chain([now], val)
+                break
+    while True:
+        part = f()
+        head = next(part)
+        yield itertools.chain([head], part)
 
 def ichunk(val, chunk_size, drop_extra=False):
     """note: you must fully consume each chunk before advancing to the next"""
     while True:
         xs = itertools.islice(val, chunk_size)
-        try:
-            head = next(xs)
-        except StopIteration:
-            break
-        else:
-            yield itertools.chain([head], xs)
-
+        head = next(xs)
+        yield itertools.chain([head], xs)
 
 def chunk(val, chunk_size):
     res = []

@@ -1,6 +1,10 @@
 import util.iter
 
 
+def test_partition_by():
+    assert [(0, 0, 0), (1, 1,), (2,)] == [tuple(x) for x in util.iter.partition_by([0, 0, 0, 1, 1, 2], lambda x: x)]
+
+
 def test_group_by():
     assert [(0, [0, 2]), (1, [1, 3])] == util.iter.groupby(range(4), lambda x: x % 2)
 
