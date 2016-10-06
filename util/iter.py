@@ -1,5 +1,6 @@
 import itertools
 import math
+import re
 
 # TODO merge seq and iter?
 
@@ -83,3 +84,12 @@ def histogram(xs, size, exp=False):
                 xs = new
                 break
     return xs
+
+
+def alphanumeric_key(x):
+    """use this as a key fn for sorted. based on http://stackoverflow.com/a/2669120"""
+    ys = re.split('([0-9]+)', x)
+    return [int(y)
+            if y.isdigit()
+            else y
+            for y in ys]
