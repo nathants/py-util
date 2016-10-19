@@ -1,6 +1,10 @@
 import util.iter
 
 
+def test_percentile():
+    assert 97 == util.iter.percentile(range(1, 101), 97)
+    assert 3 == util.iter.percentile(range(1, 101), 3)
+
 def test_partition_by():
     assert [(0, 0, 0), (1, 1,), (2,)] == [tuple(x) for x in util.iter.partition_by([0, 0, 0, 1, 1, 2], lambda x: x)]
 

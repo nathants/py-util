@@ -4,6 +4,16 @@ import re
 
 # TODO merge seq and iter?
 
+
+def percentile(xs, n):
+    """percentile where xs like [1, 2, 3] and n like 99"""
+    size = len(xs)
+    index = math.ceil(n / 100. * size) - 1
+    index = min(index, size - 1)
+    index = max(index, 0)
+    return sorted(xs)[int(index)]
+
+
 def groupby(val, key):
     val = sorted(val, key=key)
     return [(k, list(v)) for k, v in itertools.groupby(val, key=key)]
@@ -12,8 +22,10 @@ def groupby(val, key):
 def nwise(val, n):
     return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
+
 class _empty():
     pass
+
 
 def partition_by(val, pred):
     """note: you must fully consume each partition before advancing to the next"""
@@ -34,12 +46,14 @@ def partition_by(val, pred):
         head = next(part)
         yield itertools.chain([head], part)
 
+
 def ichunk(val, chunk_size, drop_extra=False):
     """note: you must fully consume each chunk before advancing to the next"""
     while True:
         xs = itertools.islice(val, chunk_size)
         head = next(xs)
         yield itertools.chain([head], xs)
+
 
 def chunk(val, chunk_size):
     res = []
