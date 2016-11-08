@@ -47,7 +47,7 @@ def partition_by(val, pred):
         yield itertools.chain([head], part)
 
 
-def ichunk(val, chunk_size, drop_extra=False):
+def ichunk(val, chunk_size):
     """note: you must fully consume each chunk before advancing to the next"""
     while True:
         xs = itertools.islice(val, chunk_size)
