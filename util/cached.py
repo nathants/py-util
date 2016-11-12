@@ -1,4 +1,5 @@
 import subprocess
+import hashlib
 import inspect
 import collections
 import functools
@@ -17,7 +18,8 @@ def _disk_cache_path(fn):
         file_name = util.hacks.get_caller(3)['filename'].strip()
     except IndexError:
         file_name = util.hacks.get_caller(2)['filename'].strip()
-    sha = subprocess.check_output(['shasum', file_name])[:7].decode('utf-8')
+    with open(file_name, 'rb') as f:
+        sha = hashlib.sha1(f.read()).hexdigest()[:20]
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
@@ -50,8 +52,9 @@ def disk_memoize(invalidate_on_source_hash=True):
         def cached_fn(*a, **kw):
             assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
             key = a, kw.items()
-            key = tuple(a), frozenset(kw.items())
-            _path = '%s_%s' % (path, hash(key))
+            key = ';'.join(map(str, (list(a) + sorted(kw.items(), key=lambda x: x[0]))))
+            hash = hashlib.sha1(key.encode('utf-8')).hexdigest()
+            _path = '%s_%s' % (path, hash)
             if not os.path.isfile(_path):
                 with open(_path, 'w') as f:
                     json.dump(fn(*a, **kw), f)
