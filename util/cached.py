@@ -33,11 +33,14 @@ def disk(invalidate_on_source_hash=True):
         @functools.wraps(fn)
         def cached_fn(*a, **kw):
             assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
-            if not os.path.isfile(path):
+            try:
+                with open(path) as f:
+                    return json.load(f)
+            except (IOError, ValueError):
                 with open(path, 'w') as f:
-                    json.dump(fn(*a, **kw), f)
-            with open(path) as f:
-                return json.load(f)
+                    val = fn(*a, **kw)
+                    json.dump(val, f)
+                return val
         cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
         return cached_fn
     return decorator
@@ -55,11 +58,14 @@ def disk_memoize(invalidate_on_source_hash=True):
             key = ';'.join(map(str, (list(a) + sorted(kw.items(), key=lambda x: x[0]))))
             hash = hashlib.sha1(key.encode('utf-8')).hexdigest()
             _path = '%s_%s' % (path, hash)
-            if not os.path.isfile(_path):
+            try:
+                with open(_path) as f:
+                    return json.load(f)
+            except (IOError, ValueError):
                 with open(_path, 'w') as f:
-                    json.dump(fn(*a, **kw), f)
-            with open(_path) as f:
-                return json.load(f)
+                    val = fn(*a, **kw)
+                    json.dump(val, f)
+                return val
         cached_fn.clear_cache = lambda: subprocess.check_call('rm -rf %s*' % path, shell=True)
         return cached_fn
     return decorator
