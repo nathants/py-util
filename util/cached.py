@@ -24,6 +24,7 @@ def _disk_cache_path(fn):
     return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
 
 
+# TODO add a time based expiration mechanism
 @util.func.optionally_parameterized_decorator
 def disk(invalidate_on_source_hash=True):
     def decorator(fn):
@@ -45,6 +46,7 @@ def disk(invalidate_on_source_hash=True):
         return cached_fn
     return decorator
 
+# TODO add a time based expiration mechanism
 @util.func.optionally_parameterized_decorator
 def disk_memoize(invalidate_on_source_hash=True):
     def decorator(fn):
