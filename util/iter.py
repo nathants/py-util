@@ -49,6 +49,7 @@ def partition_by(val, pred):
 
 def ichunk(val, chunk_size):
     """note: you must fully consume each chunk before advancing to the next"""
+    val = iter(val)
     while True:
         xs = itertools.islice(val, chunk_size)
         head = next(xs)
