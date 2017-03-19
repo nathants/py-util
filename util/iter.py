@@ -1,4 +1,5 @@
 import itertools
+import collections
 import math
 import re
 
@@ -16,7 +17,7 @@ def percentile(xs, n):
 
 def groupby(val, key):
     val = sorted(val, key=key)
-    return [(k, list(v)) for k, v in itertools.groupby(val, key=key)]
+    return [(bucket, list(v)) for bucket, v in itertools.groupby(val, key=key)]
 
 
 def nwise(val, n):
@@ -76,29 +77,28 @@ def chunks(val, num_chunks):
             if t)
 
 
-def histogram(xs, size, exp=False):
-    def check(x):
+def histogram(xs, size, exponential=False):
+    counts = collections.Counter()
+    for x in xs:
         assert x > 0, 'histogram only supports values > 0, not: %s' % x
-        return x
-    xs = map(check, xs)
-    xs = groupby(xs, lambda x: x // (size + 1))
-    xs = [('%s-%s' % (k * size + 1,
-                      (k + 1) * size),
-           len(v))
-          for k, v in xs]
-    if exp:
+        bucket = x // (size + 1)
+        counts[bucket] += 1
+    results = [('%s-%s' % (bucket * size + 1, (bucket + 1) * size),
+                counts[bucket])
+               for bucket in sorted(counts)]
+    if exponential:
         new = []
         i = 1
         while True:
-            vals = [xs.pop(0) for _ in range(i) if xs]
+            vals = [results.pop(0) for _ in range(i) if results]
             name = '%s-%s' % (vals[0][0].split('-')[0], vals[-1][0].split('-')[-1])
             val = sum(x[1] for x in vals)
             new.append((name, val))
             i *= 2
-            if not xs:
-                xs = new
+            if not results:
+                results = new
                 break
-    return xs
+    return results
 
 
 def alphanumeric_key(x):

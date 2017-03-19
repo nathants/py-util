@@ -34,3 +34,7 @@ def test_chunks():
     assert [(0, 1), (2, 3)] == list(util.iter.chunks(range(4), 2))
     assert [(0,), (1,)] == list(util.iter.chunks(range(2), 2))
     assert [(0,), (1,)] == list(util.iter.chunks(range(2), 3))
+
+def test_histogram():
+    assert [('1-10', 1), ('11-20', 3), ('21-30', 2)] == util.iter.histogram([10, 11, 12, 21, 22, 31], size=10)
+    assert [('1-10', 1), ('11-30', 5)] == util.iter.histogram([10, 11, 12, 21, 22, 31], size=10, exponential=True)
