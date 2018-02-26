@@ -81,7 +81,7 @@ def histogram(xs, size, exponential=False, accumulate=False, key=lambda x: x):
     counts = collections.Counter()
     accum = collections.defaultdict(list)
     for x in xs:
-        assert key(x) > 0, 'histogram only supports values > 0, not: %s' % x
+        assert key(x) >= 0, 'histogram only supports values >= 0, not: %s' % x
         bucket = key(x) // size
         counts[bucket] += 1
         accum[bucket] += [x]

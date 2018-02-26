@@ -44,3 +44,5 @@ def test_histogram():
         == util.iter.histogram([3, 7, 10, 11, 12, 20, 21, 22, 31], size=10)
     assert [('0-9', 2), ('10-29', 6), ('30-39', 1)] \
         == util.iter.histogram([3, 7, 10, 11, 12, 20, 21, 22, 31], size=10, exponential=True)
+    assert [('0-9', 3), ('10-29', 6), ('30-39', 1)] \
+        == util.iter.histogram([0, 3, 7, 10, 11, 12, 20, 21, 22, 31], size=10, exponential=True)
