@@ -7,7 +7,6 @@ import util.exceptions
 import util.hacks
 import util.func
 import json
-import os
 
 
 _attr = '_cached_value'

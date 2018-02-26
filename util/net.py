@@ -2,8 +2,6 @@ import re
 import socket
 import subprocess
 
-import util.hacks
-
 
 def is_port_free(port):
     val = subprocess.check_output(['netstat', '-pna']).decode('utf-8')
