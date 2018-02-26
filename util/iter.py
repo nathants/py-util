@@ -77,12 +77,12 @@ def chunks(val, num_chunks):
             if t)
 
 
-def histogram(xs, size, exponential=False, accumulate=False):
+def histogram(xs, size, exponential=False, accumulate=False, key=lambda x: x):
     counts = collections.Counter()
     accum = collections.defaultdict(list)
     for x in xs:
-        assert x > 0, 'histogram only supports values > 0, not: %s' % x
-        bucket = x // size
+        assert key(x) > 0, 'histogram only supports values > 0, not: %s' % x
+        bucket = key(x) // size
         counts[bucket] += 1
         accum[bucket] += [x]
     results = [('%s-%s' % (bucket * size, (bucket + 1) * size - 1),
