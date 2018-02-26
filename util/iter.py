@@ -77,14 +77,16 @@ def chunks(val, num_chunks):
             if t)
 
 
-def histogram(xs, size, exponential=False):
+def histogram(xs, size, exponential=False, accumulate=False):
     counts = collections.Counter()
+    accum = collections.defaultdict(list)
     for x in xs:
         assert x > 0, 'histogram only supports values > 0, not: %s' % x
-        bucket = x // (size + 1)
+        bucket = x // size
         counts[bucket] += 1
-    results = [('%s-%s' % (bucket * size + 1, (bucket + 1) * size),
-                counts[bucket])
+        accum[bucket] += [x]
+    results = [('%s-%s' % (bucket * size, (bucket + 1) * size - 1),
+                (accum if accumulate else counts)[bucket])
                for bucket in sorted(counts)]
     if exponential:
         new = []
@@ -92,7 +94,7 @@ def histogram(xs, size, exponential=False):
         while True:
             vals = [results.pop(0) for _ in range(i) if results]
             name = '%s-%s' % (vals[0][0].split('-')[0], vals[-1][0].split('-')[-1])
-            val = sum(x[1] for x in vals)
+            val = sum([x[1] for x in vals], [] if accumulate else 0)
             new.append((name, val))
             i *= 2
             if not results:
