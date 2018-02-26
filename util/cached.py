@@ -1,4 +1,6 @@
 import subprocess
+import os
+import time
 import hashlib
 import inspect
 import collections
@@ -20,12 +22,11 @@ def _disk_cache_path(fn):
     with open(file_name, 'rb') as f:
         sha = hashlib.sha1(f.read()).hexdigest()[:20]
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
-    return '/tmp/cache.%s.%s.%s' % (name, fn.__name__, sha)
+    return f'/tmp/cache.{name}.{fn.__name__}.{sha}'
 
 
-# TODO add a time based expiration mechanism
 @util.func.optionally_parameterized_decorator
-def disk(invalidate_on_source_hash=True):
+def disk(invalidate_on_source_hash=True, max_age_seconds=0):
     def decorator(fn):
         path = _disk_cache_path(fn)
         if not invalidate_on_source_hash:
@@ -35,19 +36,21 @@ def disk(invalidate_on_source_hash=True):
             assert not a or not inspect.ismethod(getattr(a[0], getattr(fn, '__name__', ''), None)), 'cached.disk does not work with methods'
             try:
                 with open(path) as f:
-                    return json.load(f)
-            except (IOError, ValueError):
+                    data = json.load(f)
+                    assert not max_age_seconds or time.time() - data['time'] < max_age_seconds
+                    return data['value']
+            except:
                 with open(path, 'w') as f:
                     val = fn(*a, **kw)
-                    json.dump(val, f)
+                    json.dump({'value': val, 'time': time.time()}, f)
                 return val
         cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
         return cached_fn
     return decorator
 
-# TODO add a time based expiration mechanism
+
 @util.func.optionally_parameterized_decorator
-def disk_memoize(invalidate_on_source_hash=True):
+def disk_memoize(invalidate_on_source_hash=True, max_age_seconds=0):
     def decorator(fn):
         path = _disk_cache_path(fn)
         if not invalidate_on_source_hash:
@@ -61,11 +64,13 @@ def disk_memoize(invalidate_on_source_hash=True):
             _path = '%s_%s' % (path, hash)
             try:
                 with open(_path) as f:
-                    return json.load(f)
-            except (IOError, ValueError):
+                    data = json.load(f)
+                    assert not max_age_seconds or time.time() - data['time'] < max_age_seconds
+                    return data['value']
+            except:
                 with open(_path, 'w') as f:
                     val = fn(*a, **kw)
-                    json.dump(val, f)
+                    json.dump({'value': val, 'time': time.time()}, f)
                 return val
         cached_fn.clear_cache = lambda: subprocess.check_call('rm -rf %s*' % path, shell=True)
         return cached_fn
