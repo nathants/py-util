@@ -4,7 +4,7 @@ import time
 import random
 
 
-def retry(f, times=6, sleep=1, exponent=1):
+def retry(f, times=6, sleep=1, exponent=1, silent=False):
     def fn(*a, **kw):
         for i in itertools.count():
             try:
@@ -12,6 +12,7 @@ def retry(f, times=6, sleep=1, exponent=1):
             except Exception as e:
                 if i == times:
                     raise
-                logging.info(f'retrying: {f.__module__}.{f.__name__}, because of: {e}')
-                time.sleep((sleep ** exponent) + random.random())
+                if not silent:
+                    logging.info(f'retrying: {f.__module__}.{f.__name__}, because of: {e}')
+                time.sleep(((sleep * i if exponent else 1) ** exponent) + random.random())
     return fn
