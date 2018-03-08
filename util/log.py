@@ -1,5 +1,7 @@
+import sys
 import logging
 import logging.handlers
+import traceback
 import util.func
 import util.cached
 import util.strings
@@ -8,10 +10,10 @@ import util.hacks
 import contextlib
 
 
-_standard_format = '[%(levelname)s] [%(asctime)s] [%(name)s] [%(pathname)s] %(message)s'
+_standard_format = '%(levelname)s %(asctime)s %(name)s %(pathname)s %(message)s'
 
 
-_short_format = '[%(levelname)s] [%(pathname)s] %(message)s'
+_short_format = '%(levelname)s %(pathname)s %(message)s'
 
 
 def _get_format(format, short):
@@ -31,33 +33,16 @@ def setup(name=None, level='info', short=False, format=None):
     logging.root.addHandler(handler)
     logging.root.setLevel(level)
     logging.root._ready = True
-
-
-def _better_pathname(record):
-    with util.exceptions.ignore():
-        if ':' not in record.pathname:
-            record.pathname = '/'.join(record.pathname.split('/')[-2:])
-            record.pathname = '{}:{}'.format(record.pathname, record.lineno)
-    return record
-
-
-def _short_levelname(record):
-    with util.exceptions.ignore():
-        record.levelname = record.levelname.lower()[0]
-    return record
-
-
-def _process_record(record):
-    if not hasattr(record, '_processed'):
-        record = _better_pathname(record)
-        record = _short_levelname(record)
-        record._processed = True
-    return record
+    sys.excepthook = lambda *a: logging.error(''.join(traceback.format_exception(*a)))
 
 
 class _Formatter(logging.Formatter):
+    default_time_format = '%Y-%m-%dT%H:%M:%S'
+
     def format(self, record):
-        record = _process_record(record)
+        if ':' not in record.pathname:
+            record.pathname = '/'.join(record.pathname.split('/')[-2:])
+            record.pathname = '{}:{}'.format(record.pathname, record.lineno)
         return logging.Formatter.format(self, record)
 
 
