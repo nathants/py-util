@@ -1,9 +1,7 @@
 import types
 import util.misc
 
-
 disabled = False
-
 
 _banned_attrs_dict = [
     '__setitem__',
@@ -15,18 +13,14 @@ _banned_attrs_dict = [
     'setdefault',
 ]
 
-
 class _ImmutableDict(dict):
     def _raise_error(self, *a, **kw):
         raise ValueError('this dict is read-only')
-
     for k in _banned_attrs_dict:
         locals()[k] = _raise_error
 
-
 class _ImmutableTuple(tuple):
     pass
-
 
 _banned_attrs_list = [
     '__add__',
@@ -41,18 +35,14 @@ _banned_attrs_list = [
     'sort',
 ]
 
-
 class _ImmutableList(list):
     def _raise_error(self, *a, **kw):
         raise ValueError('this list is read-only')
-
     for k in _banned_attrs_list:
         locals()[k] = _raise_error
 
-
 class _ImmutableSet(frozenset):
     pass
-
 
 immutable_types = (
     bytes,
@@ -69,19 +59,15 @@ immutable_types = (
     _ImmutableSet,
 )
 
-
 def freeze(value):
     if disabled or isinstance(value, immutable_types):
         return value
     elif util.misc.is_future(value):
-        future = type(value)()
-        @value.add_done_callback
-        def fn(f):
-            try:
-                future.set_result(freeze(f.result()))
-            except Exception as e:
-                future.set_exception(e)
-        return future
+        _set_result = value.set_result
+        def f(x):
+            _set_result(freeze(x))
+        value.set_result = f
+        return value
     elif isinstance(value, dict):
         return _ImmutableDict({freeze(k): freeze(v) for k, v in value.items()})
     elif isinstance(value, tuple):
@@ -92,7 +78,6 @@ def freeze(value):
         return _ImmutableSet(freeze(x) for x in value)
     else:
         return value
-
 
 def thaw(value):
     if disabled:

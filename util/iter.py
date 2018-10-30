@@ -5,7 +5,6 @@ import re
 
 # TODO merge seq and iter?
 
-
 def percentile(xs, n):
     """percentile where xs like [1, 2, 3] and n like 99"""
     size = len(xs)
@@ -14,19 +13,15 @@ def percentile(xs, n):
     index = max(index, 0)
     return sorted(xs)[int(index)]
 
-
 def groupby(val, key):
     val = sorted(val, key=key)
     return [(bucket, list(v)) for bucket, v in itertools.groupby(val, key=key)]
 
-
 def nwise(val, n):
     return zip(*(itertools.islice(val, i, None) for i, val in enumerate(itertools.tee(val, n))))
 
-
 class _empty():
     pass
-
 
 def partition_by(val, pred):
     """note: you must fully consume each partition before advancing to the next"""
@@ -35,27 +30,37 @@ def partition_by(val, pred):
         nonlocal val
         last = _empty
         while True:
-            now = next(val)
-            if last is _empty or pred(last) == pred(now):
-                yield now
-                last = now
-            else:
-                val = itertools.chain([now], val)
+            try:
+                now = next(val)
+            except StopIteration:
                 break
+            else:
+                if last is _empty or pred(last) == pred(now):
+                    yield now
+                    last = now
+                else:
+                    val = itertools.chain([now], val)
+                    break
     while True:
         part = f()
-        head = next(part)
-        yield itertools.chain([head], part)
-
+        try:
+            head = next(part)
+        except StopIteration:
+            break
+        else:
+            yield itertools.chain([head], part)
 
 def ichunk(val, chunk_size):
     """note: you must fully consume each chunk before advancing to the next"""
     val = iter(val)
     while True:
         xs = itertools.islice(val, chunk_size)
-        head = next(xs)
-        yield itertools.chain([head], xs)
-
+        try:
+            head = next(xs)
+        except StopIteration:
+            break
+        else:
+            yield itertools.chain([head], xs)
 
 def chunk(val, chunk_size):
     res = []
@@ -67,7 +72,6 @@ def chunk(val, chunk_size):
     if res:
         yield res
 
-
 def chunks(val, num_chunks):
     size = len(val)
     step = math.ceil(size / num_chunks)
@@ -75,7 +79,6 @@ def chunks(val, num_chunks):
             for i in range(num_chunks)
             for t in [tuple(val[step * i:step * (i + 1)])]
             if t)
-
 
 def histogram(xs, size, exponential=False, accumulate=False, key=lambda x: x):
     counts = collections.Counter()
@@ -101,7 +104,6 @@ def histogram(xs, size, exponential=False, accumulate=False, key=lambda x: x):
                 results = new
                 break
     return results
-
 
 def alphanumeric_key(x):
     """use this as a key fn for sorted. based on http://stackoverflow.com/a/2669120"""

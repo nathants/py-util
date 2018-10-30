@@ -6,7 +6,7 @@ setuptools.setup(
     license='mit',
     name='py-util',
     author='nathan todd-stone',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     author_email='me@nathants.com',
     url='http://github.com/nathants/py-util',
     packages=['util'],
