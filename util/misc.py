@@ -4,12 +4,10 @@ import signal
 import functools
 import logging
 
-
 def is_future(obj):
     with util.exceptions.ignore(AttributeError):
         object.__getattribute__(obj, 'add_done_callback')
         return True
-
 
 def exceptions_kill_pid(decoratee):
     """
