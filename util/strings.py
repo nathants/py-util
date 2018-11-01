@@ -44,11 +44,11 @@ def abbrev(text, max_len):
     return text
 
 
-def align(text, sep=None):
+def align(text, sep=None, lines=False):
     rows = [x.split(sep) for x in text.splitlines()]
     sizes = [max(len(rm_color(x)) for x in row) for row in itertools.zip_longest(*rows, fillvalue='')]
     rows = [[col.ljust(size + len(col) - len(rm_color(col))) for size, col in zip(sizes, cols)] for cols in rows]
-    return '\n'.join(' '.join(r).rstrip() for r in rows)
+    return '\n'.join((' | ' if lines else ' ').join(r).rstrip() for r in rows)
 
 def b64_encode(x):
     return base64.b64encode(bytes(x, 'utf-8')).decode('utf-8')
