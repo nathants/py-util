@@ -3,7 +3,7 @@ import collections
 import math
 import re
 
-# TODO merge seq and iter?
+# ? is this a subset of: https://github.com/erikrose/more-itertools/tree/master/more_itertools
 
 def percentile(xs, n):
     """percentile where xs like [1, 2, 3] and n like 99"""
