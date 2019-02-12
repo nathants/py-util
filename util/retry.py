@@ -16,5 +16,9 @@ def retry(f, *allowed_exceptions, times=6, sleep=1, exponent=1, silent=False):
                     raise
                 if not silent:
                     logging.info(f'retrying: {f.__module__}.{f.__name__}, because of: {e}')
-                time.sleep(((sleep * i if exponent else 1) ** exponent) + random.random())
+                if exponent:
+                    amount = (sleep * i) ** exponent
+                else:
+                    amount = sleep
+                time.sleep(amount + random.random())
     return fn
