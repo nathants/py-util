@@ -1,6 +1,6 @@
 import collections
 import util.data
-import util.seqs
+import util.iter
 
 
 def new(scope, *names):
@@ -101,7 +101,7 @@ def map(mapping_fn, obj):
         assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
         return val
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
-    return util.seqs.walk(fn, obj)
+    return util.iter.walk(fn, obj)
 
 
 def tree():
