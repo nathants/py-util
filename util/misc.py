@@ -14,14 +14,14 @@ def exceptions_kill_pid(decoratee):
     Any exceptions in this decoratee will exit the main process,
     even when this decoratee is running in a thread.
     """
-    exit1 = lambda: os.kill(os.getpid(), signal.SIGTERM)
+    pid = os.getpid()
     @functools.wraps(decoratee)
-    def f(*a, **kw):
+    def decorated(*a, **kw):
         try:
             return decoratee(*a, **kw)
         except SystemExit:
-            exit1()
+            os.kill(pid, signal.SIGTERM)
         except:
             logging.exception('')
-            exit1()
-    return f
+            os.kill(pid, signal.SIGTERM)
+    return decorated
