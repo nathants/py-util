@@ -3,7 +3,6 @@ import logging
 import time
 import random
 
-
 def retry(f, *allowed_exceptions, times=6, sleep=1, exponent=1, silent=False):
     def fn(*a, **kw):
         for i in itertools.count():
