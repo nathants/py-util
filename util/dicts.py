@@ -125,7 +125,7 @@ def to_dotted(obj):
         return obj
     map(_no_dots, obj)
     while any(isinstance(x, dict) for x in obj.values()):
-        for k1, v2 in obj.items():
+        for k1, v2 in list(obj.items()):
             if isinstance(v2, dict):
                 for k2, v2 in obj.pop(k1).items():
                     obj['{}.{}'.format(k1, k2)] = to_dotted(v2)

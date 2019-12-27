@@ -3,7 +3,7 @@ import logging
 import time
 import random
 
-def retry(f, *allowed_exceptions, times=6, sleep=1, exponent=1, silent=False):
+def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, exponent=1, silent=False):
     def fn(*a, **kw):
         for i in itertools.count():
             try:
@@ -11,6 +11,8 @@ def retry(f, *allowed_exceptions, times=6, sleep=1, exponent=1, silent=False):
             except allowed_exceptions:
                 raise
             except Exception as e:
+                if allowed_exception_fn and allowed_exception_fn(e):
+                    raise
                 if i == times:
                     raise
                 if not silent:
