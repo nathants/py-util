@@ -1,10 +1,10 @@
 import itertools
 import logging
 import time
-import random
 
-def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, exponent=1, silent=False):
+def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, exponent=1, silent=False, max_seconds=0):
     def fn(*a, **kw):
+        start = time.time()
         for i in itertools.count():
             try:
                 return f(*a, **kw)
@@ -13,7 +13,8 @@ def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, e
             except Exception as e:
                 if allowed_exception_fn and allowed_exception_fn(e):
                     raise
-                if i == times:
+                duration = time.time() - start
+                if i == times or max_seconds and duration >= max_seconds:
                     raise
                 if not silent:
                     logging.info(f'retrying: {f.__module__}.{f.__name__}, because of: {e}')
@@ -21,5 +22,7 @@ def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, e
                     amount = (sleep * i) ** exponent
                 else:
                     amount = sleep
-                time.sleep(amount + random.random())
+                if max_seconds and duration + amount > max_seconds:
+                    amount = max_seconds - duration
+                time.sleep(amount)
     return fn
