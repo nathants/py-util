@@ -1,7 +1,8 @@
 import functools
 import sys
+import os
 
-force = False
+force = 'COLORS' in os.environ
 
 _colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
 
