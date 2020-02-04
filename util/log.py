@@ -45,7 +45,6 @@ class _Formatter(logging.Formatter):
             record.pathname = '{}:{}'.format(record.pathname, record.lineno)
         return logging.Formatter.format(self, record)
 
-
 @contextlib.contextmanager
 def disable(*loggers):
     levels = []
@@ -61,3 +60,14 @@ def disable(*loggers):
     finally:
         for level, name in zip(levels, loggers):
             logging.getLogger(name).setLevel(level)
+
+@contextlib.contextmanager
+def level(level):
+    orig = logging.root.level
+    logging.root.setLevel(level)
+    try:
+        yield
+    except:
+        raise
+    finally:
+        logging.root.setLevel(orig)
