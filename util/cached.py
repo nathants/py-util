@@ -109,5 +109,6 @@ def memoize(max_keys=10000):
                 cache.popitem(last=False)
             return result
         setattr(decorated, _attr, collections.OrderedDict())
+        decorated.clear_cache = lambda: setattr(decorated, _attr, collections.OrderedDict())
         return decorated
     return decorator
