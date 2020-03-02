@@ -14,7 +14,7 @@ def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, e
                 if allowed_exception_fn and allowed_exception_fn(e):
                     raise
                 duration = time.time() - start
-                if i == times or max_seconds and duration >= max_seconds:
+                if i == times or (max_seconds and duration >= max_seconds):
                     raise
                 if not silent:
                     logging.info(f'retrying: {f.__module__}.{f.__name__}, because of: {e}')
