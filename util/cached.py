@@ -1,5 +1,5 @@
+import threading
 import subprocess
-import os
 import time
 import hashlib
 import inspect
@@ -91,9 +91,18 @@ def func(fn):
     cached_fn.clear_cache = lambda: None
     return cached_fn
 
+def threadsafe(fn):
+    @memoize
+    def memoized_fn(ident):
+        return fn()
+    @functools.wraps(fn)
+    def cached_fn():
+        return memoized_fn(threading.get_ident())
+    cached_fn.clear_cache = lambda: memoized_fn.clear_cache()
+    return cached_fn
 
 @util.func.optionally_parameterized_decorator
-def memoize(max_keys=10000):
+def memoize(max_keys=1000000):
     def decorator(fn):
         @functools.wraps(fn)
         def decorated(*a, **kw):
