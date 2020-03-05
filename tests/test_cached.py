@@ -99,6 +99,16 @@ def test_memoize():
     fn('a'), fn('a'), fn('b'), fn('b')
     assert state == {'a': 1, 'b': 1}
 
+def test_memoize_expire():
+    state = collections.Counter()
+    @util.cached.memoize(2, max_age_seconds=1)
+    def fn(arg):
+        state[arg] += 1
+    fn('a'), fn('a'), fn('b'), fn('b')
+    assert state == {'a': 1, 'b': 1}
+    time.sleep(1)
+    fn('b')
+    assert state == {'a': 1, 'b': 2}
 
 def test_without_optional_args_memoize():
     state = collections.Counter()
@@ -107,17 +117,3 @@ def test_without_optional_args_memoize():
         state[arg] += 1
     fn('a'), fn('a'), fn('b'), fn('b')
     assert state == {'a': 1, 'b': 1}
-
-
-def test_lru_is_correct_memoize():
-    state = collections.Counter()
-    @util.cached.memoize(2)
-    def fn(arg):
-        state[arg] += 1
-        return arg
-    fn('a')
-    assert list(getattr(fn, util.cached._attr).items()) == [((('a',), frozenset()), 'a')]
-    fn('b'),
-    assert list(getattr(fn, util.cached._attr).items()) == [((('a',), frozenset()), 'a'), ((('b',), frozenset()), 'b')]
-    fn('c')
-    assert list(getattr(fn, util.cached._attr).items()) == [((('b',), frozenset()), 'b'), ((('c',), frozenset()), 'c')]

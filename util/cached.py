@@ -102,7 +102,7 @@ def threadsafe(fn):
     return cached_fn
 
 @util.func.optionally_parameterized_decorator
-def memoize(max_keys=1000000):
+def memoize(max_keys=1000000, max_age_seconds=0):
     def decorator(fn):
         @functools.wraps(fn)
         def decorated(*a, **kw):
@@ -111,9 +111,13 @@ def memoize(max_keys=1000000):
             key = tuple(a), frozenset(kw.items())
             if key not in cache:
                 result = fn(*a, **kw)
-                cache[key] = result
+                cache[key] = result, time.time()
             else:
-                result = cache[key]
+                result, time_seconds = cache[key]
+                age_seconds = time.time() - time_seconds
+                if max_age_seconds and age_seconds > max_age_seconds:
+                    result = fn(*a, **kw)
+                    cache[key] = result, time.time()
             while len(cache) > max_keys: # trim lru to max_keys
                 cache.popitem(last=False)
             return result
