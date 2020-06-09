@@ -3,7 +3,7 @@ import socket
 import subprocess
 
 def is_port_free(port):
-    val = subprocess.check_output(['netstat', '-pna']).decode('utf-8')
+    val = subprocess.check_output(['ss', '-tH']).decode('utf-8')
     return ':{} '.format(port) not in val
 
 def free_port():
