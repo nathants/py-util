@@ -6,7 +6,7 @@ import inspect
 import collections
 import functools
 import util.exceptions
-import util.hacks
+import util.misc
 import util.func
 import json
 
@@ -16,9 +16,9 @@ _attr = '_cached_value'
 
 def _disk_cache_path(fn):
     try:
-        file_name = util.hacks.get_caller(3)['filename'].strip()
+        file_name = util.misc.get_caller(3)['filename'].strip()
     except IndexError:
-        file_name = util.hacks.get_caller(2)['filename'].strip()
+        file_name = util.misc.get_caller(2)['filename'].strip()
     with open(file_name, 'rb') as f:
         sha = hashlib.sha1(f.read()).hexdigest()[:20]
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])

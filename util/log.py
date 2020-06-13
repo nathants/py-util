@@ -6,7 +6,7 @@ import util.func
 import util.cached
 import util.strings
 import util.exceptions
-import util.hacks
+import util.misc
 import contextlib
 
 
@@ -18,13 +18,13 @@ _short_format = '%(levelname)s %(pathname)s %(message)s'
 
 def _get_format(format, short):
     return (format if format
-            else _short_format if util.hacks.override('--short') or short
+            else _short_format if util.misc.override('--short') or short
             else _standard_format)
 
 
 @util.cached.func
 def setup(name=None, level='info', short=False, format=None):
-    level = ('debug' if util.hacks.override('--debug') else level).upper()
+    level = ('debug' if util.misc.override('--debug') else level).upper()
     for x in logging.root.handlers:
         logging.root.removeHandler(x)
     handler = logging.StreamHandler()
