@@ -2,7 +2,6 @@ import signal
 import contextlib
 import time
 
-
 @contextlib.contextmanager
 def timer():
     val = {'seconds': None}
@@ -13,7 +12,6 @@ def timer():
         raise
     finally:
         val['seconds'] = time.time() - start
-
 
 @contextlib.contextmanager
 def timeout(seconds=1, message='timeout'):

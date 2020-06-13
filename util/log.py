@@ -9,18 +9,14 @@ import util.exceptions
 import util.misc
 import contextlib
 
-
 _standard_format = '%(levelname)s %(asctime)s %(name)s %(pathname)s %(message)s'
 
-
 _short_format = '%(levelname)s %(pathname)s %(message)s'
-
 
 def _get_format(format, short):
     return (format if format
             else _short_format if util.misc.override('--short') or short
             else _standard_format)
-
 
 @util.cached.func
 def setup(name=None, level='info', short=False, format=None):
@@ -35,10 +31,8 @@ def setup(name=None, level='info', short=False, format=None):
     logging.root._ready = True
     sys.excepthook = lambda *a: logging.error(''.join(traceback.format_exception(*a)))
 
-
 class _Formatter(logging.Formatter):
     default_time_format = '%Y-%m-%dT%H:%M:%S'
-
     def format(self, record):
         if ':' not in record.pathname:
             record.pathname = '/'.join(record.pathname.split('/')[-2:])

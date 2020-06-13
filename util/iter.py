@@ -3,10 +3,7 @@ import collections
 import math
 import re
 
-# ? is this a subset of: https://github.com/erikrose/more-itertools/tree/master/more_itertools
-
 def percentile(xs, n):
-    """percentile where xs like [1, 2, 3] and n like 99"""
     size = len(xs)
     index = math.ceil(n / 100. * size) - 1
     index = min(index, size - 1)
@@ -105,8 +102,7 @@ def histogram(xs, size, exponential=False, accumulate=False, key=lambda x: x):
                 break
     return results
 
-def alphanumeric_key(x):
-    """use this as a key fn for sorted. based on http://stackoverflow.com/a/2669120"""
+def alphanumeric_sortkey(x):
     ys = re.split('([0-9]+)', x)
     return [int(y)
             if y.isdigit()

@@ -4,51 +4,6 @@ import util.exceptions
 import inspect
 import sys
 
-
-def pipe_last(value, *args):
-    for arg in args:
-        if callable(arg):
-            value = arg(value)
-        else:
-            fn, arg = arg[0], list(arg[1:]) + [value]
-            value = fn(*arg)
-    return value
-
-
-def pipe_some_last(value, *args):
-    for arg in args:
-        if value is None:
-            return
-        elif callable(arg):
-            value = arg(value)
-        else:
-            fn, arg = arg[0], list(arg[1:]) + [value]
-            value = fn(*arg)
-    return value
-
-
-def pipe(value, *args):
-    for arg in args:
-        if callable(arg):
-            value = arg(value)
-        else:
-            fn, arg = arg[0], arg[1:]
-            value = fn(value, *arg)
-    return value
-
-
-def pipe_some(value, *args):
-    for arg in args:
-        if value is None:
-            return
-        elif callable(arg):
-            value = arg(value)
-        else:
-            fn, arg = arg[0], arg[1:]
-            value = fn(value, *arg)
-    return value
-
-
 def name(fn):
     with util.exceptions.ignore():
         return '{}.{}'.format(fn.__module__, fn.__name__)
@@ -57,7 +12,6 @@ def name(fn):
     with util.exceptions.ignore():
         return str(fn)
     return fn
-
 
 def source(fn):
     try:
@@ -68,7 +22,6 @@ def source(fn):
     except:
         return name(fn)
 
-
 def module_name(fn):
     if fn.__module__ != '__main__':
         return fn.__module__
@@ -78,7 +31,6 @@ def module_name(fn):
                 module = '.'.join(__file__.split('.')[0].split('/')[x:])
                 if module in sys.modules:
                     return module
-
 
 def optionally_parameterized_decorator(decoratee):
     """

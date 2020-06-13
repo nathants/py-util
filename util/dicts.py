@@ -1,12 +1,9 @@
 import collections
-import util.data
 import util.iter
-
 
 def new(scope, *names):
     return {name: scope[name]
             for name in names}
-
 
 def get(x, ks, **kw):
     ks = _ks(ks)
@@ -21,7 +18,6 @@ def get(x, ks, **kw):
             x = x[k]
     return x
 
-
 def set(x, ks, v):
     ks = _ks(ks)
     val = {ks[-1]: v}
@@ -29,11 +25,9 @@ def set(x, ks, v):
         val = {k: val}
     return merge(drop_in(x, ks), val)
 
-
 def merge(a, b, concat=False):
     return {k: _merge(k, a, b, concat)
             for k in {x for x in list(a) + list(b)}}
-
 
 def _merge(k, a, b, concat):
     assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
@@ -50,10 +44,8 @@ def _merge(k, a, b, concat):
         else:
             return b[k]
 
-
 def update_in(x, ks, fn, *a, **kw):
     return set(x, ks, fn(get(x, ks), *a, **kw))
-
 
 def take(x, ks, **kw):
     ks = _ks(ks)
@@ -64,13 +56,11 @@ def take(x, ks, **kw):
         val = merge({k: kw['padded'] for k in ks}, val)
     return val
 
-
 def drop(x, ks):
     ks = _ks(ks)
     return {k: v
             for k, v in x.items()
             if k not in ks}
-
 
 def drop_in(x, ks):
     if len(ks) == 1:
@@ -80,20 +70,15 @@ def drop_in(x, ks):
     else:
         return x
 
-
 def _ks(ks):
     if isinstance(ks, (list, tuple)):
         return tuple(ks)
     else:
         return (ks,)
-
     raise TypeError('ks must be a list of keys')
 
-
 def _concatable(*xs):
-    return (all(isinstance(x, tuple) for x in xs) or
-            all(isinstance(x, list) for x in xs))
-
+    return all(isinstance(x, tuple) for x in xs) or all(isinstance(x, list) for x in xs)
 
 def map(mapping_fn, obj):
     def mapper(k, v):
@@ -103,10 +88,8 @@ def map(mapping_fn, obj):
     fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
     return util.iter.walk(fn, obj)
 
-
 def tree():
     return collections.defaultdict(tree)
-
 
 def to_nested(obj):
     data = tree()
@@ -114,11 +97,9 @@ def to_nested(obj):
         data = set(data, k.split('.'), v)
     return dict(data)
 
-
 def _no_dots(k, v):
     assert '.' not in k, 'you cannot use . in keys names'
     return [k, v]
-
 
 def to_dotted(obj):
     if not isinstance(obj, dict):

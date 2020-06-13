@@ -3,7 +3,6 @@ import time
 import pytest
 import collections
 
-
 def test_methods_are_illegal():
     class Foo(object):
         @util.cached.disk
@@ -11,7 +10,6 @@ def test_methods_are_illegal():
             pass
     with pytest.raises(AssertionError):
         Foo().fn()
-
 
 def test_disk():
     state = {'val': 0}
@@ -36,7 +34,6 @@ def test_disk_expire():
     assert [fn(), fn(), fn()] == ['foo', 'foo', 'foo']
     assert state['val'] == 2
 
-
 def test_disk_memoize_expire():
     state = {'args': []}
     @util.cached.disk_memoize(max_age_seconds=.1)
@@ -50,16 +47,6 @@ def test_disk_memoize_expire():
     assert [fn(1), fn(2), fn(1), fn(2)] == [1, 2, 1, 2]
     assert state['args'] == [1, 2, 1, 2]
 
-
-def test_methods_are_illegal():
-    class Foo(object):
-        @util.cached.func
-        def fn(self):
-            pass
-    with pytest.raises(AssertionError):
-        Foo().fn()
-
-
 def test_func():
     state = {'val': 0}
     @util.cached.func
@@ -67,7 +54,6 @@ def test_func():
         state['val'] += 1
     fn(), fn(), fn()
     assert state['val'] == 1
-
 
 def test_is_cached():
     state = {'val': 0}
@@ -77,7 +63,6 @@ def test_is_cached():
     assert not util.cached.is_cached(fn)
     fn()
     assert util.cached.is_cached(fn)
-
 
 def test_clear_func():
     state = {'val': 0}
@@ -89,7 +74,6 @@ def test_clear_func():
     fn.clear_cache()
     fn(), fn(), fn()
     assert state['val'] == 2
-
 
 def test_memoize():
     state = collections.Counter()

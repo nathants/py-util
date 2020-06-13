@@ -10,9 +10,7 @@ import util.misc
 import util.func
 import json
 
-
 _attr = '_cached_value'
-
 
 def _disk_cache_path(fn):
     try:
@@ -23,7 +21,6 @@ def _disk_cache_path(fn):
         sha = hashlib.sha1(f.read()).hexdigest()[:20]
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
     return f'/tmp/cache.{name}.{fn.__name__}.{sha}'
-
 
 @util.func.optionally_parameterized_decorator
 def disk(invalidate_on_source_hash=True, max_age_seconds=0):
@@ -47,7 +44,6 @@ def disk(invalidate_on_source_hash=True, max_age_seconds=0):
         cached_fn.clear_cache = lambda: subprocess.check_call(['rm', '-f', path])
         return cached_fn
     return decorator
-
 
 @util.func.optionally_parameterized_decorator
 def disk_memoize(invalidate_on_source_hash=True, max_age_seconds=0):
@@ -78,7 +74,6 @@ def disk_memoize(invalidate_on_source_hash=True, max_age_seconds=0):
 
 def is_cached(fn):
     return hasattr(fn, _attr)
-
 
 def func(fn):
     @functools.wraps(fn)

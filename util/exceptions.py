@@ -2,7 +2,6 @@ import logging
 import contextlib
 import types
 
-
 @contextlib.contextmanager
 def ignore(*exceptions):
     if exceptions:
@@ -17,7 +16,6 @@ def ignore(*exceptions):
             yield
         except:
             pass
-
 
 @contextlib.contextmanager
 def update(fn_or_str, *exceptions, **kw):
@@ -35,7 +33,6 @@ def update(fn_or_str, *exceptions, **kw):
                 else:
                     e.args = (msg + '\n' + fn_or_str,) + e.args[1:]
         raise
-
 
 @contextlib.contextmanager
 def log():

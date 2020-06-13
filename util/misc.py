@@ -28,7 +28,6 @@ def exceptions_kill_pid(decoratee):
             os.kill(pid, signal.SIGTERM)
     return decorated
 
-
 def get_caller(offset=0):
     """
     lookup the caller of the current function from the stack,
