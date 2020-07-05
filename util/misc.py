@@ -23,9 +23,11 @@ def exceptions_kill_pid(decoratee):
             return decoratee(*a, **kw)
         except SystemExit:
             os.kill(pid, signal.SIGTERM)
+            raise
         except:
             logging.exception('')
             os.kill(pid, signal.SIGTERM)
+            raise
     return decorated
 
 def get_caller(offset=0):

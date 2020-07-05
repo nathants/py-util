@@ -11,7 +11,7 @@ def retry(f, *allowed_exceptions, allowed_exception_fn=None, times=6, sleep=1, e
                 return f(*a, **kw)
             except allowed_exceptions:
                 raise
-            except (SystemExit, Exception) as e:
+            except Exception as e:
                 if allowed_exception_fn and allowed_exception_fn(e):
                     raise
                 duration = time.time() - start
