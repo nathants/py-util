@@ -5,13 +5,13 @@ import operator
 def test_update_in():
     assert util.dicts.update_in({'a': {'b': 'c', 'd': 'e'}}, ['a', 'b'], operator.add, '!') == {'a': {'b': 'c!', 'd': 'e'}}
     assert util.dicts.update_in({'a': {'b': 'c'}}, 'a', str) == {'a': "{'b': 'c'}"}
-    with pytest.raises(KeyError):
-        util.dicts.update_in({}, 'a', str)
+    assert util.dicts.update_in({}, 'a', str) == {'a': '{}'}
 
 def test_get():
     assert util.dicts.get({'a': {'b': 'c'}}, ['a', 'b']) == 'c'
 
 def test_set():
+    assert util.dicts.set({}, ['a', 'b', 'c'], 'asdf') == {'a': {'b': {'c': 'asdf'}}}
     assert util.dicts.set({'e': 'f'}, ['a', 'b'], 'c') == {'a': {'b': 'c'}, 'e': 'f'}
     assert util.dicts.set({'a': {'d': 'e', 'b': 'c'}}, ['a', 'b'], 'c!') == {'a': {'d': 'e', 'b': 'c!'}}
 

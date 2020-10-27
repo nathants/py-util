@@ -5,17 +5,11 @@ def new(scope, *names):
     return {name: scope[name]
             for name in names}
 
-def get(x, ks, **kw):
+def get(x, ks):
     ks = _ks(ks)
-    if 'default' in kw:
-        x = x.get(ks[0], kw['default'])
-    else:
-        x = x[ks[0]]
+    x = x.get(ks[0], {})
     for k in ks[1:]:
-        if 'default' in kw:
-            x = x.get(k, kw['default'])
-        else:
-            x = x[k]
+        x = x.get(k, {})
     return x
 
 def set(x, ks, v):
@@ -65,7 +59,7 @@ def drop(x, ks):
 def drop_in(x, ks):
     if len(ks) == 1:
         return drop(x, ks)
-    elif get(x, ks[:-1], default=None):
+    elif get(x, ks[:-1]):
         return update_in(x, ks[:-1], lambda y: drop(y, ks[-1]))
     else:
         return x
