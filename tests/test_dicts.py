@@ -1,6 +1,10 @@
-import util.dicts
-import pytest
+from hypothesis import given, settings
+from hypothesis.database import ExampleDatabase
+from hypothesis.strategies import text, lists, dictionaries, recursive
 import operator
+import os
+import pytest
+import util.dicts
 
 def test_update_in():
     assert util.dicts.update_in({'a': {'b': 'c', 'd': 'e'}}, ['a', 'b'], operator.add, '!') == {'a': {'b': 'c!', 'd': 'e'}}
@@ -9,6 +13,10 @@ def test_update_in():
 
 def test_get():
     assert util.dicts.get({'a': {'b': 'c'}}, ['a', 'b']) == 'c'
+    with pytest.raises(IndexError):
+        assert util.dicts.get({'a': [{'b': 'c'}]}, ['a', '1', 'b']) == 'c'
+    assert util.dicts.get({'a': [{'b': 'c'}]}, ['a', '0', 'b']) == 'c'
+    assert util.dicts.get({'a': [[{'b': 'c'}]]}, ['a', 0, '0', 'b']) == 'c'
 
 def test_set():
     assert util.dicts.set({}, ['a', 'b', 'c'], 'asdf') == {'a': {'b': {'c': 'asdf'}}}
@@ -57,10 +65,10 @@ def test__concatable():
     assert not util.dicts._concatable((), [])
     assert not util.dicts._concatable([], 'a')
 
-def test_only():
+def test_take():
     assert util.dicts.take({'a': True, 'b': True, 'c': True}, ['a', 'b']) == {'a': True, 'b': True}
 
-def test_padded_only():
+def test_padded_take():
     assert util.dicts.take({'a': True}, ['a', 'b', 'c'], padded=None) == {'a': True, 'b': None, 'c': None}
 
 def test_drop():
@@ -84,12 +92,36 @@ def test_map():
     fn = lambda k, v: ['{}!!'.format(k), v]
     assert util.dicts.map(fn, {'a': {'b': [1, 2]}}) == {'a!!': {'b!!': [1, 2]}}
 
-def test_to_nested():
-    assert util.dicts.to_nested({'a.b': 'c'}) == {'a': {'b': 'c'}}
+def test_from_dotted():
+    with pytest.raises(IndexError):
+        assert util.dicts.from_dotted({'0.0.5': 'a'}) == [[['a']]]
+    assert util.dicts.from_dotted({'0.0.0': 'a'}) == [[['a']]]
+    assert util.dicts.from_dotted({0: 'c'}) == ['c']
+    assert util.dicts.from_dotted({'0': 'c'}) == ['c']
+    assert util.dicts.from_dotted({'a.b': 'c'}) == {'a': {'b': 'c'}}
+    assert util.dicts.from_dotted({'a.0.b': 'c', 'a.1.d': 'e', 'a.1.f': 'g'}) == {'a': [{'b': 'c'}, {'d': 'e', 'f': 'g'}]}
+    assert util.dicts.from_dotted({'0.b': 'c', '1.d': 'e', '1.f': 'g'}) == [{'b': 'c'}, {'d': 'e', 'f': 'g'}]
 
 def test_to_dotted():
+    assert util.dicts.to_dotted([[[['a']]]]) == {'0.0.0.0': 'a'}
+    assert util.dicts.to_dotted(['a', ['b']]) == {'0': 'a', '1.0': 'b'}
+    assert util.dicts.to_dotted({'a': [{'b': 'c'}, {'d': 'e', 'f': 'g'}]}) == {'a.0.b': 'c', 'a.1.d': 'e', 'a.1.f': 'g'}
+    assert util.dicts.to_dotted([{'b': 'c'}, {'d': 'e', 'f': 'g'}]) == {'0.b': 'c', '1.d': 'e', '1.f': 'g'}
     assert util.dicts.to_dotted({'a': {'b': 'c'}}) == {'a.b': 'c'}
     with pytest.raises(AssertionError):
         util.dicts.to_dotted({'no.dots': {'or you': 'except'}})
     with pytest.raises(AssertionError):
         util.dicts.to_dotted({'no dots': {'or.you': 'except'}})
+
+chars = text('abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=5)
+data = recursive(chars, lambda children: lists(children, min_size=1) | dictionaries(chars, children, min_size=1)).filter(lambda x: isinstance(x, (dict, list))) # type: ignore
+# __import__('pprint').pprint(data.filter(lambda x: len(str(x)) > 25).example())
+
+@given(data)
+@settings(database=ExampleDatabase(':memory:'), max_examples=1000 * int(os.environ.get('TEST_FACTOR', 1)), deadline=os.environ.get("TEST_DEADLINE", 1000 * 60)) # type: ignore
+def test_props(val):
+    dotted = util.dicts.to_dotted(val)
+    # for k, v in dotted.items():
+        # print(k, '->', v)
+    undotted = util.dicts.from_dotted(dotted)
+    assert val == undotted

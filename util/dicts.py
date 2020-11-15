@@ -9,7 +9,10 @@ def get(x, ks):
     ks = _ks(ks)
     x = x.get(ks[0], {})
     for k in ks[1:]:
-        x = x.get(k, {})
+        if isinstance(x, (tuple, list)):
+            x = x[int(k)]
+        else:
+            x = x.get(k, {})
     return x
 
 def set(x, ks, v):
@@ -24,7 +27,7 @@ def merge(a, b, concat=False):
             for k in {x for x in list(a) + list(b)}}
 
 def _merge(k, a, b, concat):
-    assert k in a or k in b, '{k} not in {a} or {b}'.format(**locals())
+    assert k in a or k in b, f'{k} not in {a} or {b}'
     if k in a and k in b:
         if isinstance(a[k], dict) and isinstance(b[k], dict):
             return merge(a[k], b[k], concat)
@@ -77,31 +80,61 @@ def _concatable(*xs):
 def map(mapping_fn, obj):
     def mapper(k, v):
         val = mapping_fn(k, v)
-        assert isinstance(val, (list, tuple)) and len(val) == 2, 'your mapping_fn must return an (<object>, <object>) {}'.format(val)
+        assert isinstance(val, (list, tuple)) and len(val) == 2, f'your mapping_fn must return an (k, v): {val}'
         return val
-    fn = lambda x: isinstance(x, tuple) and len(x) == 2 and mapper(*x) or x
+    def fn(x):
+        if isinstance(x, dict):
+            return dict(mapper(*kv) for kv in x.items())
+        else:
+            return x
     return util.iter.walk(fn, obj)
 
 def tree():
     return collections.defaultdict(tree)
 
-def to_nested(obj):
+def _to_lists(v):
+    if isinstance(v, dict) and all(k2.isdigit() for k2 in v):
+        new_v = [v[k2] for k2 in sorted(v, key=int)]
+        if len(new_v) < max(int(k2) for k2 in v):
+            raise IndexError
+        return new_v
+    else:
+        return v
+
+def from_dotted(obj):
     data = tree()
     for k, v in obj.items():
-        data = set(data, k.split('.'), v)
-    return dict(data)
+        data = set(data, str(k).split('.'), v)
+    data = dict(data)
+    data = util.iter.walk(_to_lists, data)
+    return data
 
-def _no_dots(k, v):
-    assert '.' not in k, 'you cannot use . in keys names'
-    return [k, v]
+def _validate_keys(x):
+    if isinstance(x, dict):
+        for k in x:
+            assert k.strip(), f'inner: you cannot use blank keys: "{k}"'
+            assert '.' not in k, f'outer: you cannot use "." in key names: {k}'
+    return x
 
 def to_dotted(obj):
-    if not isinstance(obj, dict):
+    util.iter.walk(_validate_keys, obj)
+    if not isinstance(obj, (tuple, list, dict)):
         return obj
-    map(_no_dots, obj)
-    while any(isinstance(x, dict) for x in obj.values()):
-        for k1, v2 in list(obj.items()):
-            if isinstance(v2, dict):
-                for k2, v2 in obj.pop(k1).items():
-                    obj['{}.{}'.format(k1, k2)] = to_dotted(v2)
+    if isinstance(obj, (list, tuple)):
+        new_obj = {}
+        for i, v in enumerate(obj):
+            new_obj[str(i)] = v
+        obj = new_obj
+    obj = obj.copy()
+    while any(isinstance(x, (dict, tuple, list)) for x in obj.values()):
+        for k1 in list(obj):
+            v1 = obj.pop(k1)
+            if isinstance(v1, dict):
+                for k2, v2 in v1.items():
+                    obj[f'{k1}.{k2}'] = to_dotted(v2)
+            elif isinstance(v1, (tuple, list)):
+                for i, v2 in enumerate(v1):
+                    obj[f'{k1}.{i}'] = to_dotted(v2)
+            else:
+                obj[k1] = v1
     return obj
