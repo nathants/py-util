@@ -109,9 +109,11 @@ def test_to_dotted():
     assert util.dicts.to_dotted([{'b': 'c'}, {'d': 'e', 'f': 'g'}]) == {'0.b': 'c', '1.d': 'e', '1.f': 'g'}
     assert util.dicts.to_dotted({'a': {'b': 'c'}}) == {'a.b': 'c'}
     with pytest.raises(AssertionError):
-        util.dicts.to_dotted({'no.dots': {'or you': 'except'}})
+        util.dicts.to_dotted({'no dots': {'or_you': 'except'}})
     with pytest.raises(AssertionError):
-        util.dicts.to_dotted({'no dots': {'or.you': 'except'}})
+        util.dicts.to_dotted({'no.dots': {'or_you': 'except'}})
+    with pytest.raises(AssertionError):
+        util.dicts.to_dotted({'no_dots': {'or.you': 'except'}})
 
 chars = text('abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=5)
 data = recursive(chars, lambda children: lists(children, min_size=1) | dictionaries(chars, children, min_size=1)).filter(lambda x: isinstance(x, (dict, list))) # type: ignore

@@ -112,8 +112,9 @@ def from_dotted(obj):
 def _validate_keys(x):
     if isinstance(x, dict):
         for k in x:
-            assert k.strip(), f'inner: you cannot use blank keys: "{k}"'
-            assert '.' not in k, f'outer: you cannot use "." in key names: {k}'
+            assert k.strip(), f'you cannot use blank keys: "{k}"'
+            assert ' ' not in k, f'you cannot use spaces in key names: "{k}"'
+            assert '.' not in k, f'you cannot use "." in key names: "{k}"'
     return x
 
 def to_dotted(obj):
