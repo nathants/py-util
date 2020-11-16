@@ -93,9 +93,9 @@ def tree():
     return collections.defaultdict(tree)
 
 def _to_lists(v):
-    if isinstance(v, dict) and all(k2.isdigit() for k2 in v):
-        new_v = [v[k2] for k2 in sorted(v, key=int)]
-        if len(new_v) < max(int(k2) for k2 in v):
+    if isinstance(v, dict) and all(k.isdigit() for k in v):
+        new_v = [v[k] for k in sorted(v, key=int)]
+        if len(new_v) < max(int(k) for k in v):
             raise IndexError
         return new_v
     else:
