@@ -3,7 +3,7 @@ import contextlib
 import time
 
 @contextlib.contextmanager
-def timer():
+def timer(msg=None, print_fn=print):
     val = {'seconds': None}
     start = time.time()
     try:
@@ -12,6 +12,8 @@ def timer():
         raise
     finally:
         val['seconds'] = time.time() - start
+        if msg:
+            print_fn(msg, int(val['seconds']), 'seconds')
 
 @contextlib.contextmanager
 def timeout(seconds=1, message='timeout'):
