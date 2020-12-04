@@ -1,6 +1,5 @@
 import setuptools
 
-
 setuptools.setup(
     version="0.0.1",
     license='mit',
@@ -10,5 +9,6 @@ setuptools.setup(
     author_email='me@nathants.com',
     url='http://github.com/nathants/py-util',
     packages=['util'],
+    package_data = {'util': ['py.typed']},
     description='utilities',
 )
