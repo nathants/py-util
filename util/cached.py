@@ -1,3 +1,4 @@
+import os
 import threading
 import subprocess
 import time
@@ -12,6 +13,8 @@ import json
 
 _attr = '_cached_value'
 
+_cache_root = os.environ.get('CACHED_ROOT', '/tmp')
+
 def _disk_cache_path(fn):
     try:
         file_name = util.misc.get_caller(3)['filename'].strip()
@@ -20,7 +23,7 @@ def _disk_cache_path(fn):
     with open(file_name, 'rb') as f:
         sha = hashlib.sha1(f.read()).hexdigest()[:20]
     name = '.'.join(file_name.split('.py')[0].split('/')[-2:])
-    return f'/tmp/cache.{name}.{fn.__name__}.{sha}'
+    return f'{_cache_root}/cache.{name}.{fn.__name__}.{sha}'
 
 @util.func.optionally_parameterized_decorator
 def disk(invalidate_on_source_hash=True, max_age_seconds=0):
