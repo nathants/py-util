@@ -9,6 +9,7 @@ def _make_color(code, text):
     else:
         return text
 
+clear   = lambda text: _make_color(38, text)
 red     = lambda text: _make_color(31, text)
 green   = lambda text: _make_color(32, text)
 yellow  = lambda text: _make_color(33, text)
