@@ -1,7 +1,7 @@
 import datetime
 
 def utcnow():
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.UTC)
 
 def format(dt):
     return dt.isoformat() + 'Z'
